@@ -1,0 +1,307 @@
+import { useState, useContext, ReactNode, useEffect, useCallback } from 'react';
+import { Language, translations } from '../i18n/translations';
+import {
+  User, users, Client, clients as initialClients,
+  Order, orders as initialOrders, products as initialProducts, Product,
+} from '../data/mockData';
+import { AppContext } from './appContextInstance';
+import { apiLogin } from '../api/auth';
+import { apiGetProducts, apiCreateProduct, apiUpdateProduct } from '../api/products';
+import { apiGetClients, apiCreateClient, apiUpdateClient, apiDeleteClient } from '../api/clients';
+import { apiGetOrders, apiCreateOrder, apiUpdateOrder } from '../api/orders';
+
+type Theme = 'light' | 'dark';
+
+/* ─── Category definition ─── */
+export interface ExpenseCategoryDef {
+  id: string;
+  label: string;
+  iconName: string;   // lucide icon name key
+  color: string;      // tailwind color key: 'blue' | 'purple' | ...
+}
+
+export const CATEGORY_COLORS = [
+  'blue', 'purple', 'green', 'yellow', 'pink',
+  'orange', 'cyan', 'indigo', 'teal', 'red', 'gray',
+] as const;
+
+export type CategoryColor = typeof CATEGORY_COLORS[number];
+
+export const COLOR_MAP: Record<string, { dot: string; badge: string; bar: string }> = {
+  blue:   { dot: '#3b82f6', badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',   bar: '#3b82f6' },
+  purple: { dot: '#a855f7', badge: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300', bar: '#a855f7' },
+  green:  { dot: '#22c55e', badge: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300', bar: '#22c55e' },
+  yellow: { dot: '#eab308', badge: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300', bar: '#eab308' },
+  pink:   { dot: '#ec4899', badge: 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300',   bar: '#ec4899' },
+  orange: { dot: '#f97316', badge: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300', bar: '#f97316' },
+  cyan:   { dot: '#06b6d4', badge: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300',   bar: '#06b6d4' },
+  indigo: { dot: '#6366f1', badge: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300', bar: '#6366f1' },
+  teal:   { dot: '#14b8a6', badge: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300',   bar: '#14b8a6' },
+  red:    { dot: '#ef4444', badge: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',       bar: '#ef4444' },
+  gray:   { dot: '#6b7280', badge: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',       bar: '#6b7280' },
+};
+
+/* Lucide icon names available for categories */
+export const AVAILABLE_ICONS = [
+  'Building2', 'Truck', 'Users', 'Zap', 'Megaphone', 'Wrench',
+  'Package', 'ShoppingCart', 'Briefcase', 'CreditCard', 'Receipt',
+  'BarChart2', 'Banknote', 'Landmark', 'Car', 'Fuel',
+  'ClipboardList', 'Hammer', 'Settings', 'Globe', 'Phone',
+  'Box', 'Archive', 'Tag', 'Cpu', 'Monitor',
+] as const;
+
+export type AvailableIcon = typeof AVAILABLE_ICONS[number];
+
+const DEFAULT_CATEGORIES: ExpenseCategoryDef[] = [
+  { id: 'warehouse', label: 'Ombor',       iconName: 'Building2',    color: 'blue'   },
+  { id: 'transport', label: 'Transport',   iconName: 'Truck',        color: 'purple' },
+  { id: 'salary',    label: 'Maosh',       iconName: 'Users',        color: 'green'  },
+  { id: 'utilities', label: 'Kommunal',    iconName: 'Zap',          color: 'yellow' },
+  { id: 'marketing', label: 'Reklama',     iconName: 'Megaphone',    color: 'pink'   },
+  { id: 'repair',    label: "Ta'mirlash",  iconName: 'Wrench',       color: 'orange' },
+  { id: 'other',     label: 'Boshqa',      iconName: 'Package',      color: 'gray'   },
+];
+
+/* ─── Expense ─── */
+export interface Expense {
+  id: string;
+  date: string;
+  amount: number;
+  categoryId: string;
+  comment: string;
+}
+
+const initialExpenses: Expense[] = [
+  { id: 'exp1', date: '2026-03-08', amount: 1500000, categoryId: 'salary',    comment: 'Mart oyi maoshi' },
+  { id: 'exp2', date: '2026-03-09', amount: 320000,  categoryId: 'transport', comment: 'Yoqilgi xarajati' },
+  { id: 'exp3', date: '2026-03-10', amount: 180000,  categoryId: 'utilities', comment: 'Elektr va gaz' },
+  { id: 'exp4', date: '2026-03-11', amount: 450000,  categoryId: 'warehouse', comment: 'Ombor ijarasi' },
+  { id: 'exp5', date: '2026-03-12', amount: 250000,  categoryId: 'marketing', comment: 'Telegram reklama' },
+  { id: 'exp6', date: '2026-03-13', amount: 90000,   categoryId: 'repair',    comment: "Mashina ta'miri" },
+  { id: 'exp7', date: '2026-03-14', amount: 75000,   categoryId: 'other',     comment: 'Ofis ehtiyojlari' },
+  { id: 'exp8', date: '2026-03-14', amount: 200000,  categoryId: 'transport', comment: 'Dostavka xarajatlari' },
+  { id: 'exp9', date: '2026-03-15', amount: 560000,  categoryId: 'salary',    comment: 'Haydovchilar maoshi' },
+];
+
+/* ─── Context type ─── */
+interface AppContextType {
+  lang: Language;
+  setLang: (lang: Language) => void;
+  t: (key: keyof typeof translations['uz_lat']) => string;
+  currentUser: User | null;
+  login: (phone: string, password: string, role: string) => Promise<boolean>;
+  logout: () => void;
+  clients: Client[];
+  addClient: (client: Omit<Client, 'id'>) => void;
+  updateClient: (id: string, updates: Partial<Omit<Client, 'id'>>) => void;
+  deleteClient: (id: string) => void;
+  orders: Order[];
+  addOrder: (order: Omit<Order, 'id'>) => void;
+  updateOrderStatus: (orderId: string, status: Order['status']) => void;
+  updateOrder: (orderId: string, updates: Partial<Order>) => void;
+  products: Product[];
+  addProduct: (product: Omit<Product, 'id'>) => Promise<boolean>;
+  updateProduct: (id: string, updates: Partial<Omit<Product, 'id'>>) => Promise<boolean>;
+  refetchData: () => Promise<void>;
+  theme: Theme;
+  toggleTheme: () => void;
+  adminDateFrom: string;
+  adminDateTo: string;
+  setAdminDateRange: (from: string, to: string) => void;
+  expenses: Expense[];
+  addExpense: (expense: Omit<Expense, 'id'>) => void;
+  deleteExpense: (id: string) => void;
+  expenseCategories: ExpenseCategoryDef[];
+  addExpenseCategory: (cat: Omit<ExpenseCategoryDef, 'id'>) => void;
+  updateExpenseCategory: (id: string, updates: Partial<Omit<ExpenseCategoryDef, 'id'>>) => void;
+  deleteExpenseCategory: (id: string) => void;
+}
+
+export const AppProvider = ({ children }: { children: ReactNode }) => {
+  const [lang, setLang] = useState<Language>(() => (localStorage.getItem('crm_lang') as Language) || 'uz_lat');
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    try { const s = localStorage.getItem('crm_user'); if (s) return JSON.parse(s); } catch {}
+    return users.find(u => u.id === 'agent1') ?? null;
+  });
+  const [clientsList, setClientsList]   = useState<Client[]>(initialClients);
+  const [ordersList, setOrdersList]     = useState<Order[]>(initialOrders);
+  const [productsList, setProductsList] = useState<Product[]>(initialProducts);
+  const [theme, setTheme]               = useState<Theme>(() => (localStorage.getItem('crm_theme') as Theme) || 'light');
+  const [adminDateFrom, setAdminDateFrom] = useState('');
+  const [adminDateTo,   setAdminDateTo]   = useState('');
+
+  const [expenses, setExpenses] = useState<Expense[]>(() => {
+    try { const s = localStorage.getItem('crm_expenses'); if (s) return JSON.parse(s); } catch {}
+    return initialExpenses;
+  });
+
+  const [expenseCategories, setExpenseCategories] = useState<ExpenseCategoryDef[]>(() => {
+    try { const s = localStorage.getItem('crm_expense_cats'); if (s) return JSON.parse(s); } catch {}
+    return DEFAULT_CATEGORIES;
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    localStorage.setItem('crm_theme', theme);
+  }, [theme]);
+
+  useEffect(() => { localStorage.setItem('crm_expenses', JSON.stringify(expenses)); }, [expenses]);
+  useEffect(() => { localStorage.setItem('crm_expense_cats', JSON.stringify(expenseCategories)); }, [expenseCategories]);
+
+  const toggleTheme = () => setTheme(t => t === 'light' ? 'dark' : 'light');
+
+  const t = useCallback((key: keyof typeof translations['uz_lat']): string =>
+    translations[lang][key] || key, [lang]);
+
+  const setLangPersist = useCallback((l: Language) => {
+    setLang(l); localStorage.setItem('crm_lang', l);
+  }, []);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const [prods, clis, ords] = await Promise.all([
+        apiGetProducts(),
+        apiGetClients(),
+        apiGetOrders(),
+      ]);
+      setProductsList(prods);
+      setClientsList(clis);
+      setOrdersList(ords);
+    } catch {
+      // Backend ishlamasa mock ma'lumotda qolamiz
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const login = async (phone: string, password: string, role: string): Promise<boolean> => {
+    try {
+      const user = await apiLogin({ phone, password, role });
+      const withPassword = { ...user, password: '' };
+      setCurrentUser(withPassword as User);
+      localStorage.setItem('crm_user', JSON.stringify(withPassword));
+      await fetchData();
+      return true;
+    } catch {
+      const clean = phone.replace(/\D/g, '');
+      const u = users.find(x => x.phone.replace(/\D/g, '') === clean && x.password === password && x.role === role);
+      if (u) {
+        setCurrentUser(u);
+        localStorage.setItem('crm_user', JSON.stringify(u));
+        return true;
+      }
+      return false;
+    }
+  };
+  const logout = () => { setCurrentUser(null); localStorage.removeItem('crm_user'); };
+
+  const addClient = async (c: Omit<Client, 'id'>) => {
+    try {
+      const created = await apiCreateClient(c);
+      setClientsList(p => [created, ...p]);
+    } catch {
+      setClientsList(p => [...p, { ...c, id: `c${Date.now()}` }]);
+    }
+  };
+  const updateClient = async (id: string, updates: Partial<Omit<Client, 'id'>>) => {
+    try {
+      const updated = await apiUpdateClient(id, updates);
+      setClientsList(p => p.map(x => x.id === id ? updated : x));
+    } catch {
+      setClientsList(p => p.map(x => x.id === id ? { ...x, ...updates } : x));
+    }
+  };
+  const deleteClient = async (id: string) => {
+    try {
+      await apiDeleteClient(id);
+      setClientsList(p => p.filter(c => c.id !== id));
+    } catch {
+      setClientsList(p => p.filter(c => c.id !== id));
+    }
+  };
+  const addOrder = async (o: Omit<Order, 'id'>) => {
+    try {
+      const created = await apiCreateOrder(o);
+      setOrdersList(p => [created, ...p]);
+    } catch {
+      setOrdersList(p => [{ ...o, id: `ORD-${String(p.length + 1).padStart(3, '0')}` }, ...p]);
+    }
+  };
+  const updateOrderStatus = async (id: string, status: Order['status']) => {
+    try {
+      const updated = await apiUpdateOrder(id, { status });
+      setOrdersList(p => p.map(o => o.id === id ? updated : o));
+    } catch {
+      setOrdersList(p => p.map(o => o.id === id ? { ...o, status } : o));
+    }
+  };
+  const updateOrder = async (id: string, updates: Partial<Order>) => {
+    try {
+      const updated = await apiUpdateOrder(id, { status: updates.status, deliveryId: updates.deliveryId, deliveryName: updates.deliveryName, vehicleName: updates.vehicleName });
+      setOrdersList(p => p.map(o => o.id === id ? { ...o, ...updates } : o));
+    } catch {
+      setOrdersList(p => p.map(o => o.id === id ? { ...o, ...updates } : o));
+    }
+  };
+  const addProduct = async (p: Omit<Product, 'id'>): Promise<boolean> => {
+    try {
+      const created = await apiCreateProduct(p);
+      setProductsList(prev => [...prev, created]);
+      return true;
+    } catch {
+      setProductsList(prev => [...prev, { ...p, id: `p${Date.now()}` }]);
+      return false;
+    }
+  };
+
+  const updateProduct = async (id: string, updates: Partial<Omit<Product, 'id'>>): Promise<boolean> => {
+    try {
+      const updated = await apiUpdateProduct(id, updates);
+      setProductsList(p => p.map(x => x.id === id ? updated : x));
+      return true;
+    } catch {
+      setProductsList(p => p.map(x => x.id === id ? { ...x, ...updates } : x));
+      return false;
+    }
+  };
+
+  const setAdminDateRange = (from: string, to: string) => { setAdminDateFrom(from); setAdminDateTo(to); };
+
+  const addExpense    = (e: Omit<Expense, 'id'>)  => setExpenses(p => [{ ...e, id: `exp${Date.now()}` }, ...p]);
+  const deleteExpense = (id: string)              => setExpenses(p => p.filter(e => e.id !== id));
+
+  const addExpenseCategory = (cat: Omit<ExpenseCategoryDef, 'id'>) =>
+    setExpenseCategories(p => [...p, { ...cat, id: `cat_${Date.now()}` }]);
+  const updateExpenseCategory = (id: string, updates: Partial<Omit<ExpenseCategoryDef, 'id'>>) =>
+    setExpenseCategories(p => p.map(c => c.id === id ? { ...c, ...updates } : c));
+  const deleteExpenseCategory = (id: string) => {
+    setExpenseCategories(p => p.filter(c => c.id !== id));
+    setExpenses(p => p.map(e => e.categoryId === id ? { ...e, categoryId: 'other' } : e));
+  };
+
+  const value: AppContextType = {
+    lang, setLang: setLangPersist, t,
+    currentUser, login, logout,
+    clients: clientsList, addClient, updateClient, deleteClient,
+    orders: ordersList, addOrder, updateOrderStatus, updateOrder,
+    products: productsList, addProduct, updateProduct, refetchData: fetchData,
+    theme, toggleTheme,
+    adminDateFrom, adminDateTo, setAdminDateRange,
+    expenses, addExpense, deleteExpense,
+    expenseCategories, addExpenseCategory, updateExpenseCategory, deleteExpenseCategory,
+  };
+
+  return (
+    <AppContext.Provider value={value}>
+      {children}
+    </AppContext.Provider>
+  );
+};
+
+export const useApp = (): AppContextType => {
+  const ctx = useContext(AppContext);
+  if (!ctx) throw new Error('useApp must be used within AppProvider');
+  return ctx as AppContextType;
+};

@@ -1,0 +1,54 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Environment
+.env
+.env.local
+.env.*.local
+*.env
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Prisma
+backend/prisma/*.db
+backend/prisma/*.db-journal
+
+# Vite
+*.local
+
+# Mobile (Android / React Native)
+mobile/android/build/
+mobile/android/.gradle/
+mobile/android/app/build/
+mobile/ios/build/
+mobile/.expo/
+*.jks
+*.keystore
+
+# Testing
+coverage/
+.nyc_output/
+
+# Misc
+*.bak
+.cache/
