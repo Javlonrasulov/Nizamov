@@ -1,5 +1,8 @@
-// Brauzerda localhost, Android emulyatorda 10.0.2.2
-const isBrowserLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+// Web brauzerda localhost bo'lsa backend ham lokal bo'ladi.
+// Lekin Capacitor (APK) ichida hostname ko'pincha "localhost" bo'ladi (capacitor://localhost),
+// u holda ham API alohida serverda bo'ladi — shuning uchun VITE_API_URL ishlatamiz.
+const isCapacitor = typeof window !== 'undefined' && window.location.protocol === 'capacitor:';
+const isBrowserLocalhost = !isCapacitor && typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 const API_BASE = isBrowserLocalhost ? 'http://localhost:3000' : (import.meta.env.VITE_API_URL || 'http://localhost:3000');
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
