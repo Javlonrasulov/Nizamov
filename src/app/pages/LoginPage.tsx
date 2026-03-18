@@ -122,13 +122,6 @@ export const LoginPage = () => {
           >
             {loading ? '...' : t('login.button')}
           </button>
-
-          <div className="mt-4 p-3 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-100 dark:border-gray-600">
-            <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Demo kirish:</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Agent: +998901234567 / 1234</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Dostavkachi: +998909998877 / 1234</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Admin: +998900001122 / admin</p>
-          </div>
         </div>
       </div>
     </div>

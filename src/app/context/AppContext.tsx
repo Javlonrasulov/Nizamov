@@ -71,17 +71,7 @@ export interface Expense {
   comment: string;
 }
 
-const initialExpenses: Expense[] = [
-  { id: 'exp1', date: '2026-03-08', amount: 1500000, categoryId: 'salary',    comment: 'Mart oyi maoshi' },
-  { id: 'exp2', date: '2026-03-09', amount: 320000,  categoryId: 'transport', comment: 'Yoqilgi xarajati' },
-  { id: 'exp3', date: '2026-03-10', amount: 180000,  categoryId: 'utilities', comment: 'Elektr va gaz' },
-  { id: 'exp4', date: '2026-03-11', amount: 450000,  categoryId: 'warehouse', comment: 'Ombor ijarasi' },
-  { id: 'exp5', date: '2026-03-12', amount: 250000,  categoryId: 'marketing', comment: 'Telegram reklama' },
-  { id: 'exp6', date: '2026-03-13', amount: 90000,   categoryId: 'repair',    comment: "Mashina ta'miri" },
-  { id: 'exp7', date: '2026-03-14', amount: 75000,   categoryId: 'other',     comment: 'Ofis ehtiyojlari' },
-  { id: 'exp8', date: '2026-03-14', amount: 200000,  categoryId: 'transport', comment: 'Dostavka xarajatlari' },
-  { id: 'exp9', date: '2026-03-15', amount: 560000,  categoryId: 'salary',    comment: 'Haydovchilar maoshi' },
-];
+const initialExpenses: Expense[] = [];
 
 /* ─── Context type ─── */
 interface AppContextType {

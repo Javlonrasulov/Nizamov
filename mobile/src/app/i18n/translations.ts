@@ -168,7 +168,6 @@ type TranslationKeys = {
   // Agent Order new features
   'orders.sendToWarehouse': string;
   'orders.sentToWarehouse': string;
-  'orders.selectDay': string;
   'orders.orderDetail': string;
   'orders.cannotEdit': string;
   'orders.tayyor': string;
@@ -476,7 +475,6 @@ const uz_lat: TranslationKeys = {
 
   'orders.sendToWarehouse': 'Omborga yuborish',
   'orders.sentToWarehouse': 'Omborga yuborildi',
-  'orders.selectDay': 'Kunni tanlash',
   'orders.orderDetail': 'Zakaz tafsilotlari',
   'orders.cannotEdit': "Tahrirlash mumkin emas",
   'orders.tayyor': 'Tayyor',
@@ -780,7 +778,6 @@ const uz_kir: TranslationKeys = {
 
   'orders.sendToWarehouse': 'Омборга юбориш',
   'orders.sentToWarehouse': 'Омборга юборилди',
-  'orders.selectDay': 'Кунни танлаш',
   'orders.orderDetail': 'Заказ тафсилотлари',
   'orders.cannotEdit': 'Таҳрирлаш мумкин эмас',
   'orders.tayyor': 'Тайёр',
