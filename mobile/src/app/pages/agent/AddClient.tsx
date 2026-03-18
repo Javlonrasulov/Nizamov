@@ -7,13 +7,13 @@ import { MobileNav } from '../../components/MobileNav';
 import { MapPicker } from '../../components/MapPicker';
 import { WeekDay } from '../../data/mockData';
 
-const DAYS: Array<{ key: WeekDay; label: string }> = [
-  { key: 'du', label: 'Dushanba' },
-  { key: 'se', label: 'Seshanba' },
-  { key: 'ch', label: 'Chorshanba' },
-  { key: 'pa', label: 'Payshanba' },
-  { key: 'ju', label: 'Juma' },
-  { key: 'sh', label: 'Shanba' },
+const DAYS: Array<{ key: WeekDay; labelKey: any }> = [
+  { key: 'du', labelKey: 'days.monday' },
+  { key: 'se', labelKey: 'days.tuesday' },
+  { key: 'ch', labelKey: 'days.wednesday' },
+  { key: 'pa', labelKey: 'days.thursday' },
+  { key: 'ju', labelKey: 'days.friday' },
+  { key: 'sh', labelKey: 'days.saturday' },
 ];
 
 export const AddClient = () => {
@@ -45,9 +45,9 @@ export const AddClient = () => {
 
   const validate = () => {
     const errs: Record<string, string> = {};
-    if (!form.name.trim()) errs.name = "Do'kon nomi kiritilishi shart";
-    if (!form.phone.trim()) errs.phone = 'Telefon kiritilishi shart';
-    if (!form.address.trim()) errs.address = 'Manzil kiritilishi shart';
+    if (!form.name.trim()) errs.name = t('clients.validation.nameRequired');
+    if (!form.phone.trim()) errs.phone = t('clients.validation.phoneRequired');
+    if (!form.address.trim()) errs.address = t('clients.validation.addressRequired');
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -67,8 +67,8 @@ export const AddClient = () => {
             <div className="w-20 h-20 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto mb-4">
               <CheckCircle size={40} className="text-green-500" />
             </div>
-            <p className="font-bold text-gray-900 dark:text-white text-lg">Klient saqlandi!</p>
-            <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Klientlar ro'yxatiga qaytmoqda...</p>
+            <p className="font-bold text-gray-900 dark:text-white text-lg">{t('clients.add.savedTitle')}</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{t('clients.add.savedSubtitle')}</p>
           </div>
         </MobileContent>
       </MobileShell>
@@ -86,7 +86,7 @@ export const AddClient = () => {
           {/* Name */}
           <div>
             <label className="text-sm font-medium text-gray-700 dark:text-gray-200 block mb-1.5">
-              Do'kon nomi <span className="text-red-500">*</span>
+              {t('clients.add.shopNameLabel')} <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -94,7 +94,7 @@ export const AddClient = () => {
                 type="text"
                 value={form.name}
                 onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Do'kon yoki klient ismi"
+                placeholder={t('clients.add.shopNamePlaceholder')}
                 className={`${inputBase} pl-9 pr-4 ${errors.name ? 'border-red-300 bg-red-50 dark:bg-red-900/20' : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700'}`}
               />
             </div>
@@ -112,7 +112,7 @@ export const AddClient = () => {
                 type="tel"
                 value={form.phone}
                 onChange={e => setForm(prev => ({ ...prev, phone: e.target.value }))}
-                placeholder="+998 90 123 45 67"
+                placeholder={t('login.phone.placeholder')}
                 className={`${inputBase} pl-9 pr-4 ${errors.phone ? 'border-red-300 bg-red-50 dark:bg-red-900/20' : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700'}`}
               />
             </div>
@@ -129,7 +129,7 @@ export const AddClient = () => {
               <textarea
                 value={form.address}
                 onChange={e => setForm(prev => ({ ...prev, address: e.target.value }))}
-                placeholder="Ko'cha, mahalla, tuman"
+                placeholder={t('clients.add.addressPlaceholder')}
                 rows={2}
                 className={`${inputBase} pl-9 pr-4 resize-none ${errors.address ? 'border-red-300 bg-red-50 dark:bg-red-900/20' : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700'}`}
               />
@@ -140,8 +140,8 @@ export const AddClient = () => {
           {/* Visit Days */}
           <div>
             <label className="text-sm font-medium text-gray-700 dark:text-gray-200 block mb-2">
-              Qaysi kuni boriladi
-              <span className="ml-1.5 text-xs text-gray-400 font-normal">(bir nechta tanlash mumkin)</span>
+              {t('clients.add.visitDaysLabel')}
+              <span className="ml-1.5 text-xs text-gray-400 font-normal">{t('clients.add.visitDaysHint')}</span>
             </label>
             <div className="grid grid-cols-3 gap-2">
               {DAYS.map(day => (
@@ -154,13 +154,13 @@ export const AddClient = () => {
                       : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-500'
                   }`}
                 >
-                  {day.label}
+                  {t(day.labelKey)}
                 </button>
               ))}
             </div>
             {visitDays.length > 0 && (
               <p className="text-xs text-[#2563EB] dark:text-blue-400 mt-1.5 font-medium">
-                Tanlangan: {visitDays.map(d => DAYS.find(dd => dd.key === d)?.label).join(', ')}
+                {t('clients.add.selectedDays')}: {visitDays.map(d => t(DAYS.find(dd => dd.key === d)?.labelKey || d)).join(', ')}
               </p>
             )}
           </div>
@@ -181,12 +181,12 @@ export const AddClient = () => {
               {form.lat ? (
                 <>
                   <CheckCircle size={16} className="text-green-500" />
-                  Lokatsiya tanlandi — o'zgartirish
+                  {t('clients.add.locationSelectedEdit')}
                 </>
               ) : (
                 <>
                   <MapPin size={16} />
-                  Xaritadan lokatsiya tanlash
+                  {t('clients.add.locationSelect')}
                 </>
               )}
             </button>
@@ -202,7 +202,7 @@ export const AddClient = () => {
                     onClick={() => setShowMapPicker(true)}
                     className="ml-auto text-xs text-[#2563EB] dark:text-blue-400 font-medium hover:underline"
                   >
-                    Xaritada ko'rish
+                    {t('clients.add.locationView')}
                   </button>
                 </div>
               </div>

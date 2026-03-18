@@ -6,12 +6,15 @@ import { MobileShell, MobileHeader, MobileContent } from '../../components/Mobil
 import { MobileNav } from '../../components/MobileNav';
 import { StatusBadge } from '../../components/StatusBadge';
 
-const MONTH_NAMES = [
-  'Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun',
-  'Iyul', 'Avgust', 'Sentyabr', 'Oktyabr', 'Noyabr', 'Dekabr',
-];
-
-const DAY_NAMES = ['Du', 'Se', 'Ch', 'Pa', 'Ju', 'Sh', 'Ya'];
+const dayShortKeys = [
+  'days.monday.short',
+  'days.tuesday.short',
+  'days.wednesday.short',
+  'days.thursday.short',
+  'days.friday.short',
+  'days.saturday.short',
+  'days.sunday.short',
+] as const;
 
 function toDateStr(year: number, month: number, day: number) {
   return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -29,7 +32,7 @@ function buildCalendar(year: number, month: number) {
 }
 
 export const OrderHistory = () => {
-  const { t, currentUser, orders, updateOrderStatus } = useApp();
+  const { t, lang, currentUser, orders, updateOrderStatus } = useApp();
   const navigate = useNavigate();
 
   const today = new Date();
@@ -124,7 +127,7 @@ export const OrderHistory = () => {
   };
 
   const formatCurrency = (amount: number) =>
-    amount.toLocaleString('ru-RU') + " so'm";
+    amount.toLocaleString('ru-RU') + ` ${t('common.sum')}`;
   const formatOrderId = (o: { id: string; orderNumber?: number }) =>
     o.orderNumber != null ? `#${o.orderNumber}` : `#${o.id.slice(-6).toUpperCase()}`;
 
@@ -177,7 +180,7 @@ export const OrderHistory = () => {
                 </button>
               )}
             </button>
-            <span className="text-xs text-gray-400 dark:text-gray-500">{sortedFiltered.length} ta zakaz</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">{sortedFiltered.length} {t('orders.ordersCountSuffix')}</span>
           </div>
 
           {/* Calendar panel */}
@@ -191,7 +194,12 @@ export const OrderHistory = () => {
                   <ChevronLeft size={16} />
                 </button>
                 <span className="text-sm font-bold text-gray-800 dark:text-gray-100">
-                  {MONTH_NAMES[viewMonth]} {viewYear}
+                  {(() => {
+                    const locale = lang === 'ru' ? 'ru-RU' : (lang === 'uz_kir' ? 'uz-Cyrl-UZ' : 'uz-Latn-UZ');
+                    const m = new Date(viewYear, viewMonth, 1).toLocaleString(locale, { month: 'long' });
+                    const monthName = m ? m.charAt(0).toUpperCase() + m.slice(1) : '';
+                    return `${monthName} ${viewYear}`;
+                  })()}
                 </span>
                 <button
                   onClick={nextMonth}
@@ -202,9 +210,9 @@ export const OrderHistory = () => {
               </div>
 
               <div className="grid grid-cols-7 px-2 mb-1">
-                {DAY_NAMES.map(d => (
-                  <div key={d} className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 py-1">
-                    {d}
+                {dayShortKeys.map(k => (
+                  <div key={k} className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 py-1">
+                    {t(k)}
                   </div>
                 ))}
               </div>
@@ -250,14 +258,14 @@ export const OrderHistory = () => {
                   onClick={selectToday}
                   className="text-sm text-gray-600 dark:text-gray-300 font-medium hover:text-gray-900 dark:hover:text-white active:scale-95 transition-all"
                 >
-                  Bugun
+                  {t('orders.today')}
                 </button>
                 <button
                   onClick={clearSelection}
                   className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300 font-medium hover:text-gray-900 dark:hover:text-white active:scale-95 transition-all"
                 >
                   <X size={14} />
-                  Tozalash
+                  {t('orders.clear')}
                 </button>
               </div>
             </>
@@ -295,7 +303,7 @@ export const OrderHistory = () => {
                 </div>
 
                 <div className="px-4 py-2 space-y-1.5">
-                  <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">Mahsulotlar</p>
+                  <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">{t('orders.items')}</p>
                   {order.items.map(item => (
                     <div key={item.productId} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -305,10 +313,10 @@ export const OrderHistory = () => {
                         <span className="text-xs text-gray-700 dark:text-gray-300">{item.productName}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className="text-xs text-gray-400 dark:text-gray-500">{item.quantity} ta</span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500">{item.quantity} {t('common.pcs')}</span>
                         <span className="text-gray-300 dark:text-gray-600">×</span>
                         <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
-                          {item.price.toLocaleString('ru-RU')} so'm
+                          {item.price.toLocaleString('ru-RU')} {t('common.sum')}
                         </span>
                       </div>
                     </div>
@@ -317,7 +325,7 @@ export const OrderHistory = () => {
 
                 <div className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-100 dark:border-gray-700 mt-1">
                   <div>
-                    <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Jami summa</p>
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">{t('orders.totalAmount')}</p>
                     <p className="text-sm font-bold text-gray-900 dark:text-white">{formatCurrency(order.total)}</p>
                   </div>
 
@@ -328,7 +336,7 @@ export const OrderHistory = () => {
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#2563EB] bg-blue-50 dark:bg-blue-900/20 text-[#2563EB] dark:text-blue-400 text-xs font-semibold active:scale-[0.97] transition-all"
                       >
                         <Edit2 size={13} />
-                        Tahrirlash
+                        {t('common.edit')}
                       </button>
                     )}
                     {order.status === 'new' && (
@@ -338,13 +346,13 @@ export const OrderHistory = () => {
                           onClick={() => setConfirmSendId(null)}
                           className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-xs text-gray-600 dark:text-gray-300 font-medium"
                         >
-                          Yo'q
+                          {t('orders.no')}
                         </button>
                         <button
                           onClick={() => handleSendToWarehouse(order.id)}
                           className="px-3 py-1.5 rounded-lg bg-orange-500 text-white text-xs font-medium shadow-sm"
                         >
-                          Ha, yuborish
+                          {t('orders.yesSend')}
                         </button>
                       </div>
                     ) : (
@@ -373,7 +381,7 @@ export const OrderHistory = () => {
                 className="mt-4 flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#2563EB] text-white text-sm font-medium mx-auto shadow-md shadow-blue-100"
               >
                 <Plus size={15} />
-                Yangi zakaz yaratish
+                {t('orders.create')}
               </button>
             </div>
           )}

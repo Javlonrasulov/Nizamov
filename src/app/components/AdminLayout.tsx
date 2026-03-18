@@ -101,12 +101,12 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
       {/* Logo */}
       <div className={`flex items-center gap-3 px-4 py-5 border-b border-gray-100 dark:border-gray-700 ${collapsed && isDesktop ? 'justify-center' : ''}`}>
         <div className="w-8 h-8 rounded-lg bg-[#2563EB] flex items-center justify-center flex-shrink-0">
-          <span className="text-white font-bold text-sm">C</span>
+          <span className="text-white font-bold text-sm">S</span>
         </div>
         {(!collapsed || !isDesktop) && (
           <div className="min-w-0 overflow-hidden">
-            <div className="font-bold text-gray-900 dark:text-white text-sm truncate">CRM</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400 truncate">Admin Panel</div>
+            <div className="font-bold text-gray-900 dark:text-white text-sm truncate">{t('common.brandName')}</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{t('common.adminPanel')}</div>
           </div>
         )}
       </div>

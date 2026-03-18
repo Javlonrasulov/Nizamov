@@ -6,7 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 export class AuthService {
   constructor(private prisma: PrismaService) {}
 
-  async login(phone: string, password: string, role: string) {
+  async login(phone: string, password: string) {
     const raw = (phone || '').replace(/\D/g, '');
     const candidates: string[] = [];
     if (raw) {
@@ -17,7 +17,6 @@ export class AuthService {
 
     const user = await this.prisma.user.findFirst({
       where: {
-        role,
         phone: { in: candidates.length ? candidates : ['__nope__'] },
       },
     });

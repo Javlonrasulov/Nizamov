@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { Check, ChevronRight, Plus, Minus, Package, User, CheckCircle, Search, ChevronDown, RefreshCw, WifiOff } from 'lucide-react';
+import { Check, ChevronRight, Plus, Minus, Package, User, CheckCircle, Search, ChevronDown } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { MobileShell, MobileHeader, MobileContent } from '../../components/MobileShell';
 import { MobileNav } from '../../components/MobileNav';
@@ -22,21 +22,20 @@ interface SelectedItem {
   quantity: number;
 }
 
-const WEEK_DAYS: Array<{ key: WeekDay | 'all'; label: string; short: string }> = [
-  { key: 'all', label: 'Barcha kunlar', short: 'Bar' },
-  { key: 'du', label: 'Dushanba', short: 'Du' },
-  { key: 'se', label: 'Seshanba', short: 'Se' },
-  { key: 'ch', label: 'Chorshanba', short: 'Ch' },
-  { key: 'pa', label: 'Payshanba', short: 'Pa' },
-  { key: 'ju', label: 'Juma', short: 'Ju' },
-  { key: 'sh', label: 'Shanba', short: 'Sh' },
+const WEEK_DAYS: Array<{ key: WeekDay | 'all'; labelKey: any }> = [
+  { key: 'all', labelKey: 'orders.allDays' },
+  { key: 'du', labelKey: 'days.monday' },
+  { key: 'se', labelKey: 'days.tuesday' },
+  { key: 'ch', labelKey: 'days.wednesday' },
+  { key: 'pa', labelKey: 'days.thursday' },
+  { key: 'ju', labelKey: 'days.friday' },
+  { key: 'sh', labelKey: 'days.saturday' },
 ];
 
 export const CreateOrder = () => {
-  const { t, currentUser, clients, products, addOrder, refetchData, apiConnected } = useApp();
+  const { t, currentUser, clients, products, addOrder, refetchData } = useApp();
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>(1);
-  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     refetchData?.();
@@ -45,12 +44,6 @@ export const CreateOrder = () => {
   useEffect(() => {
     if (step === 2) refetchData?.();
   }, [step, refetchData]);
-
-  const handleRefreshProducts = async () => {
-    setRefreshing(true);
-    await refetchData?.();
-    setRefreshing(false);
-  };
   const [selectedDay, setSelectedDay] = useState<WeekDay | 'all'>(getTodayWeekDay());
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
@@ -151,7 +144,7 @@ export const CreateOrder = () => {
               <CheckCircle size={40} className="text-green-500" />
             </div>
             <p className="font-bold text-gray-900 dark:text-white text-lg">{t('orders.success')}</p>
-            <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Zakazlar ro'yxatiga qaytmoqda...</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{t('orders.backToOrders')}</p>
           </div>
         </MobileContent>
       </MobileShell>
@@ -186,35 +179,6 @@ export const CreateOrder = () => {
             ))}
           </div>
 
-          {/* Backend holati — barcha qadamlarda ko‘rinadi */}
-          <div className={`mb-4 rounded-xl border p-3 flex items-center justify-between gap-2 ${
-            apiConnected
-              ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-              : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
-          }`}>
-            {apiConnected ? (
-              <>
-                <span className="text-green-800 dark:text-green-200 text-sm font-medium">Backend ulanadi</span>
-                <span className="text-green-600 dark:text-green-400 text-xs">{products.length} ta mahsulot</span>
-              </>
-            ) : (
-              <>
-                <span className="flex items-center gap-2 text-amber-800 dark:text-amber-200 text-sm font-medium">
-                  <WifiOff size={18} /> Backend ulanmadi
-                </span>
-                <span className="text-amber-700 dark:text-amber-300 text-xs">Yangi mahsulot ko‘rinmaydi</span>
-              </>
-            )}
-            <button
-              type="button"
-              onClick={handleRefreshProducts}
-              disabled={refreshing}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 shadow-sm disabled:opacity-50"
-            >
-              <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} /> {t('common.refresh')}
-            </button>
-          </div>
-
           {/* Step 1: Day + Client selection */}
           {step === 1 && (
             <div className="space-y-4">
@@ -226,7 +190,7 @@ export const CreateOrder = () => {
                     onClick={() => setDayDropdownOpen(!dayDropdownOpen)}
                     className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-sm font-medium transition-all bg-[#2563EB] text-white shadow-md shadow-blue-200"
                   >
-                    <span>{WEEK_DAYS.find(day => day.key === selectedDay)?.label || 'Barcha kunlar'}</span>
+                    <span>{t(WEEK_DAYS.find(day => day.key === selectedDay)?.labelKey || 'orders.allDays')}</span>
                     <ChevronDown size={16} className={`transition-transform ${dayDropdownOpen ? 'rotate-180' : ''}`} />
                   </button>
                   {dayDropdownOpen && (
@@ -241,7 +205,7 @@ export const CreateOrder = () => {
                               : 'text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
                           }`}
                         >
-                          {day.label}
+                          {t(day.labelKey)}
                         </button>
                       ))}
                     </div>
@@ -253,7 +217,7 @@ export const CreateOrder = () => {
               <div>
                 <h3 className="font-semibold text-gray-800 dark:text-gray-100 mb-2 text-sm">
                   {t('orders.selectClient')}
-                  <span className="ml-2 text-xs text-gray-400 font-normal">({dayFilteredClients.length} ta klient)</span>
+                  <span className="ml-2 text-xs text-gray-400 font-normal">({dayFilteredClients.length} {t('orders.clientsCount')})</span>
                 </h3>
                 <div className="space-y-2">
                   {dayFilteredClients.length > 0 ? (
@@ -282,8 +246,8 @@ export const CreateOrder = () => {
                     ))
                   ) : (
                     <div className="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-xl">
-                      <p className="text-gray-500 dark:text-gray-400 text-sm">Bu kun uchun klientlar yo'q</p>
-                      <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">Boshqa kun tanlang</p>
+                      <p className="text-gray-500 dark:text-gray-400 text-sm">{t('orders.noClientsForDay')}</p>
+                      <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">{t('orders.pickAnotherDay')}</p>
                     </div>
                   )}
                 </div>
@@ -294,7 +258,7 @@ export const CreateOrder = () => {
                 disabled={!selectedClient}
                 className="w-full py-3.5 rounded-xl bg-[#2563EB] text-white font-semibold text-sm disabled:opacity-40 hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
               >
-                Davom etish <ChevronRight size={16} />
+                {t('orders.continue')} <ChevronRight size={16} />
               </button>
             </div>
           )}
@@ -306,7 +270,7 @@ export const CreateOrder = () => {
                 <h3 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{t('orders.selectProducts')}</h3>
                 {selectedItems.length > 0 && (
                   <span className="text-xs text-[#2563EB] dark:text-blue-400 font-semibold bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-full">
-                    {selectedItems.length} ta tanlandi
+                    {selectedItems.length} {t('orders.selectedCount')}
                   </span>
                 )}
               </div>
@@ -377,7 +341,7 @@ export const CreateOrder = () => {
               {selectedItems.length > 0 && (
                 <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 sticky bottom-0">
                   <p className="text-sm font-semibold text-[#2563EB] dark:text-blue-400">
-                    Jami: {formatCurrency(totalAmount)}
+                    {t('orders.totalLabel')}: {formatCurrency(totalAmount)}
                   </p>
                 </div>
               )}
@@ -391,7 +355,7 @@ export const CreateOrder = () => {
                   disabled={selectedItems.length === 0}
                   className="flex-1 py-3 rounded-xl bg-[#2563EB] text-white font-semibold text-sm disabled:opacity-40 hover:bg-blue-700 flex items-center justify-center gap-1"
                 >
-                  Davom <ChevronRight size={15} />
+                  {t('orders.continue')} <ChevronRight size={15} />
                 </button>
               </div>
             </div>

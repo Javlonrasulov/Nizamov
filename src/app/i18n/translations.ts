@@ -2,6 +2,8 @@ export type Language = 'uz_lat' | 'uz_kir' | 'ru';
 
 type TranslationKeys = {
   // Common
+  'common.brandName': string;
+  'common.adminPanel': string;
   'common.dashboard': string;
   'common.clients': string;
   'common.products': string;
@@ -377,6 +379,8 @@ type TranslationKeys = {
 };
 
 const uz_lat: TranslationKeys = {
+  'common.brandName': 'Sainur CRM',
+  'common.adminPanel': 'Admin panel',
   'common.dashboard': 'Bosh sahifa',
   'common.clients': 'Klientlar',
   'common.products': 'Mahsulotlar',
@@ -414,7 +418,7 @@ const uz_lat: TranslationKeys = {
   'common.stockLevel.medium': "O'rtacha",
   'common.stockLevel.low': 'Kam',
 
-  'login.title': 'CRM Tizimi',
+  'login.title': 'Sainur CRM',
   'login.subtitle': 'Mahsulot distribyutorlari uchun',
   'login.phone': 'Telefon raqam',
   'login.password': 'Parol',
@@ -729,6 +733,8 @@ const uz_lat: TranslationKeys = {
 };
 
 const uz_kir: TranslationKeys = {
+  'common.brandName': 'Sainur CRM',
+  'common.adminPanel': 'Админ панел',
   'common.dashboard': 'Бош саҳифа',
   'common.clients': 'Клиентлар',
   'common.products': 'Маҳсулотлар',
@@ -766,7 +772,7 @@ const uz_kir: TranslationKeys = {
   'common.stockLevel.medium': "Ўртача",
   'common.stockLevel.low': 'Кам',
 
-  'login.title': 'CRM Тизими',
+  'login.title': 'Sainur CRM',
   'login.subtitle': 'Маҳсулот дистрибьюторлари учун',
   'login.phone': 'Телефон рақам',
   'login.password': 'Парол',
@@ -1081,6 +1087,8 @@ const uz_kir: TranslationKeys = {
 };
 
 const ru: TranslationKeys = {
+  'common.brandName': 'Sainur CRM',
+  'common.adminPanel': 'Админ панель',
   'common.dashboard': 'Главная',
   'common.clients': 'Клиенты',
   'common.products': 'Товары',
@@ -1118,7 +1126,7 @@ const ru: TranslationKeys = {
   'common.stockLevel.medium': 'Средне',
   'common.stockLevel.low': 'Мало',
 
-  'login.title': 'CRM Система',
+  'login.title': 'Sainur CRM',
   'login.subtitle': 'Для дистрибьюторов продукции',
   'login.phone': 'Номер телефона',
   'login.password': 'Пароль',

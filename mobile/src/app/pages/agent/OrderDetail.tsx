@@ -24,16 +24,16 @@ export const OrderDetail = () => {
   if (!order) {
     return (
       <MobileShell>
-        <MobileHeader title="Zakaz topilmadi" showBack />
+        <MobileHeader title={t('orders.notFoundTitle')} showBack />
         <MobileContent className="flex items-center justify-center">
-          <p className="text-gray-500 text-sm">Zakaz mavjud emas</p>
+          <p className="text-gray-500 text-sm">{t('orders.notFoundText')}</p>
         </MobileContent>
       </MobileShell>
     );
   }
 
   const canEdit = order.status === 'new';
-  const formatCurrency = (amount: number) => amount.toLocaleString('ru-RU') + " so'm";
+  const formatCurrency = (amount: number) => amount.toLocaleString('ru-RU') + ` ${t('common.sum')}`;
   const formatOrderId = (o: { id: string; orderNumber?: number }) =>
     o.orderNumber != null ? `#${o.orderNumber}` : `#${o.id.slice(-6).toUpperCase()}`;
 
@@ -178,7 +178,7 @@ export const OrderDetail = () => {
                           <p className="font-medium text-sm text-gray-900 dark:text-white leading-tight">{product.name}</p>
                           <p className="text-xs text-[#2563EB] dark:text-blue-400 font-semibold mt-0.5">{formatCurrency(product.price)}</p>
                           <p className={`text-[11px] mt-0.5 ${warn ? 'text-red-600 dark:text-red-400 animate-pulse font-semibold' : stock > 0 ? 'text-gray-500 dark:text-gray-400' : 'text-red-600 dark:text-red-400'}`}>
-                            Ombor: {stock} ta
+                            {t('orders.stockLabel')}: {stock} {t('common.pcs')}
                           </p>
                         </div>
                         <div className="flex items-center gap-1.5">
@@ -217,7 +217,7 @@ export const OrderDetail = () => {
               {editItems.length > 0 && (
                 <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 border border-blue-100 dark:border-blue-800">
                   <p className="text-sm font-semibold text-[#2563EB] dark:text-blue-400">
-                    Jami: {formatCurrency(totalAmount)} ({editItems.length} ta mahsulot)
+                    {t('orders.totalLabel')}: {formatCurrency(totalAmount)} ({editItems.length} {t('orders.productsCount')})
                   </p>
                 </div>
               )}
@@ -256,7 +256,7 @@ export const OrderDetail = () => {
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-900">{item.productName}</p>
-                        <p className="text-xs text-gray-500">{item.quantity} ta × {item.price.toLocaleString('ru-RU')} so'm</p>
+                        <p className="text-xs text-gray-500">{item.quantity} {t('common.pcs')} × {item.price.toLocaleString('ru-RU')} {t('common.sum')}</p>
                       </div>
                     </div>
                     <p className="text-sm font-bold text-gray-900">

@@ -4,17 +4,9 @@ import { Phone, Lock, ChevronDown, Globe } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Language, languageLabels } from '../i18n/translations';
 
-type Role = 'agent' | 'delivery';
-
-const roleConfig: Record<Role, { icon: string; gradient: string }> = {
-  agent: { icon: '👤', gradient: 'from-blue-500 to-blue-600' },
-  delivery: { icon: '🚚', gradient: 'from-purple-500 to-purple-600' },
-};
-
 export const LoginPage = () => {
   const { t, lang, setLang, login } = useApp();
   const navigate = useNavigate();
-  const [role, setRole] = useState<Role>('agent');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -27,9 +19,9 @@ export const LoginPage = () => {
     setError('');
     setLoading(true);
     try {
-      const success = await login(phone, password, role);
-      if (success) {
-        if (role === 'agent') navigate('/agent');
+      const user = await login(phone, password);
+      if (user) {
+        if (user.role === 'agent') navigate('/agent');
         else navigate('/delivery');
       } else {
         setError('Telefon raqam yoki parol noto\'g\'ri');
@@ -42,8 +34,6 @@ export const LoginPage = () => {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') handleLogin();
   };
-
-  const roles: Role[] = ['agent', 'delivery'];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center p-4" style={{ fontFamily: 'Inter, sans-serif' }}>
@@ -78,7 +68,7 @@ export const LoginPage = () => {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="w-16 h-16 rounded-2xl bg-[#2563EB] flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/30">
-            <span className="text-white font-bold text-2xl">C</span>
+            <span className="text-white font-bold text-2xl">S</span>
           </div>
           <h1 className="text-2xl font-bold text-white">{t('login.title')}</h1>
           <p className="text-blue-300/80 text-sm mt-1">{t('login.subtitle')}</p>
@@ -86,29 +76,6 @@ export const LoginPage = () => {
 
         {/* Card */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6">
-          {/* Role selector */}
-          <div className="mb-5">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-200 block mb-2">{t('login.role')}</label>
-            <div className="grid grid-cols-2 gap-2">
-              {roles.map(r => (
-                <button
-                  key={r}
-                  onClick={() => setRole(r)}
-                  className={`flex flex-col items-center gap-1.5 py-3 rounded-xl border-2 transition-all ${
-                    role === r
-                      ? 'border-[#2563EB] bg-blue-50 dark:bg-blue-900/30'
-                      : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 bg-gray-50 dark:bg-gray-700'
-                  }`}
-                >
-                  <span className="text-xl">{roleConfig[r].icon}</span>
-                  <span className={`text-xs font-medium ${role === r ? 'text-[#2563EB]' : 'text-gray-600 dark:text-gray-300'}`}>
-                    {t(`login.role.${r}` as any)}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Phone */}
           <div className="mb-4">
             <label className="text-sm font-medium text-gray-700 dark:text-gray-200 block mb-1.5">{t('login.phone')}</label>

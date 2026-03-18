@@ -33,7 +33,7 @@ interface AppContextType {
   setLang: (lang: Language) => void;
   t: (key: keyof typeof translations['uz_lat']) => string;
   currentUser: User | null;
-  login: (phone: string, password: string, role: string) => Promise<boolean>;
+  login: (phone: string, password: string) => Promise<User | null>;
   logout: () => void;
   clients: Client[];
   addClient: (client: Omit<Client, 'id'>) => void;
@@ -137,18 +137,19 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [apiConnected, currentUser?.id, currentUser?.phone, currentUser?.role, clientsList, ordersList]);
 
-  const login = async (phone: string, password: string, role: string): Promise<boolean> => {
+  const login = async (phone: string, password: string): Promise<User | null> => {
     try {
-      const user = await apiLogin(phone, password, role);
-      setCurrentUser({ ...user, password: '' } as User);
-      localStorage.setItem('crm_user', JSON.stringify({ ...user, password: '' }));
+      const user = await apiLogin(phone, password);
+      const withPassword = { ...user, password: '' } as User;
+      setCurrentUser(withPassword);
+      localStorage.setItem('crm_user', JSON.stringify(withPassword));
       await fetchData();
-      return true;
+      return withPassword;
     } catch {
       const clean = phone.replace(/\D/g, '');
-      const u = users.find(x => x.phone.replace(/\D/g, '') === clean && x.password === password && x.role === role);
-      if (u) { setCurrentUser(u); localStorage.setItem('crm_user', JSON.stringify(u)); return true; }
-      return false;
+      const u = users.find(x => x.phone.replace(/\D/g, '') === clean && x.password === password);
+      if (u) { setCurrentUser(u); localStorage.setItem('crm_user', JSON.stringify(u)); return u; }
+      return null;
     }
   };
   const logout = () => { setCurrentUser(null); localStorage.removeItem('crm_user'); };

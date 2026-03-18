@@ -4,7 +4,6 @@ import type { User } from '../data/mockData';
 export interface LoginBody {
   phone: string;
   password: string;
-  role: string;
 }
 
 export async function apiLogin(body: LoginBody): Promise<Omit<User, 'password'>> {

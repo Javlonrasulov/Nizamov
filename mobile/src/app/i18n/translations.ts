@@ -2,6 +2,10 @@ export type Language = 'uz_lat' | 'uz_kir' | 'ru';
 
 type TranslationKeys = {
   // Common
+  'common.brandName': string;
+  'common.serverConnected': string;
+  'common.serverDisconnected': string;
+  'common.continue': string;
   'common.dashboard': string;
   'common.clients': string;
   'common.products': string;
@@ -65,6 +69,26 @@ type TranslationKeys = {
   // Clients
   'clients.title': string;
   'clients.search': string;
+  'clients.countSuffix': string;
+  'clients.ordersTitle': string;
+  'clients.calendar.pickFirstDay': string;
+  'clients.calendar.pickLastDay': string;
+  'clients.calendar.noOrders': string;
+  'clients.calendar.noOrdersHint': string;
+  'clients.add.shopNameLabel': string;
+  'clients.add.shopNamePlaceholder': string;
+  'clients.add.addressPlaceholder': string;
+  'clients.add.visitDaysLabel': string;
+  'clients.add.visitDaysHint': string;
+  'clients.add.selectedDays': string;
+  'clients.add.locationSelect': string;
+  'clients.add.locationSelectedEdit': string;
+  'clients.add.locationView': string;
+  'clients.add.savedTitle': string;
+  'clients.add.savedSubtitle': string;
+  'clients.validation.nameRequired': string;
+  'clients.validation.phoneRequired': string;
+  'clients.validation.addressRequired': string;
   'clients.add': string;
   'clients.empty': string;
   'clients.form.title': string;
@@ -103,6 +127,25 @@ type TranslationKeys = {
   'orders.success': string;
   'orders.empty': string;
   'orders.history': string;
+  'orders.backToList': string;
+  'orders.selectDay': string;
+  'orders.allDays': string;
+  'orders.clientsCount': string;
+  'orders.noClientsForDay': string;
+  'orders.pickAnotherDay': string;
+  'orders.selectedCount': string;
+  'orders.continue': string;
+  'orders.backToOrders': string;
+  'orders.ordersCountSuffix': string;
+  'orders.today': string;
+  'orders.clear': string;
+  'orders.notFoundTitle': string;
+  'orders.notFoundText': string;
+  'orders.stockLabel': string;
+  'orders.totalLabel': string;
+  'orders.productsCount': string;
+  'orders.no': string;
+  'orders.yesSend': string;
 
   // Days
   'days.all': string;
@@ -112,12 +155,14 @@ type TranslationKeys = {
   'days.thursday': string;
   'days.friday': string;
   'days.saturday': string;
+  'days.sunday': string;
   'days.monday.short': string;
   'days.tuesday.short': string;
   'days.wednesday.short': string;
   'days.thursday.short': string;
   'days.friday.short': string;
   'days.saturday.short': string;
+  'days.sunday.short': string;
 
   // Agent Order new features
   'orders.sendToWarehouse': string;
@@ -271,6 +316,10 @@ type TranslationKeys = {
 };
 
 const uz_lat: TranslationKeys = {
+  'common.brandName': 'Sainur CRM',
+  'common.serverConnected': "Serverga ulandi",
+  'common.serverDisconnected': 'Ulanmagan',
+  'common.continue': 'Davom etish',
   'common.dashboard': 'Bosh sahifa',
   'common.clients': 'Klientlar',
   'common.products': 'Mahsulotlar',
@@ -302,7 +351,7 @@ const uz_lat: TranslationKeys = {
   'common.map': 'Xarita',
   'common.reports': 'Hisobotlar',
 
-  'login.title': 'CRM Tizimi',
+  'login.title': 'Sainur CRM',
   'login.subtitle': 'Mahsulot distribyutorlari uchun',
   'login.phone': 'Telefon raqam',
   'login.password': 'Parol',
@@ -330,6 +379,26 @@ const uz_lat: TranslationKeys = {
 
   'clients.title': 'Klientlar',
   'clients.search': 'Klient qidirish...',
+  'clients.countSuffix': 'ta klient',
+  'clients.ordersTitle': 'Zakazlar',
+  'clients.calendar.pickFirstDay': 'Birinchi kunni tanlang',
+  'clients.calendar.pickLastDay': 'Oxirgi kunni tanlang',
+  'clients.calendar.noOrders': "Kunni tanlang",
+  'clients.calendar.noOrdersHint': "Tanlangan oraliqda zakaz yo'q",
+  'clients.add.shopNameLabel': "Do'kon nomi",
+  'clients.add.shopNamePlaceholder': "Do'kon yoki klient ismi",
+  'clients.add.addressPlaceholder': "Ko'cha, mahalla, tuman",
+  'clients.add.visitDaysLabel': 'Qaysi kuni boriladi',
+  'clients.add.visitDaysHint': '(bir nechta tanlash mumkin)',
+  'clients.add.selectedDays': 'Tanlangan',
+  'clients.add.locationSelect': 'Xaritadan lokatsiya tanlash',
+  'clients.add.locationSelectedEdit': "Lokatsiya tanlandi — o'zgartirish",
+  'clients.add.locationView': "Xaritada ko'rish",
+  'clients.add.savedTitle': 'Klient saqlandi!',
+  'clients.add.savedSubtitle': "Klientlar ro'yxatiga qaytmoqda...",
+  'clients.validation.nameRequired': "Do'kon nomi kiritilishi shart",
+  'clients.validation.phoneRequired': 'Telefon kiritilishi shart',
+  'clients.validation.addressRequired': 'Manzil kiritilishi shart',
   'clients.add': "Klient qo'shish",
   'clients.empty': "Klientlar topilmadi",
   'clients.form.title': "Yangi klient qo'shish",
@@ -366,6 +435,25 @@ const uz_lat: TranslationKeys = {
   'orders.success': 'Zakaz muvaffaqiyatli yaratildi!',
   'orders.empty': 'Zakazlar topilmadi',
   'orders.history': 'Zakazlar tarixi',
+  'orders.backToList': "Zakazlar ro'yxatiga qaytmoqda...",
+  'orders.selectDay': 'Kunni tanlang',
+  'orders.allDays': 'Barcha kunlar',
+  'orders.clientsCount': 'ta klient',
+  'orders.noClientsForDay': "Bu kun uchun klientlar yo'q",
+  'orders.pickAnotherDay': 'Boshqa kun tanlang',
+  'orders.selectedCount': 'ta tanlandi',
+  'orders.continue': 'Davom etish',
+  'orders.backToOrders': "Zakazlar ro'yxatiga qaytmoqda...",
+  'orders.ordersCountSuffix': 'ta zakaz',
+  'orders.today': 'Bugun',
+  'orders.clear': 'Tozalash',
+  'orders.notFoundTitle': 'Zakaz topilmadi',
+  'orders.notFoundText': 'Zakaz mavjud emas',
+  'orders.stockLabel': 'Ombor',
+  'orders.totalLabel': 'Jami',
+  'orders.productsCount': 'ta mahsulot',
+  'orders.no': "Yo'q",
+  'orders.yesSend': 'Ha, yuborish',
 
   'days.all': 'Barcha kunlar',
   'days.monday': 'Dushanba',
@@ -374,12 +462,14 @@ const uz_lat: TranslationKeys = {
   'days.thursday': 'Payshanba',
   'days.friday': 'Juma',
   'days.saturday': 'Shanba',
+  'days.sunday': 'Yakshanba',
   'days.monday.short': 'Du',
   'days.tuesday.short': 'Se',
   'days.wednesday.short': 'Ch',
   'days.thursday.short': 'Pa',
   'days.friday.short': 'Ju',
   'days.saturday.short': 'Sh',
+  'days.sunday.short': 'Ya',
 
   'orders.sendToWarehouse': 'Omborga yuborish',
   'orders.sentToWarehouse': 'Omborga yuborildi',
@@ -528,6 +618,10 @@ const uz_lat: TranslationKeys = {
 };
 
 const uz_kir: TranslationKeys = {
+  'common.brandName': 'Sainur CRM',
+  'common.serverConnected': 'Серверга уланди',
+  'common.serverDisconnected': 'Уланмаган',
+  'common.continue': 'Давом этиш',
   'common.dashboard': 'Бош саҳифа',
   'common.clients': 'Клиентлар',
   'common.products': 'Маҳсулотлар',
@@ -559,7 +653,7 @@ const uz_kir: TranslationKeys = {
   'common.map': 'Харита',
   'common.reports': 'Ҳисоботлар',
 
-  'login.title': 'CRM Тизими',
+  'login.title': 'Sainur CRM',
   'login.subtitle': 'Маҳсулот дистрибьюторлари учун',
   'login.phone': 'Телефон рақам',
   'login.password': 'Парол',
@@ -587,6 +681,26 @@ const uz_kir: TranslationKeys = {
 
   'clients.title': 'Клиентлар',
   'clients.search': 'Клиент қидириш...',
+  'clients.countSuffix': 'та клиент',
+  'clients.ordersTitle': 'Заказлар',
+  'clients.calendar.pickFirstDay': 'Биринчи кунни танланг',
+  'clients.calendar.pickLastDay': 'Охирги кунни танланг',
+  'clients.calendar.noOrders': 'Кунни танланг',
+  'clients.calendar.noOrdersHint': 'Танланган оралиқда заказ йўқ',
+  'clients.add.shopNameLabel': 'Дўкон номи',
+  'clients.add.shopNamePlaceholder': 'Дўкон ёки клиент исми',
+  'clients.add.addressPlaceholder': 'Кўча, маҳалла, туман',
+  'clients.add.visitDaysLabel': 'Қайси куни борилади',
+  'clients.add.visitDaysHint': '(бир нечта танлаш мумкин)',
+  'clients.add.selectedDays': 'Танланган',
+  'clients.add.locationSelect': 'Харитадан локация танлаш',
+  'clients.add.locationSelectedEdit': 'Локация танланди — ўзгартириш',
+  'clients.add.locationView': "Харитада кўриш",
+  'clients.add.savedTitle': 'Клиент сақланди!',
+  'clients.add.savedSubtitle': 'Клиентлар рўйхатига қайтмоқда...',
+  'clients.validation.nameRequired': 'Дўкон номи киритилиши шарт',
+  'clients.validation.phoneRequired': 'Телефон киритилиши шарт',
+  'clients.validation.addressRequired': 'Манзил киритилиши шарт',
   'clients.add': 'Клиент қўшиш',
   'clients.empty': 'Клиентлар топилмади',
   'clients.form.title': 'Янги клиент қўшиш',
@@ -623,6 +737,25 @@ const uz_kir: TranslationKeys = {
   'orders.success': 'Заказ муваффақиятли яратилди!',
   'orders.empty': 'Заказлар топилмади',
   'orders.history': 'Заказлар тарихи',
+  'orders.backToList': 'Заказлар рўйхатига қайтмоқда...',
+  'orders.selectDay': 'Кунни танланг',
+  'orders.allDays': 'Барча кунлар',
+  'orders.clientsCount': 'та клиент',
+  'orders.noClientsForDay': 'Бу кун учун клиентлар йўқ',
+  'orders.pickAnotherDay': 'Бошқа кун танланг',
+  'orders.selectedCount': 'та танланди',
+  'orders.continue': 'Давом этиш',
+  'orders.backToOrders': 'Заказлар рўйхатига қайтмоқда...',
+  'orders.ordersCountSuffix': 'та заказ',
+  'orders.today': 'Бугун',
+  'orders.clear': 'Тозалаш',
+  'orders.notFoundTitle': 'Заказ топилмади',
+  'orders.notFoundText': 'Заказ мавжуд эмас',
+  'orders.stockLabel': 'Омбор',
+  'orders.totalLabel': 'Жами',
+  'orders.productsCount': 'та маҳсулот',
+  'orders.no': "Йўқ",
+  'orders.yesSend': 'Ҳа, юбориш',
 
   'days.all': 'Барча кунлар',
   'days.monday': 'Душанба',
@@ -631,12 +764,14 @@ const uz_kir: TranslationKeys = {
   'days.thursday': 'Пайшанба',
   'days.friday': 'Жума',
   'days.saturday': 'Шанба',
+  'days.sunday': 'Якшанба',
   'days.monday.short': 'Ду',
   'days.tuesday.short': 'Се',
   'days.wednesday.short': 'Ч',
   'days.thursday.short': 'Па',
   'days.friday.short': 'Жу',
   'days.saturday.short': 'Ш',
+  'days.sunday.short': 'Як',
 
   'orders.sendToWarehouse': 'Омборга юбориш',
   'orders.sentToWarehouse': 'Омборга юборилди',
@@ -785,6 +920,9 @@ const uz_kir: TranslationKeys = {
 };
 
 const ru: TranslationKeys = {
+  'common.brandName': 'Sainur CRM',
+  'common.serverConnected': 'Подключено к серверу',
+  'common.serverDisconnected': 'Нет соединения',
   'common.dashboard': 'Главная',
   'common.clients': 'Клиенты',
   'common.products': 'Товары',
@@ -816,7 +954,7 @@ const ru: TranslationKeys = {
   'common.map': 'Карта',
   'common.reports': 'Отчёты',
 
-  'login.title': 'CRM Система',
+  'login.title': 'Sainur CRM',
   'login.subtitle': 'Для дистрибьюторов продукции',
   'login.phone': 'Номер телефона',
   'login.password': 'Пароль',
@@ -844,6 +982,26 @@ const ru: TranslationKeys = {
 
   'clients.title': 'Клиенты',
   'clients.search': 'Поиск клиента...',
+  'clients.countSuffix': 'клиентов',
+  'clients.ordersTitle': 'Заказы',
+  'clients.calendar.pickFirstDay': 'Выберите первый день',
+  'clients.calendar.pickLastDay': 'Выберите последний день',
+  'clients.calendar.noOrders': 'Выберите день',
+  'clients.calendar.noOrdersHint': 'За выбранный период заказов нет',
+  'clients.add.shopNameLabel': 'Название магазина',
+  'clients.add.shopNamePlaceholder': 'Имя магазина или клиента',
+  'clients.add.addressPlaceholder': 'Улица, махалля, район',
+  'clients.add.visitDaysLabel': 'День визита',
+  'clients.add.visitDaysHint': '(можно выбрать несколько)',
+  'clients.add.selectedDays': 'Выбрано',
+  'clients.add.locationSelect': 'Выбрать локацию на карте',
+  'clients.add.locationSelectedEdit': 'Локация выбрана — изменить',
+  'clients.add.locationView': 'Показать на карте',
+  'clients.add.savedTitle': 'Клиент сохранён!',
+  'clients.add.savedSubtitle': 'Возвращаемся к списку клиентов...',
+  'clients.validation.nameRequired': 'Название магазина обязательно',
+  'clients.validation.phoneRequired': 'Телефон обязателен',
+  'clients.validation.addressRequired': 'Адрес обязателен',
   'clients.add': 'Добавить клиента',
   'clients.empty': 'Клиенты не найдены',
   'clients.form.title': 'Добавить нового клиента',
@@ -894,10 +1052,29 @@ const ru: TranslationKeys = {
   'days.thursday.short': 'Чт',
   'days.friday.short': 'Пт',
   'days.saturday.short': 'Сб',
+  'days.sunday': 'Воскресенье',
+  'days.sunday.short': 'Вс',
 
   'orders.sendToWarehouse': 'Отправить на склад',
   'orders.sentToWarehouse': 'Отправлено на склад',
   'orders.selectDay': 'Выберите день',
+  'orders.allDays': 'Все дни',
+  'orders.clientsCount': 'клиентов',
+  'orders.noClientsForDay': 'Нет клиентов на этот день',
+  'orders.pickAnotherDay': 'Выберите другой день',
+  'orders.selectedCount': 'выбрано',
+  'orders.continue': 'Далее',
+  'orders.backToOrders': 'Возвращаемся к списку заказов...',
+  'orders.ordersCountSuffix': 'заказ(ов)',
+  'orders.today': 'Сегодня',
+  'orders.clear': 'Очистить',
+  'orders.notFoundTitle': 'Заказ не найден',
+  'orders.notFoundText': 'Заказ отсутствует',
+  'orders.stockLabel': 'Склад',
+  'orders.totalLabel': 'Итого',
+  'orders.productsCount': 'товаров',
+  'orders.no': 'Нет',
+  'orders.yesSend': 'Да, отправить',
   'orders.orderDetail': 'Детали заказа',
   'orders.cannotEdit': 'Редактирование невозможно',
   'orders.tayyor': 'Готово',

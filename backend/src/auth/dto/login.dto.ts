@@ -1,4 +1,4 @@
-import { IsString, IsIn } from 'class-validator';
+import { IsString } from 'class-validator';
 
 export class LoginDto {
   @IsString()
@@ -6,7 +6,4 @@ export class LoginDto {
 
   @IsString()
   password: string;
-
-  @IsIn(['agent', 'delivery', 'admin'])
-  role: string;
 }

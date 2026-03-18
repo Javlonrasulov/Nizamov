@@ -9,8 +9,13 @@ import { MobileShell, MobileHeader, MobileContent } from '../../components/Mobil
 import { MobileNav } from '../../components/MobileNav';
 import { formatCurrency } from '../../data/mockData';
 
-const DAYS_SHORT: Record<string, string> = {
-  du: 'Du', se: 'Se', ch: 'Ch', pa: 'Pa', ju: 'Ju', sh: 'Sh'
+const DAY_SHORT_KEYS: Record<string, any> = {
+  du: 'days.monday.short',
+  se: 'days.tuesday.short',
+  ch: 'days.wednesday.short',
+  pa: 'days.thursday.short',
+  ju: 'days.friday.short',
+  sh: 'days.saturday.short',
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -22,28 +27,23 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: 'bg-red-100 text-red-700',
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  new: 'Yangi',
-  accepted: 'Qabul qilindi',
-  sent: 'Omborga yuborildi',
-  delivering: 'Yetkazilmoqda',
-  delivered: 'Yetkazildi',
-  cancelled: 'Bekor qilindi',
-};
-
-const MONTH_NAMES = [
-  'Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun',
-  'Iyul', 'Avgust', 'Sentabr', 'Oktabr', 'Noyabr', 'Dekabr'
-];
-const WEEK_DAYS = ['Du', 'Se', 'Ch', 'Pa', 'Ju', 'Sh', 'Ya'];
+const WEEK_DAY_SHORT_KEYS = [
+  'days.monday.short',
+  'days.tuesday.short',
+  'days.wednesday.short',
+  'days.thursday.short',
+  'days.friday.short',
+  'days.saturday.short',
+  'days.sunday.short',
+] as const;
 
 function toYMD(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-function formatDateLabel(ymd: string) {
+function formatDateLabel(ymd: string, monthLabel: (monthIndex: number) => string) {
   const [, m, d] = ymd.split('-');
-  return `${d}-${MONTH_NAMES[parseInt(m) - 1]}`;
+  return `${d}-${monthLabel(parseInt(m) - 1)}`;
 }
 
 // Ikkita sanani tartiblaydi: [kichik, katta]
@@ -86,6 +86,7 @@ function RangeCalendar({
   onClear: () => void;
   highlightedDates: Set<string>;
 }) {
+  const { t, lang } = useApp();
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
@@ -105,6 +106,11 @@ function RangeCalendar({
   };
 
   const todayYmd = toYMD(today);
+  const locale = lang === 'ru' ? 'ru-RU' : (lang === 'uz_kir' ? 'uz-Cyrl-UZ' : 'uz-Latn-UZ');
+  const monthLabel = (monthIndex: number) => {
+    const m = new Date(viewYear, monthIndex, 1).toLocaleString(locale, { month: 'short' });
+    return m || '';
+  };
 
   // Preview range (hover)
   const previewEnd = rangeStart && !rangeEnd ? (hoverDate || null) : null;
@@ -123,26 +129,26 @@ function RangeCalendar({
       <div className="flex items-center justify-between mb-4">
         <button
           onClick={prevMonth}
-          className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center transition-colors"
+          className="w-8 h-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center transition-colors"
         >
-          <ChevronLeft size={16} className="text-gray-500" />
+          <ChevronLeft size={16} className="text-gray-500 dark:text-gray-300" />
         </button>
-        <span className="text-sm font-semibold text-gray-800">
-          {MONTH_NAMES[viewMonth]} {viewYear}
+        <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+          {new Date(viewYear, viewMonth, 1).toLocaleString(locale, { month: 'long', year: 'numeric' })}
         </span>
         <button
           onClick={nextMonth}
-          className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center transition-colors"
+          className="w-8 h-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center transition-colors"
         >
-          <ChevronRight size={16} className="text-gray-500" />
+          <ChevronRight size={16} className="text-gray-500 dark:text-gray-300" />
         </button>
       </div>
 
       {/* Week headers */}
       <div className="grid grid-cols-7 mb-1">
-        {WEEK_DAYS.map(d => (
-          <div key={d} className="text-center text-[11px] font-medium text-gray-400 py-1">
-            {d}
+        {WEEK_DAY_SHORT_KEYS.map(k => (
+          <div key={k} className="text-center text-[11px] font-medium text-gray-400 dark:text-gray-500 py-1">
+            {t(k)}
           </div>
         ))}
       </div>
@@ -198,8 +204,8 @@ function RangeCalendar({
                     : isInRange
                     ? 'text-indigo-700 hover:bg-indigo-200'
                     : isToday
-                    ? 'border-2 border-indigo-400 text-indigo-600'
-                    : 'text-gray-700 hover:bg-gray-100'}
+                    ? 'border-2 border-indigo-400 text-indigo-600 dark:text-indigo-300'
+                    : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'}
                 `}
               >
                 {day}
@@ -219,16 +225,16 @@ function RangeCalendar({
       <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
         <button
           onClick={onToday}
-          className="text-sm text-gray-500 hover:text-indigo-600 transition-colors font-medium px-1"
+          className="text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors font-medium px-1"
         >
-          Bugun
+          {t('orders.today')}
         </button>
         <button
           onClick={onClear}
-          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-red-500 transition-colors border border-gray-200 rounded-full px-3 py-1 hover:border-red-200"
+          className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-red-500 transition-colors border border-gray-200 dark:border-gray-600 rounded-full px-3 py-1 hover:border-red-200"
         >
           <X size={12} />
-          Tozalash
+          {t('orders.clear')}
         </button>
       </div>
     </div>
@@ -365,8 +371,8 @@ function ClientOrdersModal({
             <div className="px-4 pt-3 pb-2" onClick={e => e.stopPropagation()}>
               <div className="bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">
                 {!rangeStart || !rangeEnd ? (
-                  <p className="text-xs text-center text-gray-400 mb-2">
-                    {!rangeStart ? 'Birinchi kunni tanlang' : 'Oxirgi kunni tanlang'}
+                  <p className="text-xs text-center text-gray-400 dark:text-gray-500 mb-2">
+                    {!rangeStart ? t('clients.calendar.pickFirstDay') : t('clients.calendar.pickLastDay')}
                   </p>
                 ) : null}
                 <RangeCalendar
@@ -391,10 +397,10 @@ function ClientOrdersModal({
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <ShoppingBag size={15} className="text-indigo-500" />
-                <span className="text-sm font-semibold text-gray-800">Zakazlar</span>
+                <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('clients.ordersTitle')}</span>
                 {filteredOrders.length > 0 && (
-                  <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
-                    {filteredOrders.length} ta
+                  <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 px-2 py-0.5 rounded-full">
+                    {filteredOrders.length} {t('common.pcs')}
                   </span>
                 )}
               </div>
@@ -405,27 +411,29 @@ function ClientOrdersModal({
 
             {filteredOrders.length === 0 ? (
               <div className="py-8 text-center">
-                <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
-                  <Package size={22} className="text-gray-300" />
+                <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mx-auto mb-3">
+                  <Package size={22} className="text-gray-300 dark:text-gray-500" />
                 </div>
-                <p className="text-sm text-gray-400">
-                  {!sortedStart ? 'Kunni tanlang' : 'Tanlangan oraliqda zakaz yo\'q'}
+                <p className="text-sm text-gray-400 dark:text-gray-500">
+                  {!sortedStart ? t('clients.calendar.noOrders') : t('clients.calendar.noOrdersHint')}
                 </p>
-                <p className="text-xs text-gray-300 mt-1">
-                  {orderDates.size > 0 ? 'Nuqtali kunlarni tanlang' : 'Hali hech qanday zakaz yaratilmagan'}
-                </p>
+                {orderDates.size > 0 ? null : (
+                  <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">
+                    {t('orders.noOrdersForDay')}
+                  </p>
+                )}
               </div>
             ) : (
               <div className="space-y-3">
                 {filteredOrders.map(order => (
-                  <div key={order.id} className="bg-gray-50 rounded-2xl p-3 border border-gray-100">
+                  <div key={order.id} className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-3 border border-gray-100 dark:border-gray-700">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-gray-700">{order.id}</span>
-                        <span className="text-[10px] text-gray-400">{formatDateLabel(order.date)}</span>
+                        <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">{order.id}</span>
+                        <span className="text-[10px] text-gray-400 dark:text-gray-500">{formatDateLabel(order.date, monthLabel)}</span>
                       </div>
                       <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[order.status]}`}>
-                        {STATUS_LABEL[order.status]}
+                        {t(`status.${order.status}` as any)}
                       </span>
                     </div>
 
@@ -434,18 +442,18 @@ function ClientOrdersModal({
                         <div key={i} className="flex items-center justify-between">
                           <div className="flex items-center gap-1.5">
                             <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 flex-shrink-0" />
-                            <span className="text-xs text-gray-600 truncate max-w-[170px]">{item.productName}</span>
+                            <span className="text-xs text-gray-600 dark:text-gray-300 truncate max-w-[170px]">{item.productName}</span>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-[11px] text-gray-400">×{item.quantity}</span>
-                            <span className="text-xs font-medium text-gray-700">{formatCurrency(item.price * item.quantity)}</span>
+                            <span className="text-[11px] text-gray-400 dark:text-gray-500">×{item.quantity}</span>
+                            <span className="text-xs font-medium text-gray-700 dark:text-gray-200">{formatCurrency(item.price * item.quantity)}</span>
                           </div>
                         </div>
                       ))}
                     </div>
 
-                    <div className="flex items-center justify-between pt-2 border-t border-gray-200">
-                      <span className="text-xs text-gray-500">Jami</span>
+                    <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{t('orders.totalLabel')}</span>
                       <span className="text-sm font-semibold text-indigo-600">{formatCurrency(order.total)}</span>
                     </div>
                   </div>
@@ -489,13 +497,13 @@ export const ClientsList = () => {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder={t('clients.search')}
-              className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 bg-white text-sm text-gray-900 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50 transition-all placeholder:text-gray-400"
+              className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50 transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500"
             />
           </div>
 
           {/* Count + Add */}
           <div className="flex items-center justify-between">
-            <p className="text-xs text-gray-500">{filtered.length} ta klient</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{filtered.length} {t('clients.countSuffix')}</p>
             <button
               onClick={() => navigate('/agent/clients/add')}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500 text-white text-xs font-medium hover:bg-indigo-600 transition-colors"
@@ -511,41 +519,41 @@ export const ClientsList = () => {
               <button
                 key={client.id}
                 onClick={() => setSelectedClientId(client.id)}
-                className="w-full text-left bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3 active:bg-gray-50 transition-colors"
+                className="w-full text-left bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-3 active:bg-gray-50 dark:active:bg-gray-700 transition-colors"
               >
                 <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-semibold text-sm flex-shrink-0 ${colors[idx % colors.length]}`}>
                   {getInitials(client.name)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-900 text-sm truncate">{client.name}</p>
+                  <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm truncate">{client.name}</p>
                   <div className="flex items-center gap-1 mt-0.5">
                     <Phone size={11} className="text-gray-400 flex-shrink-0" />
-                    <p className="text-xs text-gray-500 truncate">{client.phone}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{client.phone}</p>
                   </div>
                   <div className="flex items-center gap-1 mt-0.5">
                     <MapPin size={11} className="text-gray-400 flex-shrink-0" />
-                    <p className="text-xs text-gray-500 truncate">{client.address}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{client.address}</p>
                   </div>
                   {client.visitDays && client.visitDays.length > 0 && (
                     <div className="flex items-center gap-1 mt-1.5 flex-wrap">
                       {client.visitDays.map(d => (
-                        <span key={d} className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-600">
-                          {DAYS_SHORT[d]}
+                        <span key={d} className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300">
+                          {t(DAY_SHORT_KEYS[d] || d)}
                         </span>
                       ))}
                     </div>
                   )}
                 </div>
-                <ChevronRight size={16} className="text-gray-300 flex-shrink-0" />
+                <ChevronRight size={16} className="text-gray-300 dark:text-gray-600 flex-shrink-0" />
               </button>
             ))}
 
             {filtered.length === 0 && (
               <div className="text-center py-12">
-                <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
-                  <Search size={24} className="text-gray-400" />
+                <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mx-auto mb-3">
+                  <Search size={24} className="text-gray-400 dark:text-gray-500" />
                 </div>
-                <p className="text-gray-500 text-sm">{t('clients.empty')}</p>
+                <p className="text-gray-500 dark:text-gray-400 text-sm">{t('clients.empty')}</p>
               </div>
             )}
           </div>
