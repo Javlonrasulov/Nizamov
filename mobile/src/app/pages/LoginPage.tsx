@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Phone, Lock, ChevronDown, Globe } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Language, languageLabels } from '../i18n/translations';
+import { apiGet } from '../api/client';
 
 export const LoginPage = () => {
   const { t, lang, setLang, login } = useApp();
@@ -12,8 +13,18 @@ export const LoginPage = () => {
   const [error, setError] = useState('');
   const [langOpen, setLangOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [serverOk, setServerOk] = useState<boolean | null>(null);
 
   const langs: Language[] = ['uz_lat', 'uz_kir', 'ru'];
+
+  useEffect(() => {
+    let cancelled = false;
+    setServerOk(null);
+    apiGet<{ ok: boolean }>('/health')
+      .then(() => { if (!cancelled) setServerOk(true); })
+      .catch(() => { if (!cancelled) setServerOk(false); });
+    return () => { cancelled = true; };
+  }, []);
 
   const handleLogin = async () => {
     setError('');
@@ -76,6 +87,23 @@ export const LoginPage = () => {
 
         {/* Card */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6">
+          {/* Server status */}
+          <div className="mb-4">
+            {serverOk === null ? (
+              <div className="px-3 py-2.5 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-100 dark:border-gray-600 text-gray-500 dark:text-gray-300 text-sm">
+                {t('common.loading')}
+              </div>
+            ) : serverOk ? (
+              <div className="px-3 py-2.5 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 text-green-700 dark:text-green-300 text-sm font-medium">
+                {t('common.serverConnected')}
+              </div>
+            ) : (
+              <div className="px-3 py-2.5 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 text-red-700 dark:text-red-300 text-sm font-medium">
+                {t('common.serverDisconnected')}
+              </div>
+            )}
+          </div>
+
           {/* Phone */}
           <div className="mb-4">
             <label className="text-sm font-medium text-gray-700 dark:text-gray-200 block mb-1.5">{t('login.phone')}</label>
