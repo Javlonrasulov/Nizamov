@@ -37,19 +37,19 @@ export const DeliveryProfile = () => {
 
           {/* Stats */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm text-center">
-              <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center mx-auto mb-2">
-                <CheckCircle size={18} className="text-green-600" />
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-100 dark:border-gray-700 shadow-sm text-center">
+              <div className="w-10 h-10 rounded-xl bg-green-50 dark:bg-green-900/20 flex items-center justify-center mx-auto mb-2">
+                <CheckCircle size={18} className="text-green-600 dark:text-green-400" />
               </div>
-              <p className="text-2xl font-bold text-gray-900">{delivered}</p>
-              <p className="text-xs text-gray-500">Yetkazildi</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{delivered}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('delivery.delivered')}</p>
             </div>
-            <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm text-center">
-              <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center mx-auto mb-2">
-                <Package size={18} className="text-purple-600" />
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-100 dark:border-gray-700 shadow-sm text-center">
+              <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center mx-auto mb-2">
+                <Package size={18} className="text-purple-600 dark:text-purple-400" />
               </div>
-              <p className="text-2xl font-bold text-gray-900">{active}</p>
-              <p className="text-xs text-gray-500">Faol zakaz</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{active}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('delivery.stat.active')}</p>
             </div>
           </div>
 

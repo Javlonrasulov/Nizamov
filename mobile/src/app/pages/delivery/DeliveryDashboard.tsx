@@ -31,7 +31,7 @@ export const DeliveryDashboard = () => {
   const totalToday = todayOrders.reduce((s, o) => s + o.total, 0);
   const deliveredSum = delivered.reduce((s, o) => s + o.total, 0);
 
-  const formatSum = (n: number) => n.toLocaleString('ru-RU') + " so'm";
+  const formatSum = (n: number) => `${n.toLocaleString('ru-RU')} ${t('common.sum')}`;
 
   return (
     <MobileShell>
@@ -149,7 +149,7 @@ export const DeliveryDashboard = () => {
                         {order.items.length} {t('common.pcs')} {t('orders.items')}
                       </span>
                       <span className="text-sm font-bold text-purple-600 dark:text-purple-400">
-                        {order.total.toLocaleString('ru-RU')} so'm
+                        {formatSum(order.total)}
                       </span>
                     </div>
                   </button>
@@ -178,7 +178,7 @@ export const DeliveryDashboard = () => {
                     <div>
                       <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{order.clientName}</p>
                       <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                        {order.items.length} mahsulot · {order.total.toLocaleString('ru-RU')} so'm
+                        {order.items.length} {t('orders.productsCount')} · {formatSum(order.total)}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">

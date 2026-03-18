@@ -18,9 +18,12 @@ export const DeliveryOrderDetail = () => {
   if (!order) {
     return (
       <MobileShell>
-        <MobileHeader title="Zakaz" showBack />
+        <MobileHeader title={t('delivery.orderDetail')} showBack showLang />
         <MobileContent className="flex items-center justify-center">
-          <p className="text-gray-500">Zakaz topilmadi</p>
+          <div className="text-center px-6">
+            <p className="text-gray-700 dark:text-gray-200 font-semibold">{t('orders.notFoundTitle')}</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{t('orders.notFoundText')}</p>
+          </div>
         </MobileContent>
       </MobileShell>
     );
@@ -69,7 +72,7 @@ export const DeliveryOrderDetail = () => {
                   <p className="text-xs text-gray-500 dark:text-gray-400">{item.quantity} × {item.price.toLocaleString()} {t('common.sum')}</p>
                 </div>
                 <p className="text-sm font-bold text-gray-900 dark:text-white">
-                  {(item.quantity * item.price).toLocaleString()} so'm
+                  {(item.quantity * item.price).toLocaleString()} {t('common.sum')}
                 </p>
               </div>
             ))}
@@ -89,7 +92,7 @@ export const DeliveryOrderDetail = () => {
 
           {canChangeStatus && (
             <div className="space-y-2">
-              <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">Status o'zgartirish:</p>
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">{t('delivery.changeStatus')}:</p>
               <button
                 onClick={() => { updateOrderStatus(order.id, 'delivered'); navigate('/delivery'); }}
                 className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-green-500 text-white font-semibold text-sm hover:bg-green-600 active:scale-[0.98] transition-all shadow-lg shadow-green-200"

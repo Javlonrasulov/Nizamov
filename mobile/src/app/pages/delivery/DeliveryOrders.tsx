@@ -10,11 +10,15 @@ import { MobileNav } from '../../components/MobileNav';
 import { StatusBadge } from '../../components/StatusBadge';
 
 /* ─── Kalendar yordamchi funksiyalar ─── */
-const MONTH_NAMES = [
-  'Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun',
-  'Iyul', 'Avgust', 'Sentyabr', 'Oktyabr', 'Noyabr', 'Dekabr',
-];
-const DAY_NAMES = ['Du', 'Se', 'Ch', 'Pa', 'Ju', 'Sh', 'Ya'];
+const dayShortKeys = [
+  'days.monday.short',
+  'days.tuesday.short',
+  'days.wednesday.short',
+  'days.thursday.short',
+  'days.friday.short',
+  'days.saturday.short',
+  'days.sunday.short',
+] as const;
 
 function toDateStr(year: number, month: number, day: number) {
   return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -38,7 +42,7 @@ function formatDisplay(dateStr: string) {
 
 /* ─── Asosiy komponent ─── */
 export const DeliveryOrders = () => {
-  const { t, currentUser, orders } = useApp();
+  const { t, lang, currentUser, orders } = useApp();
   const navigate = useNavigate();
 
   const formatOrderId = (o: { id: string; orderNumber?: number }) =>
@@ -118,12 +122,12 @@ export const DeliveryOrders = () => {
   /* Header label */
   const selectedSorted = [...selectedDates].sort();
   const headerLabel = selectedSorted.length === 0
-    ? 'Kun tanlang'
+    ? t('orders.pickDay')
     : selectedSorted.length === 1
     ? formatDisplay(selectedSorted[0])
     : `${formatDisplay(selectedSorted[0])} — ${formatDisplay(selectedSorted[selectedSorted.length - 1])}`;
 
-  const formatCurrency = (n: number) => n.toLocaleString('ru-RU') + " so'm";
+  const formatCurrency = (n: number) => `${n.toLocaleString('ru-RU')} ${t('common.sum')}`;
 
   return (
     <MobileShell>
@@ -137,17 +141,17 @@ export const DeliveryOrders = () => {
           <div className="flex items-center gap-5 mt-3">
             <div className="text-center">
               <p className="text-2xl font-bold">{todayActive}</p>
-              <p className="text-purple-200 text-xs">Faol</p>
+              <p className="text-purple-200 text-xs">{t('delivery.stat.active')}</p>
             </div>
             <div className="w-px h-8 bg-purple-400/50" />
             <div className="text-center">
               <p className="text-2xl font-bold">{todayDelivered}</p>
-              <p className="text-purple-200 text-xs">Yetkazildi</p>
+              <p className="text-purple-200 text-xs">{t('delivery.delivered')}</p>
             </div>
             <div className="w-px h-8 bg-purple-400/50" />
             <div className="text-center">
               <p className="text-2xl font-bold">{todayAll.length}</p>
-              <p className="text-purple-200 text-xs">Jami bugun</p>
+              <p className="text-purple-200 text-xs">{t('delivery.stat.todayTotal')}</p>
             </div>
           </div>
         </div>
@@ -181,7 +185,7 @@ export const DeliveryOrders = () => {
                 className={`text-purple-500 transition-transform ${calendarOpen ? 'rotate-180' : ''}`}
               />
             </button>
-            <span className="text-xs text-gray-400 dark:text-gray-500">{sortedFiltered.length} ta zakaz</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">{sortedFiltered.length} {t('orders.ordersCountSuffix')}</span>
           </div>
 
           {/* Kalendar paneli */}
@@ -196,7 +200,12 @@ export const DeliveryOrders = () => {
                   <ChevronLeft size={16} />
                 </button>
                 <span className="text-sm font-bold text-gray-800 dark:text-gray-100">
-                  {MONTH_NAMES[viewMonth]} {viewYear}
+                  {(() => {
+                    const locale = lang === 'ru' ? 'ru-RU' : (lang === 'uz_kir' ? 'uz-Cyrl-UZ' : 'uz-Latn-UZ');
+                    const m = new Date(viewYear, viewMonth, 1).toLocaleString(locale, { month: 'long' });
+                    const monthName = m ? m.charAt(0).toUpperCase() + m.slice(1) : '';
+                    return `${monthName} ${viewYear}`;
+                  })()}
                 </span>
                 <button
                   onClick={nextMonth}
@@ -208,9 +217,9 @@ export const DeliveryOrders = () => {
 
               {/* Kun nomlari */}
               <div className="grid grid-cols-7 px-2 mb-1">
-                {DAY_NAMES.map(d => (
-                  <div key={d} className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 py-1">
-                    {d}
+                {dayShortKeys.map(k => (
+                  <div key={k} className="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 py-1">
+                    {t(k)}
                   </div>
                 ))}
               </div>
@@ -260,14 +269,14 @@ export const DeliveryOrders = () => {
                   onClick={selectToday}
                   className="text-sm text-gray-600 dark:text-gray-300 font-medium hover:text-gray-900 dark:hover:text-white active:scale-95 transition-all"
                 >
-                  Bugun
+                  {t('orders.today')}
                 </button>
                 <button
                   onClick={clearSelection}
                   className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300 font-medium hover:text-gray-900 dark:hover:text-white active:scale-95 transition-all"
                 >
                   <X size={14} />
-                  Tozalash
+                  {t('orders.clear')}
                 </button>
               </div>
             </>
@@ -322,7 +331,7 @@ export const DeliveryOrders = () => {
                 {/* Mahsulotlar */}
                 <div className="px-4 py-2 space-y-1.5 border-t border-gray-50 dark:border-gray-700">
                   <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">
-                    Mahsulotlar
+                    {t('orders.items')}
                   </p>
                   {order.items.map(item => (
                     <div key={item.productId} className="flex items-center justify-between">
@@ -333,10 +342,10 @@ export const DeliveryOrders = () => {
                         <span className="text-xs text-gray-700 dark:text-gray-300">{item.productName}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className="text-xs text-gray-400 dark:text-gray-500">{item.quantity} ta</span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500">{item.quantity} {t('common.pcs')}</span>
                         <span className="text-gray-300 dark:text-gray-600">×</span>
                         <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
-                          {item.price.toLocaleString('ru-RU')} so'm
+                          {formatCurrency(item.price)}
                         </span>
                       </div>
                     </div>
@@ -346,7 +355,7 @@ export const DeliveryOrders = () => {
                 {/* Jami + Xarita tugmasi */}
                 <div className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-100 dark:border-gray-700">
                   <div>
-                    <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Jami summa</p>
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">{t('orders.totalAmount')}</p>
                     <p className="text-sm font-bold text-gray-900 dark:text-white">{formatCurrency(order.total)}</p>
                   </div>
                   <button
@@ -354,7 +363,7 @@ export const DeliveryOrders = () => {
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 text-white text-xs font-semibold shadow-sm shadow-purple-200 active:scale-[0.97] transition-all"
                   >
                     <MapPin size={12} />
-                    Xarita
+                    {t('common.map')}
                   </button>
                 </div>
               </div>
@@ -366,7 +375,7 @@ export const DeliveryOrders = () => {
                 <Truck size={28} className="text-purple-300 dark:text-purple-500" />
               </div>
               <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">
-                Bu kun uchun zakazlar yo'q
+                {t('orders.noOrdersForDay')}
               </p>
               <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">{headerLabel}</p>
             </div>

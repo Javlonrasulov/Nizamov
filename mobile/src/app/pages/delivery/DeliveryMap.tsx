@@ -75,7 +75,7 @@ export const DeliveryMap = () => {
 
       const popupContent = `
         <div style="min-width:160px;padding:4px 2px;">
-          <div style="font-weight:700;font-size:13px;color:#111827;margin-bottom:2px;">${order?.clientName || 'Klient'}</div>
+          <div style="font-weight:700;font-size:13px;color:#111827;margin-bottom:2px;">${order?.clientName || t('orders.client')}</div>
           <div style="font-size:11px;color:#6b7280;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${order?.clientAddress || ''}</div>
         </div>
       `;
@@ -157,9 +157,12 @@ export const DeliveryMap = () => {
   if (!order) {
     return (
       <MobileShell>
-        <MobileHeader title={t('delivery.mapView')} showBack />
+        <MobileHeader title={t('delivery.mapView')} showBack showLang />
         <MobileContent className="flex items-center justify-center">
-          <p className="text-gray-500 dark:text-gray-400">Zakaz topilmadi</p>
+          <div className="text-center px-6">
+            <p className="text-gray-700 dark:text-gray-200 font-semibold">{t('orders.notFoundTitle')}</p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{t('orders.notFoundText')}</p>
+          </div>
         </MobileContent>
       </MobileShell>
     );
@@ -178,7 +181,7 @@ export const DeliveryMap = () => {
             <div className="absolute inset-0 bg-blue-50 dark:bg-gray-800 flex items-center justify-center z-10">
               <div className="text-center">
                 <div className="w-10 h-10 border-4 border-[#2563EB] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                <p className="text-sm text-gray-500 dark:text-gray-400">Xarita yuklanmoqda...</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('common.loading')}</p>
               </div>
             </div>
           )}

@@ -139,6 +139,7 @@ type TranslationKeys = {
   'orders.ordersCountSuffix': string;
   'orders.today': string;
   'orders.clear': string;
+  'orders.pickDay': string;
   'orders.notFoundTitle': string;
   'orders.notFoundText': string;
   'orders.stockLabel': string;
@@ -191,6 +192,7 @@ type TranslationKeys = {
   'delivery.delivered': string;
   'delivery.notDelivered': string;
   'delivery.mapView': string;
+  'delivery.changeStatus': string;
   'delivery.clientLocation': string;
   'delivery.openMaps': string;
   'delivery.stat.active': string;
@@ -447,6 +449,7 @@ const uz_lat: TranslationKeys = {
   'orders.ordersCountSuffix': 'ta zakaz',
   'orders.today': 'Bugun',
   'orders.clear': 'Tozalash',
+  'orders.pickDay': 'Kun tanlang',
   'orders.notFoundTitle': 'Zakaz topilmadi',
   'orders.notFoundText': 'Zakaz mavjud emas',
   'orders.stockLabel': 'Ombor',
@@ -494,6 +497,7 @@ const uz_lat: TranslationKeys = {
   'delivery.delivered': 'Yetkazildi',
   'delivery.notDelivered': 'Yetkazilmadi',
   'delivery.mapView': "Xaritada ko'rish",
+  'delivery.changeStatus': "Status o'zgartirish",
   'delivery.clientLocation': 'Klient lokatsiyasi',
   'delivery.openMaps': 'Xaritada ochish',
   'delivery.stat.active': 'Faol',
@@ -749,6 +753,7 @@ const uz_kir: TranslationKeys = {
   'orders.ordersCountSuffix': 'та заказ',
   'orders.today': 'Бугун',
   'orders.clear': 'Тозалаш',
+  'orders.pickDay': 'Кун танланг',
   'orders.notFoundTitle': 'Заказ топилмади',
   'orders.notFoundText': 'Заказ мавжуд эмас',
   'orders.stockLabel': 'Омбор',
@@ -796,6 +801,7 @@ const uz_kir: TranslationKeys = {
   'delivery.delivered': 'Етказилди',
   'delivery.notDelivered': 'Етказилмади',
   'delivery.mapView': 'Харитада кўриш',
+  'delivery.changeStatus': "Статусни ўзгартириш",
   'delivery.clientLocation': 'Клиент локацияси',
   'delivery.openMaps': 'Харитада очиш',
   'delivery.stat.active': 'Фаол',
@@ -1068,6 +1074,7 @@ const ru: TranslationKeys = {
   'orders.ordersCountSuffix': 'заказ(ов)',
   'orders.today': 'Сегодня',
   'orders.clear': 'Очистить',
+  'orders.pickDay': 'Выберите день',
   'orders.notFoundTitle': 'Заказ не найден',
   'orders.notFoundText': 'Заказ отсутствует',
   'orders.stockLabel': 'Склад',
@@ -1095,6 +1102,7 @@ const ru: TranslationKeys = {
   'delivery.delivered': 'Доставлен',
   'delivery.notDelivered': 'Не доставлен',
   'delivery.mapView': 'Показать на карте',
+  'delivery.changeStatus': 'Изменить статус',
   'delivery.clientLocation': 'Локация клиента',
   'delivery.openMaps': 'Открыть в картах',
   'delivery.stat.active': 'Активные',
