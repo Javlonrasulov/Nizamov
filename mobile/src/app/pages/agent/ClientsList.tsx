@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import {
   Search, Plus, Phone, MapPin, ChevronRight,
@@ -260,7 +260,7 @@ function ClientOrdersModal({
   const [hoverDate, setHoverDate] = useState<string | null>(null);
 
   const clientOrders = orders.filter(o => o.clientId === clientId);
-  const orderDates = useMemo(() => new Set(clientOrders.map(o => o.date)), [clientOrders]);
+  const orderDates = new Set(clientOrders.map(o => o.date));
 
   const handleDateClick = (ymd: string) => {
     if (!rangeStart || (rangeStart && rangeEnd)) {
@@ -294,26 +294,25 @@ function ClientOrdersModal({
   // Filtrlash uchun sana oraliqni hisoblash
   const [sortedStart, sortedEnd] = sortRange(rangeStart, rangeEnd);
 
-  const filteredOrders = useMemo(() => {
-    if (!sortedStart) return [];
-    return clientOrders
+  const filteredOrders = sortedStart
+    ? clientOrders
       .filter(o => {
         if (!sortedEnd) return o.date === sortedStart;
         return o.date >= sortedStart && o.date <= sortedEnd;
       })
-      .sort((a, b) => b.date.localeCompare(a.date));
-  }, [clientOrders, sortedStart, sortedEnd]);
+      .sort((a, b) => b.date.localeCompare(a.date))
+    : [];
 
   const totalSelected = filteredOrders.reduce((s, o) => s + o.total, 0);
   const getInitials = (name: string) => name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 
   // Range label
-  const rangeLabel = useMemo(() => {
+  const rangeLabel = (() => {
     if (!sortedStart) return 'Kun tanlang';
     if (!sortedEnd || sortedStart === sortedEnd) return formatDateLabel(sortedStart);
     const days = getDatesInRange(sortedStart, sortedEnd).length;
     return `${formatDateLabel(sortedStart)} — ${formatDateLabel(sortedEnd)} (${days} kun)`;
-  }, [sortedStart, sortedEnd]);
+  })();
 
   return (
     <div className="fixed inset-0 z-[9000] bg-black/50 flex items-end justify-center" onClick={onClose}>
