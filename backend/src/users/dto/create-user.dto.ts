@@ -12,7 +12,7 @@ export class CreateUserDto {
   password: string;
 
   @IsString()
-  @IsIn(['agent', 'delivery'])
+  @IsIn(['agent', 'delivery', 'admin', 'sklad'])
   role: string;
 
   @IsOptional()

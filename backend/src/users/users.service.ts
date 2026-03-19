@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -44,11 +44,19 @@ export class UsersService {
     if (dto.password !== undefined) data.password = await bcrypt.hash(dto.password, 10);
     if (dto.role !== undefined) data.role = dto.role;
     if (dto.vehicleName !== undefined) data.vehicleName = dto.vehicleName;
-    return this.prisma.user.update({
-      where: { id },
-      data,
-      select: { id: true, name: true, phone: true, role: true, vehicleName: true, createdAt: true },
-    });
+    try {
+      return await this.prisma.user.update({
+        where: { id },
+        data,
+        select: { id: true, name: true, phone: true, role: true, vehicleName: true, createdAt: true },
+      });
+    } catch (e: any) {
+      // Prisma throws when record is not found (P2025). Convert to 404.
+      if (e?.code === 'P2025') {
+        throw new NotFoundException('User not found');
+      }
+      throw e;
+    }
   }
 
   async remove(id: string) {

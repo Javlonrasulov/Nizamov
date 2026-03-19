@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import {
   Search, Plus, Phone, MapPin, ChevronRight,
@@ -250,7 +250,8 @@ function ClientOrdersModal({
   onClose: () => void;
 }) {
   const { clients, orders } = useApp();
-  const client = clients.find(c => c.id === clientId)!;
+  const client = clients.find(c => c.id === clientId);
+  if (!client) return null;
   const today = toYMD(new Date());
 
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -467,12 +468,17 @@ function ClientOrdersModal({
   );
 }
 
+const INITIAL_VISIBLE = 3;
+
 // ── Main ClientsList ───────────────────────────────────────────────
 export const ClientsList = () => {
-  const { t, currentUser, clients } = useApp();
+  const { t, currentUser, clients, refetchData } = useApp();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [expandList, setExpandList] = useState(false);
+
+  useEffect(() => { refetchData?.(); }, [refetchData]);
 
   const myClients = clients.filter(c => c.agentId === currentUser?.id);
   const filtered = myClients.filter(c =>
@@ -483,6 +489,9 @@ export const ClientsList = () => {
 
   const getInitials = (name: string) => name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
   const colors = ['bg-indigo-100 text-indigo-700', 'bg-purple-100 text-purple-700', 'bg-blue-100 text-blue-700', 'bg-violet-100 text-violet-700'];
+  const visibleList = expandList ? filtered : filtered.slice(0, INITIAL_VISIBLE);
+  const hasMore = filtered.length > INITIAL_VISIBLE;
+  const hiddenCount = filtered.length - INITIAL_VISIBLE;
 
   return (
     <MobileShell>
@@ -515,7 +524,7 @@ export const ClientsList = () => {
 
           {/* List */}
           <div className="space-y-2">
-            {filtered.map((client, idx) => (
+            {visibleList.map((client, idx) => (
               <button
                 key={client.id}
                 onClick={() => setSelectedClientId(client.id)}
@@ -547,6 +556,17 @@ export const ClientsList = () => {
                 <ChevronRight size={16} className="text-gray-300 dark:text-gray-600 flex-shrink-0" />
               </button>
             ))}
+
+            {hasMore && (
+              <button
+                type="button"
+                onClick={() => setExpandList(true)}
+                className="w-full py-3 rounded-xl border-2 border-dashed border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 text-sm font-medium flex items-center justify-center gap-1.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
+              >
+                <ChevronDown size={16} />
+                {t('common.showAllWithCount').replace('N', String(filtered.length))}
+              </button>
+            )}
 
             {filtered.length === 0 && (
               <div className="text-center py-12">

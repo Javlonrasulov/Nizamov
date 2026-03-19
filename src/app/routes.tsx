@@ -22,6 +22,7 @@ import { AdminReports } from './pages/admin/AdminReports';
 import { AdminWarehouse } from './pages/admin/AdminWarehouse';
 import { AdminSuppliers } from './pages/admin/AdminSuppliers';
 import { AdminSupplierProfile } from './pages/admin/AdminSupplierProfile';
+import { AdminProfile } from './pages/admin/AdminProfile';
 
 const Root = () => (
   <div style={{ fontFamily: 'Inter, sans-serif' }}>
@@ -66,6 +67,7 @@ export const router = createBrowserRouter([
       { path: 'admin/agents-mgmt', Component: AdminAgents },
       { path: 'admin/reports', Component: AdminReports },
       { path: 'admin/warehouse', Component: AdminWarehouse },
+      { path: 'admin/profile', Component: AdminProfile },
     ],
   },
 ]);

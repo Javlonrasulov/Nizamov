@@ -9,6 +9,7 @@ import { apiLogin } from '../api/auth';
 import { apiGetProducts, apiCreateProduct, apiUpdateProduct } from '../api/products';
 import { apiGetClients, apiCreateClient, apiUpdateClient, apiDeleteClient } from '../api/clients';
 import { apiGetOrders, apiCreateOrder, apiUpdateOrder } from '../api/orders';
+import { apiUpdateUser } from '../api/users';
 
 type Theme = 'light' | 'dark';
 
@@ -52,15 +53,8 @@ export const AVAILABLE_ICONS = [
 
 export type AvailableIcon = typeof AVAILABLE_ICONS[number];
 
-const DEFAULT_CATEGORIES: ExpenseCategoryDef[] = [
-  { id: 'warehouse', label: 'Ombor',       iconName: 'Building2',    color: 'blue'   },
-  { id: 'transport', label: 'Transport',   iconName: 'Truck',        color: 'purple' },
-  { id: 'salary',    label: 'Maosh',       iconName: 'Users',        color: 'green'  },
-  { id: 'utilities', label: 'Kommunal',    iconName: 'Zap',          color: 'yellow' },
-  { id: 'marketing', label: 'Reklama',     iconName: 'Megaphone',    color: 'pink'   },
-  { id: 'repair',    label: "Ta'mirlash",  iconName: 'Wrench',       color: 'orange' },
-  { id: 'other',     label: 'Boshqa',      iconName: 'Package',      color: 'gray'   },
-];
+const DEFAULT_CATEGORIES: ExpenseCategoryDef[] = [];
+const OLD_DEMO_CATEGORY_IDS = ['warehouse', 'transport', 'salary', 'utilities', 'marketing', 'repair', 'other'];
 
 /* ─── Expense ─── */
 export interface Expense {
@@ -105,6 +99,7 @@ interface AppContextType {
   addExpenseCategory: (cat: Omit<ExpenseCategoryDef, 'id'>) => void;
   updateExpenseCategory: (id: string, updates: Partial<Omit<ExpenseCategoryDef, 'id'>>) => void;
   deleteExpenseCategory: (id: string) => void;
+  updateMyProfile: (data: { name: string; phone: string; password?: string }) => Promise<boolean>;
 }
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
@@ -126,7 +121,30 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   });
 
   const [expenseCategories, setExpenseCategories] = useState<ExpenseCategoryDef[]>(() => {
-    try { const s = localStorage.getItem('crm_expense_cats'); if (s) return JSON.parse(s); } catch {}
+    try {
+      const s = localStorage.getItem('crm_expense_cats');
+      if (s) {
+        const parsed = JSON.parse(s) as unknown;
+        const list = Array.isArray(parsed) ? parsed : [];
+        const cats = list.filter((c: any) =>
+          c && typeof c === 'object'
+          && typeof c.id === 'string'
+          && typeof c.label === 'string'
+          && typeof c.iconName === 'string'
+          && typeof c.color === 'string'
+        ) as ExpenseCategoryDef[];
+
+        const ids = cats.map(c => c.id);
+        const isOldDemo =
+          ids.length === OLD_DEMO_CATEGORY_IDS.length
+          && ids.every((id, i) => id === OLD_DEMO_CATEGORY_IDS[i]);
+        if (isOldDemo) {
+          localStorage.removeItem('crm_expense_cats');
+          return [];
+        }
+        return cats;
+      }
+    } catch {}
     return DEFAULT_CATEGORIES;
   });
 
@@ -186,6 +204,29 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   const logout = () => { setCurrentUser(null); localStorage.removeItem('crm_user'); };
+
+  const updateMyProfile: AppContextType['updateMyProfile'] = async (data) => {
+    if (!currentUser) return false;
+    const payload: Parameters<typeof apiUpdateUser>[1] = {
+      name: data.name,
+      phone: data.phone,
+    };
+    if (data.password) payload.password = data.password;
+
+    try {
+      const updated = await apiUpdateUser(currentUser.id, payload);
+      const nextUser = { ...currentUser, ...updated, password: '' };
+      setCurrentUser(nextUser as User);
+      localStorage.setItem('crm_user', JSON.stringify(nextUser));
+      return true;
+    } catch {
+      // Local fallback: still update UI (server might be temporarily unavailable)
+      const nextUser = { ...currentUser, ...payload, password: '' };
+      setCurrentUser(nextUser as User);
+      localStorage.setItem('crm_user', JSON.stringify(nextUser));
+      return false;
+    }
+  };
 
   const addClient = async (c: Omit<Client, 'id'>) => {
     try {
@@ -281,6 +322,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     adminDateFrom, adminDateTo, setAdminDateRange,
     expenses, addExpense, deleteExpense,
     expenseCategories, addExpenseCategory, updateExpenseCategory, deleteExpenseCategory,
+    updateMyProfile,
   };
 
   return (

@@ -36,23 +36,28 @@ export const MobileNav = ({ role }: MobileNavProps) => {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 px-2 py-2 flex items-center justify-around safe-area-inset-bottom transition-colors duration-300">
-      {items.map(item => {
-        const active = isActive(item.path);
-        const Icon = item.icon;
-        return (
-          <button
-            key={item.path}
-            onClick={() => navigate(item.path)}
-            className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all ${active ? 'text-[#2563EB] dark:text-blue-400' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'}`}
-          >
-            <div className={`w-8 h-8 flex items-center justify-center rounded-xl transition-all ${active ? 'bg-blue-50 dark:bg-blue-900/30' : ''}`}>
-              <Icon size={20} strokeWidth={active ? 2.5 : 2} />
-            </div>
-            <span className={`text-[10px] font-medium leading-none ${active ? 'font-semibold' : ''}`}>{t(item.labelKey)}</span>
-          </button>
-        );
-      })}
+    <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center px-3 pointer-events-none">
+      <div
+        className="w-full max-w-[390px] bg-white/95 dark:bg-gray-800/95 backdrop-blur border-t border-gray-100 dark:border-gray-700 px-2 pt-2 flex items-center justify-around transition-colors duration-300 pointer-events-auto"
+        style={{ paddingBottom: 'calc(max(env(safe-area-inset-bottom), var(--vv-bottom, 0px)) + 20px)' }}
+      >
+        {items.map(item => {
+          const active = isActive(item.path);
+          const Icon = item.icon;
+          return (
+            <button
+              key={item.path}
+              onClick={() => navigate(item.path)}
+              className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all ${active ? 'text-[#2563EB] dark:text-blue-400' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'}`}
+            >
+              <div className={`w-8 h-8 flex items-center justify-center rounded-xl transition-all ${active ? 'bg-blue-50 dark:bg-blue-900/30' : ''}`}>
+                <Icon size={20} strokeWidth={active ? 2.5 : 2} />
+              </div>
+              <span className={`text-[10px] font-medium leading-none ${active ? 'font-semibold' : ''}`}>{t(item.labelKey)}</span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 };

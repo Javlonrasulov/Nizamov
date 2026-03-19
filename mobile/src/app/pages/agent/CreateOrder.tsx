@@ -46,11 +46,14 @@ export const CreateOrder = () => {
   }, [step, refetchData]);
   const [selectedDay, setSelectedDay] = useState<WeekDay | 'all'>(getTodayWeekDay());
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [clientSearch, setClientSearch] = useState('');
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
   const [productSearch, setProductSearch] = useState('');
   const [success, setSuccess] = useState(false);
   const [dayDropdownOpen, setDayDropdownOpen] = useState(false);
   const [stockWarn, setStockWarn] = useState<Record<string, boolean>>({});
+  const [expandClients, setExpandClients] = useState(false);
+  const INITIAL_CLIENTS_VISIBLE = 3;
 
   const myClients = clients.filter(c => c.agentId === currentUser?.id);
   const dayFilteredClients = selectedDay === 'all'
@@ -60,6 +63,17 @@ export const CreateOrder = () => {
         if (!days || days.length === 0) return true; // visitDays bo‘sh bo‘lsa — barcha kunlar
         return days.includes(selectedDay);
       });
+  const clientFiltered = dayFilteredClients.filter(c => {
+    const q = clientSearch.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      c.name.toLowerCase().includes(q) ||
+      c.phone.replace(/\s/g, '').includes(q.replace(/\s/g, '')) ||
+      c.address.toLowerCase().includes(q)
+    );
+  });
+  const visibleClients = expandClients ? clientFiltered : clientFiltered.slice(0, INITIAL_CLIENTS_VISIBLE);
+  const hasMoreClients = clientFiltered.length > INITIAL_CLIENTS_VISIBLE;
 
   const filteredProducts = products.filter(p =>
     p.name.toLowerCase().includes(productSearch.toLowerCase())
@@ -217,11 +231,23 @@ export const CreateOrder = () => {
               <div>
                 <h3 className="font-semibold text-gray-800 dark:text-gray-100 mb-2 text-sm">
                   {t('orders.selectClient')}
-                  <span className="ml-2 text-xs text-gray-400 font-normal">({dayFilteredClients.length} {t('orders.clientsCount')})</span>
+                  <span className="ml-2 text-xs text-gray-400 font-normal">({clientFiltered.length} {t('orders.clientsCount')})</span>
                 </h3>
+                {/* Client search */}
+                <div className="relative mb-2">
+                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    value={clientSearch}
+                    onChange={e => setClientSearch(e.target.value)}
+                    placeholder={t('clients.search')}
+                    className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-50 dark:placeholder:text-gray-500"
+                  />
+                </div>
                 <div className="space-y-2">
-                  {dayFilteredClients.length > 0 ? (
-                    dayFilteredClients.map(client => (
+                  {clientFiltered.length > 0 ? (
+                    <>
+                    {visibleClients.map(client => (
                       <button
                         key={client.id}
                         onClick={() => setSelectedClient(client)}
@@ -243,11 +269,26 @@ export const CreateOrder = () => {
                           <Check size={16} className="text-[#2563EB] flex-shrink-0" />
                         )}
                       </button>
-                    ))
+                    ))}
+                    {hasMoreClients && (
+                      <button
+                        type="button"
+                        onClick={() => setExpandClients(true)}
+                        className="w-full py-3 rounded-xl border-2 border-dashed border-[#2563EB]/40 text-[#2563EB] dark:text-blue-400 text-sm font-medium flex items-center justify-center gap-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                      >
+                        <ChevronDown size={16} />
+                        {t('common.showAllWithCount').replace('N', String(clientFiltered.length))}
+                      </button>
+                    )}
+                    </>
                   ) : (
                     <div className="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-xl">
-                      <p className="text-gray-500 dark:text-gray-400 text-sm">{t('orders.noClientsForDay')}</p>
-                      <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">{t('orders.pickAnotherDay')}</p>
+                      <p className="text-gray-500 dark:text-gray-400 text-sm">
+                        {clientSearch.trim() ? t('clients.empty') : t('orders.noClientsForDay')}
+                      </p>
+                      <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">
+                        {clientSearch.trim() ? t('clients.search') : t('orders.pickAnotherDay')}
+                      </p>
                     </div>
                   )}
                 </div>

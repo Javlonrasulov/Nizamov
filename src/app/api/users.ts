@@ -7,7 +7,7 @@ export async function apiGetUsers(role?: string): Promise<Omit<User, 'password'>
   return rows.map(({ password, ...u }) => u);
 }
 
-export async function apiCreateUser(data: { name: string; phone: string; password: string; role: 'agent' | 'delivery'; vehicleName?: string }): Promise<Omit<User, 'password'>> {
+export async function apiCreateUser(data: { name: string; phone: string; password: string; role: 'agent' | 'delivery' | 'sklad'; vehicleName?: string }): Promise<Omit<User, 'password'>> {
   return apiPost<Omit<User, 'password'>>('/users', data);
 }
 

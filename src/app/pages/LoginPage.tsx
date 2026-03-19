@@ -23,6 +23,7 @@ export const LoginPage = () => {
       if (user) {
         if (user.role === 'agent') navigate('/agent');
         else if (user.role === 'delivery') navigate('/delivery');
+        else if (user.role === 'sklad') navigate('/admin/orders');
         else navigate('/admin');
       } else {
         setError('Telefon raqam yoki parol noto\'g\'ri');

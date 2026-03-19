@@ -7,17 +7,32 @@ import { useFilteredOrders } from '../../components/AdminDateFilter';
 import { apiGetUsers, apiCreateUser, apiUpdateUser, apiDeleteUser } from '../../api/users';
 import type { User } from '../../data/mockData';
 
-const ROLES: { value: 'agent' | 'delivery'; label: string }[] = [
-  { value: 'agent', label: 'Agent' },
-  { value: 'delivery', label: 'Dostavkachi' },
+const ROLES: { value: 'agent' | 'delivery' | 'sklad'; labelKey: 'login.role.agent' | 'login.role.delivery' | 'login.role.sklad' }[] = [
+  { value: 'agent', labelKey: 'login.role.agent' },
+  { value: 'delivery', labelKey: 'login.role.delivery' },
+  { value: 'sklad', labelKey: 'login.role.sklad' },
 ];
 
-const DEFAULT_VEHICLES = ['01 A 123 AB', '02 B 456 CD', 'Gazel', 'Labo', 'Isuzu', 'Boshqa'];
+const DEFAULT_VEHICLES: string[] = [];
+const OLD_DEMO_VEHICLES = ['01 A 123 AB', '02 B 456 CD', 'Gazel', 'Labo', 'Isuzu', 'Boshqa'];
 
 const loadVehicles = (): string[] => {
   try {
     const s = localStorage.getItem('crm_vehicles');
-    if (s) return JSON.parse(s);
+    if (s) {
+      const parsed = JSON.parse(s) as unknown;
+      const list = Array.isArray(parsed) ? parsed.filter(v => typeof v === 'string') : [];
+
+      const isOldDemo =
+        list.length === OLD_DEMO_VEHICLES.length
+        && list.every((v, i) => v === OLD_DEMO_VEHICLES[i]);
+      if (isOldDemo) {
+        localStorage.removeItem('crm_vehicles');
+        return [];
+      }
+
+      return list;
+    }
   } catch {}
   return DEFAULT_VEHICLES;
 };
@@ -27,7 +42,7 @@ export const AdminAgents = () => {
   const filteredOrders = useFilteredOrders();
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [form, setForm] = useState({ name: '', phone: '', password: '', role: 'agent' as 'agent' | 'delivery', vehicleName: '', vehicleOther: '' });
+  const [form, setForm] = useState({ name: '', phone: '', password: '', role: 'agent' as 'agent' | 'delivery' | 'sklad', vehicleName: '', vehicleOther: '' });
   const [staffList, setStaffList] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [vehiclesList, setVehiclesList] = useState<string[]>(loadVehicles);
@@ -41,9 +56,9 @@ export const AdminAgents = () => {
   const loadStaff = async () => {
     try {
       const all = await apiGetUsers();
-      setStaffList(all.filter(u => u.role === 'agent' || u.role === 'delivery'));
+      setStaffList(all.filter(u => u.role === 'agent' || u.role === 'delivery' || u.role === 'sklad'));
     } catch {
-      setStaffList(users.filter(u => u.role === 'agent' || u.role === 'delivery'));
+      setStaffList(users.filter(u => u.role === 'agent' || u.role === 'delivery' || u.role === 'sklad'));
     } finally {
       setLoading(false);
     }
@@ -65,7 +80,7 @@ export const AdminAgents = () => {
       name: u.name,
       phone: u.phone,
       password: '',
-      role: u.role as 'agent' | 'delivery',
+      role: u.role as 'agent' | 'delivery' | 'sklad',
       vehicleName: u.vehicleName && (vehiclesList.includes(u.vehicleName) || DEFAULT_VEHICLES.includes(u.vehicleName)) ? u.vehicleName : (u.vehicleName ? 'Boshqa' : ''),
       vehicleOther: u.vehicleName && !vehiclesList.includes(u.vehicleName) && !DEFAULT_VEHICLES.includes(u.vehicleName) ? u.vehicleName : '',
     });
@@ -105,6 +120,7 @@ export const AdminAgents = () => {
         const payload: Parameters<typeof apiUpdateUser>[1] = { name: form.name.trim(), phone: form.phone.trim(), role: form.role };
         if (form.password) payload.password = form.password;
         if (form.role === 'delivery') payload.vehicleName = vehicleName ?? '';
+        if (form.role !== 'delivery') payload.vehicleName = '';
         await apiUpdateUser(editingUser.id, payload);
         await loadStaff();
         setShowForm(false);
@@ -227,7 +243,7 @@ export const AdminAgents = () => {
                       onChange={() => setForm(p => ({ ...p, role: r.value }))}
                       className="rounded border-gray-300 text-[#2563EB] focus:ring-[#2563EB]"
                     />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">{r.label}</span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">{t(r.labelKey as any)}</span>
                   </label>
                 ))}
               </div>
@@ -367,7 +383,7 @@ export const AdminAgents = () => {
                           <span className="text-white/80 text-xs">{user.phone}</span>
                         </div>
                         <span className="inline-block mt-1 px-2 py-0.5 rounded-md bg-white/20 text-xs">
-                          {user.role === 'agent' ? t('orders.agent') : t('orders.delivery')}
+                          {t(`login.role.${user.role}` as any)}
                         </span>
                         {user.vehicleName && (
                           <div className="flex items-center gap-1 mt-1 text-white/90 text-xs">

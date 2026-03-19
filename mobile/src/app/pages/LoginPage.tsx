@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Phone, Lock, ChevronDown, Globe } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -6,7 +6,7 @@ import { Language, languageLabels } from '../i18n/translations';
 import { apiGet } from '../api/client';
 
 export const LoginPage = () => {
-  const { t, lang, setLang, login } = useApp();
+  const { t, lang, setLang, login, currentUser, logout } = useApp();
   const navigate = useNavigate();
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -14,17 +14,71 @@ export const LoginPage = () => {
   const [langOpen, setLangOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [serverOk, setServerOk] = useState<boolean | null>(null);
+  const [serverDebug, setServerDebug] = useState<string>('');
 
   const langs: Language[] = ['uz_lat', 'uz_kir', 'ru'];
+
+  const debugUrls = useMemo(() => ([
+    'http://89.39.94.20/api/health',
+    'http://api.sainur.uz/health',
+  ]), []);
 
   useEffect(() => {
     let cancelled = false;
     setServerOk(null);
-    apiGet<{ ok: boolean }>('/health')
-      .then(() => { if (!cancelled) setServerOk(true); })
-      .catch(() => { if (!cancelled) setServerOk(false); });
+    setServerDebug('');
+
+    const run = async () => {
+      const lines: string[] = [];
+
+      const testOne = async (url: string) => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 2500);
+        try {
+          const res = await fetch(url, { method: 'GET', signal: controller.signal });
+          lines.push(`${url} -> ${res.status}`);
+          return res.ok;
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          lines.push(`${url} -> xato: ${msg}`);
+          return false;
+        } finally {
+          clearTimeout(timeout);
+        }
+      };
+
+      // First: use app client (real path used by login)
+      try {
+        await apiGet<{ ok: boolean }>('/health');
+        if (!cancelled) setServerOk(true);
+        return;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        lines.push(`/health (app ichida) -> xato: ${msg}`);
+      }
+
+      // Then: raw URL tests to understand what's blocked
+      const ok1 = await testOne(debugUrls[0]);
+      const ok2 = await testOne(debugUrls[1]);
+      if (!cancelled) {
+        setServerOk(ok1 || ok2);
+        setServerDebug(lines.join('\n'));
+      }
+    };
+
+    run();
     return () => { cancelled = true; };
-  }, []);
+  }, [debugUrls]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    if (currentUser.role === 'agent') navigate('/agent', { replace: true });
+    else if (currentUser.role === 'delivery') navigate('/delivery', { replace: true });
+    else {
+      setError(t('login.roleNotSupportedMobile'));
+      logout();
+    }
+  }, [currentUser?.id, currentUser?.role, navigate]);
 
   const handleLogin = async () => {
     setError('');
@@ -33,7 +87,11 @@ export const LoginPage = () => {
       const user = await login(phone, password);
       if (user) {
         if (user.role === 'agent') navigate('/agent');
-        else navigate('/delivery');
+        else if (user.role === 'delivery') navigate('/delivery');
+        else {
+          setError(t('login.roleNotSupportedMobile'));
+          logout();
+        }
       } else {
         setError('Telefon raqam yoki parol noto\'g\'ri');
       }
@@ -100,6 +158,11 @@ export const LoginPage = () => {
             ) : (
               <div className="px-3 py-2.5 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 text-red-700 dark:text-red-300 text-sm font-medium">
                 {t('common.serverDisconnected')}
+                {serverDebug && (
+                  <pre className="mt-2 whitespace-pre-wrap text-xs font-normal opacity-90">
+                    {serverDebug}
+                  </pre>
+                )}
               </div>
             )}
           </div>

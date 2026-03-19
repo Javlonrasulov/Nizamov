@@ -1,13 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Search, MapPin, Phone, CalendarDays, Plus, LayoutGrid, List,
   Edit2, Trash2, X, Check, User, Users, Package, ShoppingBag,
-  TrendingUp, Clock, ChevronDown, ChevronUp,
+  TrendingUp, Clock, ChevronDown, ChevronUp, Square, CheckSquare2, AlertTriangle,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { AdminLayout } from '../../components/AdminLayout';
 import { useFilteredOrders, useAdminVisibleOrders } from '../../components/AdminDateFilter';
 import { apiGetUsers } from '../../api/users';
+import { apiCreatePayment, apiGetClientBalance, PaymentMethod, ClientBalance } from '../../api/payments';
 import { Client, WeekDay, users, Order } from '../../data/mockData';
 
 const WEEK_DAYS: { key: WeekDay; label: string; short: string }[] = [
@@ -36,6 +37,37 @@ const getInitials = (name: string) =>
   name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 
 const avatarColor = (idx: number) => AVATAR_COLORS[idx % AVATAR_COLORS.length];
+
+function toYMD(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function ymdToParts(ymd: string) {
+  const [y, m, d] = ymd.split('-').map(x => parseInt(x, 10));
+  return { y, m: m - 1, d };
+}
+
+function monthLabel(lang: string, year: number, monthIndex: number) {
+  const locale = lang === 'ru' ? 'ru-RU' : (lang === 'uz_kir' ? 'uz-Cyrl-UZ' : 'uz-Latn-UZ');
+  const raw = new Date(year, monthIndex, 1).toLocaleString(locale, { month: 'long', year: 'numeric' });
+  return raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : '';
+}
+
+function buildMonthGrid(year: number, monthIndex: number) {
+  const firstDay = new Date(year, monthIndex, 1);
+  const startDow = (firstDay.getDay() + 6) % 7; // Mon=0
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  const cells: Array<number | null> = [];
+  for (let i = 0; i < startDow; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+  return cells;
+}
+
+function formatYmdDisplay(ymd: string) {
+  const { y, m, d } = ymdToParts(ymd);
+  return `${String(d).padStart(2, '0')}.${String(m + 1).padStart(2, '0')}.${y}`;
+}
 
 /* ─── Client Form Modal ─── */
 interface FormState {
@@ -331,9 +363,24 @@ function ClientHistoryPanel({ client, orders, onClose, onEdit, getAgentName }: H
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(
     orders.length > 0 ? orders[0].id : null
   );
+  const [balance, setBalance] = useState<ClientBalance | null>(null);
+  const [balanceLoading, setBalanceLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setBalanceLoading(true);
+    apiGetClientBalance(client.id)
+      .then(b => { if (!cancelled) setBalance(b); })
+      .catch(() => { if (!cancelled) setBalance(null); })
+      .finally(() => { if (!cancelled) setBalanceLoading(false); });
+    return () => { cancelled = true; };
+  }, [client.id]);
 
   const totalSpent    = orders.filter(o => o.status !== 'cancelled').reduce((s, o) => s + o.total, 0);
   const avgOrder      = orders.length > 0 ? Math.round(totalSpent / orders.length) : 0;
+  const debt = balance?.debt ?? 0;
+  const orderDebtById = new Map((balance?.perOrder ?? []).map(r => [r.orderId, r.debt]));
+  const orderPaidById = new Map((balance?.perOrder ?? []).map(r => [r.orderId, r.paid]));
 
   const av = AVATAR_COLORS[0];
 
@@ -412,6 +459,38 @@ function ClientHistoryPanel({ client, orders, onClose, onEdit, getAgentName }: H
           ))}
         </div>
 
+        {/* Debt + payments summary */}
+        <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('payments.clientDebt')}</p>
+            <p className={`text-sm font-bold ${debt > 0 ? 'text-red-600 dark:text-red-300' : 'text-green-600 dark:text-green-300'}`}>
+              {balanceLoading ? '...' : `${debt.toLocaleString(lang === 'ru' ? 'ru-RU' : 'uz-UZ')} ${t('common.sum')}`}
+            </p>
+          </div>
+          {balance?.payments?.length ? (
+            <div className="mt-3">
+              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">{t('payments.history')}</p>
+              <div className="space-y-2">
+                {balance.payments.slice(0, 6).map(p => (
+                  <div key={p.id} className="flex items-center justify-between text-xs bg-gray-50 dark:bg-gray-800 rounded-xl px-3 py-2 border border-gray-100 dark:border-gray-700">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-gray-700 dark:text-gray-200 truncate">
+                        {p.date} · {t(`payments.method.${p.method}` as any)}
+                      </p>
+                      <p className="text-[11px] text-gray-400 dark:text-gray-500 truncate">
+                        {p.collectedBy?.name ? `${t('payments.collectedBy')}: ${p.collectedBy.name}` : null}
+                      </p>
+                    </div>
+                    <span className="font-bold text-green-700 dark:text-green-300 whitespace-nowrap">
+                      {p.amount.toLocaleString(lang === 'ru' ? 'ru-RU' : 'uz-UZ')} {t('common.sum')}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+
         {/* Orders List */}
         <div className="flex-1 overflow-y-auto">
           {orders.length === 0 ? (
@@ -423,6 +502,8 @@ function ClientHistoryPanel({ client, orders, onClose, onEdit, getAgentName }: H
             <div className="p-4 space-y-3">
               {orders.map(order => {
                 const isOpen = expandedOrderId === order.id;
+                const oDebt = orderDebtById.get(order.id) ?? 0;
+                const oPaid = orderPaidById.get(order.id) ?? 0;
                 return (
                   <div
                     key={order.id}
@@ -448,10 +529,31 @@ function ClientHistoryPanel({ client, orders, onClose, onEdit, getAgentName }: H
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${STATUS_STYLES[order.status] || ''}`}>
                             {t(statusKey(order.status) as any)}
                           </span>
+                          {order.status === 'delivered' && (
+                            oDebt > 0 ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-300 border border-red-100 dark:border-red-800">
+                                {t('payments.badge.debt')} · {oDebt.toLocaleString(lang === 'ru' ? 'ru-RU' : 'uz-UZ')}
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-100 dark:border-green-800">
+                                {t('payments.badge.paid')}
+                              </span>
+                            )
+                          )}
                         </div>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                           {order.items.length} {t('admin.clients.productsCount')} · {order.total.toLocaleString(lang === 'ru' ? 'ru-RU' : 'uz-UZ')} {t('common.sum')}
                         </p>
+                        {order.status === 'delivered' && balance && (
+                          <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
+                            {t('payments.paid')}: {oPaid.toLocaleString(lang === 'ru' ? 'ru-RU' : 'uz-UZ')} {t('common.sum')}
+                          </p>
+                        )}
+                        {order.status === 'delivered' && oDebt > 0 && (order.deliveryName || order.deliveryId) && (
+                          <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
+                            {t('orders.delivery')}: {order.deliveryName || order.deliveryId}
+                          </p>
+                        )}
                       </div>
                       {isOpen
                         ? <ChevronUp size={14} className="text-gray-400 flex-shrink-0" />
@@ -523,7 +625,7 @@ function ClientHistoryPanel({ client, orders, onClose, onEdit, getAgentName }: H
 
 /* ─── Main Page ─── */
 export const AdminClients = () => {
-  const { t, clients, addClient, updateClient, deleteClient, adminDateFrom, adminDateTo, orders: allOrders } = useApp();
+  const { t, lang, clients, addClient, updateClient, deleteClient, adminDateFrom, adminDateTo, orders: allOrders, currentUser } = useApp();
   const filteredOrders = useAdminVisibleOrders();
 
   const [agentUsers, setAgentUsers] = useState<{ id: string; name: string }[]>(agentUsersMock.map(u => ({ id: u.id, name: u.name })));
@@ -539,13 +641,32 @@ export const AdminClients = () => {
   const [deleteTarget, setDeleteTarget] = useState<Client | null>(null);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [debtOnly, setDebtOnly] = useState(false);
+  const [balances, setBalances] = useState<Record<string, ClientBalance>>({});
+  const [balancesLoading, setBalancesLoading] = useState<Record<string, boolean>>({});
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkDate, setBulkDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [bulkMethod, setBulkMethod] = useState<PaymentMethod>('cash');
+  const [bulkAmounts, setBulkAmounts] = useState<Record<string, string>>({});
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkMethodOpen, setBulkMethodOpen] = useState(false);
+  const bulkMethodRef = useRef<HTMLDivElement>(null);
+  const [bulkDateOpen, setBulkDateOpen] = useState(false);
+  const bulkDateRef = useRef<HTMLDivElement>(null);
+  const bulkDateBtnRef = useRef<HTMLButtonElement>(null);
+  const [bulkDatePos, setBulkDatePos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const todayYmd = toYMD(new Date());
+  const initialView = ymdToParts(bulkDate || todayYmd);
+  const [bulkViewYear, setBulkViewYear] = useState(initialView.y);
+  const [bulkViewMonth, setBulkViewMonth] = useState(initialView.m);
 
   const hasFilter = adminDateFrom || adminDateTo;
   const activeClientIds = hasFilter
     ? new Set(filteredOrders.map(o => o.clientId))
     : null;
 
-  const filtered = clients.filter(c => {
+  const filteredBase = clients.filter(c => {
     const q = search.toLowerCase();
     const matchSearch =
       c.name.toLowerCase().includes(q) ||
@@ -555,6 +676,37 @@ export const AdminClients = () => {
     const matchAgent = agentFilter === 'all' || c.agentId === agentFilter;
     return matchSearch && matchDate && matchAgent;
   });
+
+  // Load balances when needed (debt filter, selection, or history panel)
+  useEffect(() => {
+    const ids = new Set<string>();
+    if (debtOnly) filteredBase.forEach(c => ids.add(c.id));
+    if (selectedClient) ids.add(selectedClient.id);
+    selectedIds.forEach(id => ids.add(id));
+    const list = Array.from(ids).filter(id => !balances[id] && !balancesLoading[id]);
+    if (list.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      for (const id of list) {
+        if (cancelled) return;
+        setBalancesLoading(prev => ({ ...prev, [id]: true }));
+        try {
+          const bal = await apiGetClientBalance(id);
+          if (!cancelled) setBalances(prev => ({ ...prev, [id]: bal }));
+        } catch {
+          // ignore
+        } finally {
+          if (!cancelled) setBalancesLoading(prev => ({ ...prev, [id]: false }));
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [debtOnly, filteredBase, selectedClient?.id, selectedIds]);
+
+  const filtered = debtOnly
+    ? filteredBase.filter(c => (balances[c.id]?.debt ?? 0) > 0 || balancesLoading[c.id])
+    : filteredBase;
 
   const clientOrderCounts: Record<string, number> = {};
   filteredOrders.forEach(o => {
@@ -585,6 +737,80 @@ export const AdminClients = () => {
 
   const handleDelete = () => {
     if (deleteTarget) { deleteClient(deleteTarget.id); setDeleteTarget(null); }
+  };
+
+  useEffect(() => {
+    if (!bulkOpen) return;
+    const next: Record<string, string> = {};
+    selectedIds.forEach(id => {
+      const debt = balances[id]?.debt ?? 0;
+      next[id] = debt > 0 ? String(debt) : (bulkAmounts[id] ?? '');
+    });
+    setBulkAmounts(next);
+  }, [bulkOpen]);
+
+  useEffect(() => {
+    if (!bulkMethodOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (bulkMethodRef.current && !bulkMethodRef.current.contains(e.target as Node)) {
+        setBulkMethodOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [bulkMethodOpen]);
+
+  useEffect(() => {
+    if (!bulkDateOpen) return;
+    const updatePos = () => {
+      const btn = bulkDateBtnRef.current;
+      if (!btn) return;
+      const r = btn.getBoundingClientRect();
+      setBulkDatePos({
+        top: Math.round(r.bottom + 6),
+        left: Math.round(r.left),
+        width: Math.round(r.width),
+      });
+    };
+    updatePos();
+    window.addEventListener('resize', updatePos);
+    const handler = (e: MouseEvent) => {
+      if (bulkDateRef.current && !bulkDateRef.current.contains(e.target as Node)) {
+        setBulkDateOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => {
+      window.removeEventListener('resize', updatePos);
+      document.removeEventListener('mousedown', handler);
+    };
+  }, [bulkDateOpen]);
+
+  const handleBulkSubmit = async () => {
+    if (!currentUser?.id) return;
+    const hasAny = Array.from(selectedIds).some(id => {
+      const amt = parseInt((bulkAmounts[id] || '').replace(/[^\d]/g, ''), 10);
+      return !!amt && amt > 0;
+    });
+    if (!hasAny) return;
+    setBulkSaving(true);
+    try {
+      for (const id of selectedIds) {
+        const amt = parseInt((bulkAmounts[id] || '').replace(/[^\d]/g, ''), 10);
+        if (!amt || amt <= 0) continue;
+        await apiCreatePayment({
+          clientId: id,
+          amount: amt,
+          method: bulkMethod,
+          date: bulkDate,
+          collectedByUserId: currentUser.id,
+        });
+      }
+      setBulkOpen(false);
+      setSelectedIds(new Set());
+    } finally {
+      setBulkSaving(false);
+    }
   };
 
   /* ─── Visit Day Chips ─── */
@@ -638,6 +864,14 @@ export const AdminClients = () => {
               </button>
             </div>
             {/* Add button */}
+            {selectedIds.size > 0 && (
+              <button
+                onClick={() => setBulkOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-medium transition-colors shadow-sm"
+              >
+                {t('payments.in.title')} ({selectedIds.size})
+              </button>
+            )}
             <button
               onClick={openAdd}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium transition-colors shadow-sm"
@@ -660,6 +894,18 @@ export const AdminClients = () => {
               className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all dark:placeholder:text-gray-500"
             />
           </div>
+          <button
+            type="button"
+            onClick={() => { setDebtOnly(v => !v); setSelectedIds(new Set()); }}
+            className={`px-3 py-2.5 rounded-xl border text-xs font-medium transition-colors ${
+              debtOnly
+                ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800'
+                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+            }`}
+            title={t('admin.clients.debtorsOnly')}
+          >
+            {t('admin.clients.debtorsOnly')}
+          </button>
           <div className="relative">
             <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <select
@@ -701,13 +947,47 @@ export const AdminClients = () => {
                         {getInitials(client.name)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-900 dark:text-white truncate">{client.name}</p>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <p className="font-semibold text-gray-900 dark:text-white truncate">{client.name}</p>
+                          {(balances[client.id]?.debt ?? 0) > 0 && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300 flex-shrink-0">
+                              <AlertTriangle size={12} />
+                              {`${t('payments.badge.debt')}: ${(balances[client.id]?.debt ?? 0).toLocaleString(lang === 'ru' ? 'ru-RU' : 'uz-UZ')} ${t('common.sum')}`}
+                            </span>
+                          )}
+                        </div>
                         <div className="flex items-center gap-1.5 mt-0.5">
                           <User size={11} className="text-gray-400" />
                           <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{getAgentName(client.agentId)}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
+                        <label
+                          className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                          onClick={e => e.stopPropagation()}
+                          title={t('common.select')}
+                        >
+                          <button
+                            type="button"
+                            className="w-7 h-7 flex items-center justify-center"
+                            onClick={() => {
+                              setSelectedIds(prev => {
+                                const next = new Set(prev);
+                                if (next.has(client.id)) next.delete(client.id);
+                                else next.add(client.id);
+                                return next;
+                              });
+                            }}
+                            aria-pressed={selectedIds.has(client.id)}
+                            aria-label={t('common.select')}
+                          >
+                            {selectedIds.has(client.id) ? (
+                              <CheckSquare2 size={18} className="text-blue-600 dark:text-blue-400" />
+                            ) : (
+                              <Square size={18} className="text-gray-300 dark:text-gray-600" />
+                            )}
+                          </button>
+                        </label>
                         <button
                           onClick={e => { e.stopPropagation(); openEdit(client); }}
                           className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 text-gray-400 hover:text-blue-600 transition-colors"
@@ -768,6 +1048,7 @@ export const AdminClients = () => {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-700/30">
+                    <th className="px-4 py-3" />
                     <th className="text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-5 py-3">{t('clients.form.name')}</th>
                     <th className="text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-5 py-3">{t('clients.form.phone')}</th>
                     <th className="text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-5 py-3">{t('clients.form.address')}</th>
@@ -787,6 +1068,28 @@ export const AdminClients = () => {
                         onClick={() => setSelectedClient(client)}
                         className="cursor-pointer border-b border-gray-50 dark:border-gray-700 last:border-0 hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors"
                       >
+                        <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            className="w-7 h-7 inline-flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                            onClick={() => {
+                              setSelectedIds(prev => {
+                                const next = new Set(prev);
+                                if (next.has(client.id)) next.delete(client.id);
+                                else next.add(client.id);
+                                return next;
+                              });
+                            }}
+                            aria-pressed={selectedIds.has(client.id)}
+                            aria-label={t('common.select')}
+                          >
+                            {selectedIds.has(client.id) ? (
+                              <CheckSquare2 size={18} className="text-blue-600 dark:text-blue-400" />
+                            ) : (
+                              <Square size={18} className="text-gray-300 dark:text-gray-600" />
+                            )}
+                          </button>
+                        </td>
                         {/* Name + initials */}
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-3">
@@ -794,7 +1097,15 @@ export const AdminClients = () => {
                               {getInitials(client.name)}
                             </div>
                             <div>
-                              <p className="text-sm font-medium text-gray-900 dark:text-white">{client.name}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-medium text-gray-900 dark:text-white">{client.name}</p>
+                                {(balances[client.id]?.debt ?? 0) > 0 && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                                    <AlertTriangle size={12} />
+                                    {`${t('payments.badge.debt')}: ${(balances[client.id]?.debt ?? 0).toLocaleString(lang === 'ru' ? 'ru-RU' : 'uz-UZ')} ${t('common.sum')}`}
+                                  </span>
+                                )}
+                              </div>
                               {hasFilter && orderCount > 0 && (
                                 <span className="text-[10px] text-blue-600 dark:text-blue-400">{orderCount} {t('common.orders')}</span>
                               )}
@@ -879,6 +1190,205 @@ export const AdminClients = () => {
           onConfirm={handleDelete}
           onCancel={() => setDeleteTarget(null)}
         />
+      )}
+
+      {/* ─── Bulk Payment Modal ─── */}
+      {bulkOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          onClick={e => { if (e.target === e.currentTarget) setBulkOpen(false); }}
+        >
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !bulkSaving && setBulkOpen(false)} />
+          <div className="relative w-full max-w-xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl z-10 flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+              <h2 className="font-semibold text-gray-900 dark:text-white">
+                {t('payments.in.title')} ({selectedIds.size})
+              </h2>
+              <button
+                onClick={() => !bulkSaving && setBulkOpen(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">{t('common.date')}</label>
+                  <div className="relative" ref={bulkDateRef}>
+                    <button
+                      ref={bulkDateBtnRef}
+                      type="button"
+                      onClick={() => setBulkDateOpen(v => !v)}
+                      className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <span className="font-medium">{formatYmdDisplay(bulkDate)}</span>
+                      <CalendarDays size={16} className="text-gray-400" />
+                    </button>
+
+                    {bulkDateOpen && (
+                      <div
+                        className="fixed z-[9999] w-[320px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl p-4"
+                        style={{
+                          top: bulkDatePos?.top ?? 0,
+                          left: bulkDatePos?.left ?? 0,
+                        }}
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (bulkViewMonth === 0) { setBulkViewYear(y => y - 1); setBulkViewMonth(11); }
+                              else setBulkViewMonth(m => m - 1);
+                            }}
+                            className="w-9 h-9 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-center text-gray-500"
+                          >
+                            <ChevronUp size={16} className="-rotate-90" />
+                          </button>
+                          <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                            {monthLabel(lang, bulkViewYear, bulkViewMonth)}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (bulkViewMonth === 11) { setBulkViewYear(y => y + 1); setBulkViewMonth(0); }
+                              else setBulkViewMonth(m => m + 1);
+                            }}
+                            className="w-9 h-9 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-center text-gray-500"
+                          >
+                            <ChevronUp size={16} className="rotate-90" />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-7 mb-1">
+                          {['Du','Se','Ch','Pa','Ju','Sh','Ya'].map((d, i) => (
+                            <div key={i} className="text-center text-[11px] font-semibold text-gray-400 dark:text-gray-500 py-1">
+                              {d}
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="grid grid-cols-7 gap-1">
+                          {buildMonthGrid(bulkViewYear, bulkViewMonth).map((day, idx) => {
+                            if (!day) return <div key={`e-${idx}`} />;
+                            const ymd = `${bulkViewYear}-${String(bulkViewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                            const isSelected = ymd === bulkDate;
+                            const isToday = ymd === todayYmd;
+                            return (
+                              <button
+                                key={ymd}
+                                type="button"
+                                onClick={() => { setBulkDate(ymd); setBulkDateOpen(false); }}
+                                className={`h-9 rounded-xl text-sm font-medium transition-colors ${
+                                  isSelected
+                                    ? 'bg-[#2563EB] text-white shadow-sm'
+                                    : isToday
+                                    ? 'border border-[#2563EB]/40 text-[#2563EB] dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                                    : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
+                                }`}
+                              >
+                                {day}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+                          <button
+                            type="button"
+                            onClick={() => { setBulkDate(todayYmd); setBulkDateOpen(false); }}
+                            className="text-sm text-[#2563EB] dark:text-blue-300 font-medium hover:underline"
+                          >
+                            {t('orders.today')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setBulkDateOpen(false)}
+                            className="text-sm text-gray-500 dark:text-gray-400 font-medium hover:underline"
+                          >
+                            {t('common.cancel')}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">{t('payments.method')}</label>
+                  <div className="relative" ref={bulkMethodRef}>
+                    <button
+                      type="button"
+                      onClick={() => setBulkMethodOpen(v => !v)}
+                      className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <span className="font-medium">{t(`payments.method.${bulkMethod}` as any)}</span>
+                      <ChevronDown size={16} className={`text-gray-400 transition-transform ${bulkMethodOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    {bulkMethodOpen && (
+                      <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl">
+                        {(['cash', 'terminal', 'transfer'] as PaymentMethod[]).map(m => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => { setBulkMethod(m); setBulkMethodOpen(false); }}
+                            className={`w-full px-3.5 py-2.5 text-left text-sm transition-colors ${
+                              bulkMethod === m
+                                ? 'bg-blue-50 dark:bg-blue-900/30 text-[#2563EB] dark:text-blue-300 font-semibold'
+                                : 'text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
+                            }`}
+                          >
+                            {t(`payments.method.${m}` as any)}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                {Array.from(selectedIds).map(id => {
+                  const c = clients.find(x => x.id === id);
+                  const debt = balances[id]?.debt ?? 0;
+                  return (
+                    <div key={id} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{c?.name || id}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {t('payments.clientDebt')}: {debt.toLocaleString()} {t('common.sum')}
+                        </p>
+                      </div>
+                      <input
+                        inputMode="numeric"
+                        value={(bulkAmounts[id] ? parseInt(bulkAmounts[id], 10).toLocaleString('ru-RU') : '')}
+                        onChange={e => setBulkAmounts(prev => ({ ...prev, [id]: e.target.value.replace(/[^\d]/g, '') }))}
+                        placeholder={t('payments.amount.placeholder')}
+                        className="w-[140px] px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex gap-2">
+              <button
+                onClick={() => !bulkSaving && setBulkOpen(false)}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={handleBulkSubmit}
+                disabled={bulkSaving || !Array.from(selectedIds).some(id => (parseInt((bulkAmounts[id] || '').replace(/[^\d]/g, ''), 10) || 0) > 0)}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-green-600 text-white text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+              >
+                {bulkSaving ? '...' : t('common.save')}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </AdminLayout>
   );

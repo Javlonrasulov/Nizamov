@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { ShoppingBag, TrendingUp, Plus, UserPlus, ArrowRight, RefreshCw, Check } from 'lucide-react';
+import { ShoppingBag, TrendingUp, Plus, UserPlus, ArrowRight, RefreshCw, Check, ChevronDown } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { MobileShell, MobileHeader, MobileContent } from '../../components/MobileShell';
 import { MobileNav } from '../../components/MobileNav';
@@ -38,7 +38,10 @@ export const AgentDashboard = () => {
   const myOrders = orders.filter(o => o.agentId === currentUser?.id);
   const todayOrders = myOrders.filter(o => o.date === today);
   const todaySales = todayOrders.reduce((sum, o) => sum + o.total, 0);
-  const recentOrders = myOrders.slice(0, 3);
+  const [expandOrders, setExpandOrders] = useState(false);
+  const INITIAL_VISIBLE = 3;
+  const recentOrdersVisible = expandOrders ? myOrders : myOrders.slice(0, INITIAL_VISIBLE);
+  const hasMoreOrders = myOrders.length > INITIAL_VISIBLE;
 
   const formatCurrency = (amount: number) => amount.toLocaleString('ru-RU') + ` ${t('common.sum')}`;
   const formatOrderId = (o: { id: string; orderNumber?: number }) =>
@@ -87,13 +90,16 @@ export const AgentDashboard = () => {
               <p className="text-2xl font-bold text-gray-900 dark:text-white">{todayOrders.length}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t('agent.dashboard.todayOrders')}</p>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
+            <button
+              onClick={() => navigate('/agent/sales')}
+              className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col items-start text-left hover:bg-gray-50 dark:hover:bg-gray-700 active:scale-[0.98] transition-all w-full"
+            >
               <div className="w-9 h-9 rounded-xl bg-green-50 dark:bg-green-900/30 flex items-center justify-center mb-3">
                 <TrendingUp size={18} className="text-green-600 dark:text-green-400" />
               </div>
               <p className="text-sm font-bold text-gray-900 dark:text-white leading-tight">{formatCurrency(todaySales)}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t('agent.dashboard.todaySales')}</p>
-            </div>
+            </button>
           </div>
 
           {/* Quick Actions */}
@@ -119,6 +125,21 @@ export const AgentDashboard = () => {
                 <span className="text-sm font-semibold">{t('agent.dashboard.addClient')}</span>
               </button>
             </div>
+            <button
+              onClick={() => navigate('/agent/payments/in')}
+              className="mt-3 w-full bg-white dark:bg-gray-800 text-gray-800 dark:text-white rounded-2xl p-4 flex items-center justify-between gap-3 hover:bg-gray-50 dark:hover:bg-gray-700 active:scale-[0.99] transition-all shadow-sm border border-gray-100 dark:border-gray-700"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-2xl bg-green-50 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
+                  <TrendingUp size={18} className="text-green-600 dark:text-green-400" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold truncate">{t('payments.in.title')}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{t('payments.in.subtitle')}</p>
+                </div>
+              </div>
+              <ArrowRight size={16} className="text-gray-300 dark:text-gray-600 flex-shrink-0" />
+            </button>
           </div>
 
           {/* Recent Orders */}
@@ -133,7 +154,7 @@ export const AgentDashboard = () => {
               </button>
             </div>
             <div className="space-y-2">
-              {recentOrders.map(order => (
+              {recentOrdersVisible.map(order => (
                 <div key={order.id} className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-sm font-semibold text-gray-900 dark:text-white">{order.clientName}</span>
@@ -145,7 +166,17 @@ export const AgentDashboard = () => {
                   </div>
                 </div>
               ))}
-              {recentOrders.length === 0 && (
+              {hasMoreOrders && !expandOrders && (
+                <button
+                  type="button"
+                  onClick={() => setExpandOrders(true)}
+                  className="w-full py-3 rounded-xl border-2 border-dashed border-[#2563EB]/40 text-[#2563EB] dark:text-blue-400 text-sm font-medium flex items-center justify-center gap-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                >
+                  <ChevronDown size={16} />
+                  {t('common.showAllWithCount').replace('N', String(myOrders.length))}
+                </button>
+              )}
+              {myOrders.length === 0 && (
                 <div className="text-center py-8 text-gray-400 dark:text-gray-500 text-sm">{t('orders.empty')}</div>
               )}
             </div>

@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Plus, Package, Warehouse, ChevronLeft, ChevronRight, ShoppingBag, X, Calendar, Edit2, ChevronDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ShoppingBag, X, Calendar, Package } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { MobileShell, MobileHeader, MobileContent } from '../../components/MobileShell';
 import { MobileNav } from '../../components/MobileNav';
@@ -31,13 +31,9 @@ function buildCalendar(year: number, month: number) {
   return cells;
 }
 
-const INITIAL_VISIBLE = 3;
-
-export const OrderHistory = () => {
-  const { t, lang, currentUser, orders, updateOrderStatus, refetchData } = useApp();
+export const AgentSalesByDate = () => {
+  const { t, lang, currentUser, orders } = useApp();
   const navigate = useNavigate();
-
-  useEffect(() => { refetchData?.(); }, [refetchData]);
 
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
@@ -45,10 +41,8 @@ export const OrderHistory = () => {
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set([todayStr]));
-  const [confirmSendId, setConfirmSendId] = useState<string | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [rangeStart, setRangeStart] = useState<string | null>(null);
-  const [expandOrders, setExpandOrders] = useState(false);
 
   const cells = buildCalendar(viewYear, viewMonth);
 
@@ -56,15 +50,11 @@ export const OrderHistory = () => {
   const orderDates = new Set(myOrders.map(o => o.date));
 
   const toggleDate = (dateStr: string) => {
-    // Kelajak kunlarni tanlab bo'lmaydi
     if (dateStr > todayStr) return;
-    
     if (!rangeStart) {
-      // Birinchi bosish - range boshlanishi
       setRangeStart(dateStr);
       setSelectedDates(new Set([dateStr]));
     } else if (rangeStart === dateStr) {
-      // Bir xil sanani yana bosganda - bekor qilish
       setRangeStart(null);
       setSelectedDates(prev => {
         const next = new Set(prev);
@@ -72,51 +62,30 @@ export const OrderHistory = () => {
         return next;
       });
     } else {
-      // Ikkinchi bosish - range yaratish
       const start = rangeStart < dateStr ? rangeStart : dateStr;
       const end = rangeStart < dateStr ? dateStr : rangeStart;
-      
-      // Barcha kunlarni start dan end gacha tanlash
       const range = new Set<string>();
       const startDate = new Date(start);
       const endDate = new Date(end);
-      
       let current = new Date(startDate);
       while (current <= endDate) {
-        const currentStr = current.toISOString().split('T')[0];
-        range.add(currentStr);
+        range.add(current.toISOString().split('T')[0]);
         current.setDate(current.getDate() + 1);
       }
-      
       setSelectedDates(range);
-      setRangeStart(null); // Range yaratilgandan keyin reset
-      setCalendarOpen(false); // Kalendar avtomatik yopilsin
+      setRangeStart(null);
+      setCalendarOpen(false);
     }
   };
 
-  const isPastDay = (dateStr: string) => dateStr < todayStr;
-
-  const filtered = myOrders.filter(o => {
-    if (!selectedDates.has(o.date)) return false;
-    if (isPastDay(o.date)) return o.status === 'delivered' || o.status === 'sent';
-    return true;
-  });
-
-  // Sort by date desc
+  const filtered = myOrders.filter(o => selectedDates.has(o.date));
   const sortedFiltered = [...filtered].sort((a, b) => b.date.localeCompare(a.date));
-  const visibleOrders = expandOrders ? sortedFiltered : sortedFiltered.slice(0, INITIAL_VISIBLE);
-  const hasMoreOrders = sortedFiltered.length > INITIAL_VISIBLE;
-
-  const handleSendToWarehouse = (orderId: string) => {
-    updateOrderStatus(orderId, 'sent');
-    setConfirmSendId(null);
-  };
+  const totalSum = sortedFiltered.reduce((s, o) => s + o.total, 0);
 
   const prevMonth = () => {
     if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11); }
     else setViewMonth(m => m - 1);
   };
-
   const nextMonth = () => {
     if (viewMonth === 11) { setViewYear(y => y + 1); setViewMonth(0); }
     else setViewMonth(m => m + 1);
@@ -146,30 +115,13 @@ export const OrderHistory = () => {
   const selectedSorted = [...selectedDates].sort();
   const headerLabel = selectedSorted.length === 1
     ? formatDisplayDate(selectedSorted[0])
-    : `${formatDisplayDate(selectedSorted[0])} — ${formatDisplayDate(selectedSorted[selectedSorted.length - 1])}`;
-
-  // Chips uchun faqat birinchi 5 ta sanani ko'rsatish
-  const visibleChips = selectedSorted.slice(0, 5);
-  const hasMoreChips = selectedSorted.length > 5;
+    : `${formatDisplayDate(selectedSorted[0])} — ${formatDisplayDate(selectedSorted[selectedSorted.length - 1])} (${selectedSorted.length} ${t('agent.sales.daysSuffix')})`;
 
   return (
     <MobileShell>
-      <MobileHeader
-        title={t('orders.history')}
-        showLang
-        showLogout
-        rightElement={
-          <button
-            onClick={() => navigate('/agent/orders/create')}
-            className="w-8 h-8 flex items-center justify-center rounded-full bg-[#2563EB] text-white shadow-sm"
-          >
-            <Plus size={16} />
-          </button>
-        }
-      />
+      <MobileHeader title={t('agent.sales.title')} showBack showLang showLogout />
       <MobileContent className="pb-20">
-
-        {/* Calendar toggle bar */}
+        {/* Calendar toggle bar — same as OrderHistory */}
         <div className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 shadow-sm" onClick={(e) => e.stopPropagation()}>
           <div className="px-4 py-3 flex items-center justify-between">
             <button
@@ -190,7 +142,6 @@ export const OrderHistory = () => {
             <span className="text-xs text-gray-400 dark:text-gray-500">{sortedFiltered.length} {t('orders.ordersCountSuffix')}</span>
           </div>
 
-          {/* Calendar panel */}
           {calendarOpen && (
             <>
               <div className="flex items-center justify-between px-4 pb-2 border-t border-gray-50 dark:border-gray-700 pt-2">
@@ -230,9 +181,9 @@ export const OrderHistory = () => {
                   const dateStr = toDateStr(viewYear, viewMonth, day);
                   const isSelected = selectedDates.has(dateStr);
                   const isToday = dateStr === todayStr;
-                  const isPast = dateStr < todayStr;
                   const isFuture = dateStr > todayStr;
                   const hasOrders = orderDates.has(dateStr);
+                  const isPast = dateStr < todayStr;
 
                   return (
                     <button
@@ -279,16 +230,24 @@ export const OrderHistory = () => {
           )}
         </div>
 
+        {/* Total for period */}
+        {sortedFiltered.length > 0 && (
+          <div className="px-4 py-3 bg-green-50 dark:bg-green-900/20 border-b border-green-100 dark:border-green-800">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t('agent.sales.totalForPeriod')}</span>
+              <span className="text-lg font-bold text-green-600 dark:text-green-400">{formatCurrency(totalSum)}</span>
+            </div>
+          </div>
+        )}
+
         {/* Orders list */}
         <div
           className="p-4 space-y-3"
           onClick={() => { if (calendarOpen) setCalendarOpen(false); }}
         >
           {sortedFiltered.length > 0 ? (
-            <>
-            {visibleOrders.map(order => (
+            sortedFiltered.map(order => (
               <div key={order.id} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
-
                 <div className="flex items-start justify-between px-4 pt-4 pb-2">
                   <div className="flex-1 min-w-0">
                     <button
@@ -332,76 +291,18 @@ export const OrderHistory = () => {
                 </div>
 
                 <div className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-100 dark:border-gray-700 mt-1">
-                  <div>
-                    <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">{t('orders.totalAmount')}</p>
-                    <p className="text-sm font-bold text-gray-900 dark:text-white">{formatCurrency(order.total)}</p>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {order.status === 'new' && (
-                      <button
-                        onClick={() => navigate(`/agent/orders/${order.id}`)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#2563EB] bg-blue-50 dark:bg-blue-900/20 text-[#2563EB] dark:text-blue-400 text-xs font-semibold active:scale-[0.97] transition-all"
-                      >
-                        <Edit2 size={13} />
-                        {t('common.edit')}
-                      </button>
-                    )}
-                    {order.status === 'new' && (
-                    confirmSendId === order.id ? (
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setConfirmSendId(null)}
-                          className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-xs text-gray-600 dark:text-gray-300 font-medium"
-                        >
-                          {t('orders.no')}
-                        </button>
-                        <button
-                          onClick={() => handleSendToWarehouse(order.id)}
-                          className="px-3 py-1.5 rounded-lg bg-orange-500 text-white text-xs font-medium shadow-sm"
-                        >
-                          {t('orders.yesSend')}
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setConfirmSendId(order.id)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-500 text-white text-xs font-semibold shadow-sm shadow-orange-200 active:scale-[0.97] transition-all"
-                      >
-                        <Warehouse size={13} />
-                        {t('orders.sendToWarehouse')}
-                      </button>
-                    )
-                    )}
-                  </div>
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">{t('orders.totalAmount')}</p>
+                  <p className="text-sm font-bold text-gray-900 dark:text-white">{formatCurrency(order.total)}</p>
                 </div>
               </div>
-            ))}
-            {hasMoreOrders && (
-              <button
-                type="button"
-                onClick={() => setExpandOrders(true)}
-                className="w-full py-3 rounded-xl border-2 border-dashed border-[#2563EB]/40 text-[#2563EB] dark:text-blue-400 text-sm font-medium flex items-center justify-center gap-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-              >
-                <ChevronDown size={16} />
-                {t('common.showAllWithCount').replace('N', String(sortedFiltered.length))}
-              </button>
-            )}
-            </>
+            ))
           ) : (
             <div className="text-center py-16">
               <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mx-auto mb-3">
                 <ShoppingBag size={24} className="text-gray-300 dark:text-gray-500" />
               </div>
-              <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">{t('orders.noOrdersForDay')}</p>
-              <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">{headerLabel.replace('📅 ', '')}</p>
-              <button
-                onClick={() => navigate('/agent/orders/create')}
-                className="mt-4 flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#2563EB] text-white text-sm font-medium mx-auto shadow-md shadow-blue-100"
-              >
-                <Plus size={15} />
-                {t('orders.create')}
-              </button>
+              <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">{t('agent.sales.noSalesForPeriod')}</p>
+              <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">{headerLabel}</p>
             </div>
           )}
         </div>

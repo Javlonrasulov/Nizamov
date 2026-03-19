@@ -8,6 +8,8 @@ import { ProductsModule } from './products/products.module';
 import { OrdersModule } from './orders/orders.module';
 import { ExpensesModule } from './expenses/expenses.module';
 import { SuppliersModule } from './suppliers/suppliers.module';
+import { PaymentsModule } from './payments/payments.module';
+import { ReturnsModule } from './returns/returns.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -21,6 +23,8 @@ import { HealthController } from './health.controller';
     OrdersModule,
     ExpensesModule,
     SuppliersModule,
+    PaymentsModule,
+    ReturnsModule,
   ],
   controllers: [HealthController],
 })

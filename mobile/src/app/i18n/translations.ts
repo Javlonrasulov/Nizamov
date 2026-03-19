@@ -29,6 +29,9 @@ type TranslationKeys = {
   'common.filter': string;
   'common.all': string;
   'common.refresh': string;
+  'common.showAllWithCount': string;
+  'common.clear': string;
+  'common.change': string;
   'common.loading': string;
   'common.confirm': string;
   'common.logout': string;
@@ -47,6 +50,8 @@ type TranslationKeys = {
   'login.role.agent': string;
   'login.role.delivery': string;
   'login.role.admin': string;
+  'login.role.sklad': string;
+  'login.roleNotSupportedMobile': string;
   'login.phone.placeholder': string;
   'login.password.placeholder': string;
 
@@ -65,6 +70,32 @@ type TranslationKeys = {
   'agent.dashboard.newOrder': string;
   'agent.dashboard.addClient': string;
   'agent.dashboard.greeting': string;
+  'agent.sales.title': string;
+  'agent.sales.totalForPeriod': string;
+  'agent.sales.noSalesForPeriod': string;
+  'agent.sales.daysSuffix': string;
+
+  // Payments / Debts
+  'payments.in.title': string;
+  'payments.in.subtitle': string;
+  'payments.in.selectClient': string;
+  'payments.in.client': string;
+  'payments.method': string;
+  'payments.method.cash': string;
+  'payments.method.terminal': string;
+  'payments.method.transfer': string;
+  'payments.amount': string;
+  'payments.amount.placeholder': string;
+  'payments.saved': string;
+  'payments.delivery.title': string;
+  'payments.delivery.paidToggle': string;
+  'payments.delivery.orderTotal': string;
+  'payments.badge.paid': string;
+  'payments.badge.debt': string;
+  'payments.clientDebt': string;
+  'payments.history': string;
+  'payments.collectedBy': string;
+  'payments.paid': string;
 
   // Clients
   'clients.title': string;
@@ -200,6 +231,13 @@ type TranslationKeys = {
   'delivery.stat.info': string;
   'delivery.stat.noOrders': string;
   'delivery.stat.waitOrders': string;
+
+  // Returns (vozvrat)
+  'returns.title': string;
+  'returns.selectItems': string;
+  'returns.returnAll': string;
+  'returns.save': string;
+  'returns.error.noItems': string;
 
   // Admin
   'admin.dashboard': string;
@@ -344,6 +382,9 @@ const uz_lat: TranslationKeys = {
   'common.filter': 'Filter',
   'common.all': 'Barchasi',
   'common.refresh': 'Yangilash',
+  'common.showAllWithCount': "Barchasini ko'rsatish (N ta)",
+  'common.clear': 'Tozalash',
+  'common.change': "O'zgartirish",
   'common.loading': 'Yuklanmoqda...',
   'common.confirm': 'Tasdiqlash',
   'common.logout': 'Chiqish',
@@ -361,6 +402,8 @@ const uz_lat: TranslationKeys = {
   'login.role.agent': 'Agent',
   'login.role.delivery': 'Dostavchik',
   'login.role.admin': 'Admin',
+  'login.role.sklad': 'Skladchi',
+  'login.roleNotSupportedMobile': 'Bu rol mobil ilovada ishlamaydi. Admin panel (web) orqali kiring.',
   'login.phone.placeholder': '+998 90 123 45 67',
   'login.password.placeholder': 'Parolni kiriting',
 
@@ -377,6 +420,31 @@ const uz_lat: TranslationKeys = {
   'agent.dashboard.newOrder': 'Yangi zakaz',
   'agent.dashboard.addClient': 'Yangi klient',
   'agent.dashboard.greeting': 'Xush kelibsiz',
+  'agent.sales.title': 'Savdo',
+  'agent.sales.totalForPeriod': 'Jami tanlangan muddat',
+  'agent.sales.noSalesForPeriod': "Tanlangan oraliqda savdo yo'q",
+  'agent.sales.daysSuffix': 'kun',
+
+  'payments.in.title': 'Pul kiritish',
+  'payments.in.subtitle': 'Klientdan to‘lov qabul qilish',
+  'payments.in.selectClient': 'Klient tanlang',
+  'payments.in.client': 'Klient',
+  'payments.method': "To'lov usuli",
+  'payments.method.cash': 'Naqd',
+  'payments.method.terminal': 'Terminal',
+  'payments.method.transfer': "Pul ko'chirish",
+  'payments.amount': 'Summa',
+  'payments.amount.placeholder': 'Masalan: 100000',
+  'payments.saved': 'Saqlandi',
+  'payments.delivery.title': 'To‘lov',
+  'payments.delivery.paidToggle': 'Pul oldim',
+  'payments.delivery.orderTotal': 'Zakaz jami',
+  'payments.badge.paid': 'To‘landi',
+  'payments.badge.debt': 'Qarz',
+  'payments.clientDebt': 'Qarz',
+  'payments.history': 'To‘lovlar tarixi',
+  'payments.collectedBy': 'Kim oldi',
+  'payments.paid': "To'langan",
 
   'clients.title': 'Klientlar',
   'clients.search': 'Klient qidirish...',
@@ -504,6 +572,12 @@ const uz_lat: TranslationKeys = {
   'delivery.stat.info': "Ma'lumotlar",
   'delivery.stat.noOrders': "Bugun zakaz yo'q",
   'delivery.stat.waitOrders': 'Yangi zakazlar tayinlanishini kuting',
+
+  'returns.title': 'Vozvrat',
+  'returns.selectItems': 'Mahsulotlarni belgilang',
+  'returns.returnAll': 'Hammasini qaytarish',
+  'returns.save': 'Saqlash',
+  'returns.error.noItems': 'Mahsulot tanlanmadi',
 
   'admin.dashboard': 'Dashboard',
   'admin.todayOrders': 'Bugungi zakazlar',
@@ -647,6 +721,9 @@ const uz_kir: TranslationKeys = {
   'common.filter': 'Фильтр',
   'common.all': 'Барчаси',
   'common.refresh': 'Янгилаш',
+  'common.showAllWithCount': 'Барчасини кўрсатиш (N та)',
+  'common.clear': 'Тозалаш',
+  'common.change': 'Ўзгартириш',
   'common.loading': 'Юкланмоқда...',
   'common.confirm': 'Тасдиқлаш',
   'common.logout': 'Чиқиш',
@@ -664,6 +741,8 @@ const uz_kir: TranslationKeys = {
   'login.role.agent': 'Агент',
   'login.role.delivery': 'Доставчик',
   'login.role.admin': 'Админ',
+  'login.role.sklad': 'Складчи',
+  'login.roleNotSupportedMobile': 'Эта роль не работает в мобильном приложении. Войдите через админ-панель (web).',
   'login.phone.placeholder': '+998 90 123 45 67',
   'login.password.placeholder': 'Паролни киритинг',
 
@@ -680,6 +759,31 @@ const uz_kir: TranslationKeys = {
   'agent.dashboard.newOrder': 'Янги заказ',
   'agent.dashboard.addClient': 'Янги клиент',
   'agent.dashboard.greeting': 'Хуш келибсиз',
+  'agent.sales.title': 'Савдо',
+  'agent.sales.totalForPeriod': 'Жами танланган муддат',
+  'agent.sales.noSalesForPeriod': "Танланган оралиқда савдо йўқ",
+  'agent.sales.daysSuffix': 'кун',
+
+  'payments.in.title': 'Пул киритиш',
+  'payments.in.subtitle': 'Клиентдан тўлов қабул қилиш',
+  'payments.in.selectClient': 'Клиент танланг',
+  'payments.in.client': 'Клиент',
+  'payments.method': 'Тўлов усули',
+  'payments.method.cash': 'Нақд',
+  'payments.method.terminal': 'Терминал',
+  'payments.method.transfer': 'Пул кўчириш',
+  'payments.amount': 'Сумма',
+  'payments.amount.placeholder': 'Масалан: 100000',
+  'payments.saved': 'Сақланди',
+  'payments.delivery.title': 'Тўлов',
+  'payments.delivery.paidToggle': 'Пул олдим',
+  'payments.delivery.orderTotal': 'Заказ жами',
+  'payments.badge.paid': 'Тўланди',
+  'payments.badge.debt': 'Қарз',
+  'payments.clientDebt': 'Қарз',
+  'payments.history': 'Тўловлар тарихи',
+  'payments.collectedBy': 'Ким олди',
+  'payments.paid': 'Тўланган',
 
   'clients.title': 'Клиентлар',
   'clients.search': 'Клиент қидириш...',
@@ -807,6 +911,12 @@ const uz_kir: TranslationKeys = {
   'delivery.stat.info': 'Маълумотлар',
   'delivery.stat.noOrders': 'Бугун заказ йўқ',
   'delivery.stat.waitOrders': 'Янги заказлар тайинланишини кутинг',
+
+  'returns.title': 'Возврат',
+  'returns.selectItems': 'Маҳсулотларни белгиланг',
+  'returns.returnAll': 'Ҳаммасини қайтариш',
+  'returns.save': 'Сақлаш',
+  'returns.error.noItems': 'Маҳсулот танланмади',
 
   'admin.dashboard': 'Дашборд',
   'admin.todayOrders': 'Бугунги заказлар',
@@ -949,6 +1059,9 @@ const ru: TranslationKeys = {
   'common.filter': 'Фильтр',
   'common.all': 'Все',
   'common.refresh': 'Обновить',
+  'common.showAllWithCount': 'Показать все (N)',
+  'common.clear': 'Очистить',
+  'common.change': 'Изменить',
   'common.loading': 'Загрузка...',
   'common.confirm': 'Подтвердить',
   'common.logout': 'Выйти',
@@ -966,6 +1079,8 @@ const ru: TranslationKeys = {
   'login.role.agent': 'Агент',
   'login.role.delivery': 'Доставщик',
   'login.role.admin': 'Администратор',
+  'login.role.sklad': 'Склад',
+  'login.roleNotSupportedMobile': 'Эта роль не работает в мобильном приложении. Войдите через админ-панель (web).',
   'login.phone.placeholder': '+998 90 123 45 67',
   'login.password.placeholder': 'Введите пароль',
 
@@ -982,6 +1097,31 @@ const ru: TranslationKeys = {
   'agent.dashboard.newOrder': 'Новый заказ',
   'agent.dashboard.addClient': 'Добавить клиента',
   'agent.dashboard.greeting': 'Добро пожаловать',
+  'agent.sales.title': 'Продажи',
+  'agent.sales.totalForPeriod': 'Итого за период',
+  'agent.sales.noSalesForPeriod': 'Нет продаж за выбранный период',
+  'agent.sales.daysSuffix': 'дн.',
+
+  'payments.in.title': 'Внести оплату',
+  'payments.in.subtitle': 'Принять оплату от клиента',
+  'payments.in.selectClient': 'Выберите клиента',
+  'payments.in.client': 'Клиент',
+  'payments.method': 'Способ оплаты',
+  'payments.method.cash': 'Наличные',
+  'payments.method.terminal': 'Терминал',
+  'payments.method.transfer': 'Перевод',
+  'payments.amount': 'Сумма',
+  'payments.amount.placeholder': 'Напр.: 100000',
+  'payments.saved': 'Сохранено',
+  'payments.delivery.title': 'Оплата',
+  'payments.delivery.paidToggle': 'Деньги получил',
+  'payments.delivery.orderTotal': 'Итого по заказу',
+  'payments.badge.paid': 'Оплачено',
+  'payments.badge.debt': 'Долг',
+  'payments.clientDebt': 'Долг',
+  'payments.history': 'История оплат',
+  'payments.collectedBy': 'Кто принял',
+  'payments.paid': 'Оплачено',
 
   'clients.title': 'Клиенты',
   'clients.search': 'Поиск клиента...',
@@ -1108,6 +1248,12 @@ const ru: TranslationKeys = {
   'delivery.stat.info': 'Информация',
   'delivery.stat.noOrders': 'Сегодня заказов нет',
   'delivery.stat.waitOrders': 'Ожидайте назначения новых заказов',
+
+  'returns.title': 'Возврат',
+  'returns.selectItems': 'Отметьте товары',
+  'returns.returnAll': 'Вернуть всё',
+  'returns.save': 'Сохранить',
+  'returns.error.noItems': 'Товары не выбраны',
 
   'admin.dashboard': 'Главная',
   'admin.todayOrders': 'Сегодняшние заказы',

@@ -1,0 +1,136 @@
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateReturnDto } from './dto/create-return.dto';
+
+@Injectable()
+export class ReturnsService {
+  constructor(private prisma: PrismaService) {}
+
+  async create(dto: CreateReturnDto) {
+    if (!dto.items?.length) throw new BadRequestException('Qaytariladigan mahsulot tanlanmagan');
+
+    return this.prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({
+        where: { id: dto.orderId },
+        include: { items: true },
+      });
+      if (!order) throw new BadRequestException('Zakaz topilmadi');
+      if (order.clientId !== dto.clientId) throw new BadRequestException('Klient mos kelmadi');
+
+      const orderedQty = new Map<string, { qty: number; name: string }>();
+      for (const it of order.items) {
+        orderedQty.set(it.productId, {
+          qty: (orderedQty.get(it.productId)?.qty || 0) + (it.quantity || 0),
+          name: it.productName,
+        });
+      }
+
+      const returnedAgg = await tx.returnItem.groupBy({
+        by: ['productId'],
+        where: { return: { orderId: dto.orderId } },
+        _sum: { quantity: true },
+      });
+      const returnedQty = new Map<string, number>(
+        returnedAgg.map((r) => [r.productId, Number(r._sum.quantity || 0)]),
+      );
+
+      // Validate requested items do not exceed remaining
+      const reqQtyByProduct = new Map<string, { qty: number; name?: string }>();
+      for (const it of dto.items) {
+        reqQtyByProduct.set(it.productId, {
+          qty: (reqQtyByProduct.get(it.productId)?.qty || 0) + (it.quantity || 0),
+          name: it.productName,
+        });
+      }
+
+      for (const [productId, req] of reqQtyByProduct.entries()) {
+        const ord = orderedQty.get(productId);
+        if (!ord) throw new BadRequestException('Zakazda bunday mahsulot yo‘q');
+        const already = returnedQty.get(productId) || 0;
+        const remaining = Math.max(0, ord.qty - already);
+        if (req.qty > remaining) {
+          throw new BadRequestException(`Qaytarish limiti oshdi: ${ord.name} (qolgan: ${remaining})`);
+        }
+      }
+
+      const status = dto.status === 'accepted' ? 'accepted' : 'pending';
+      const ret = await tx.return.create({
+        data: {
+          clientId: dto.clientId,
+          orderId: dto.orderId,
+          date: dto.date,
+          status,
+          createdByUserId: dto.createdByUserId,
+          items: {
+            create: dto.items.map((it) => ({
+              productId: it.productId,
+              productName: it.productName || orderedQty.get(it.productId)?.name || '',
+              quantity: it.quantity,
+            })),
+          },
+        },
+        include: { items: true },
+      });
+
+      if (status === 'accepted') {
+        for (const it of ret.items) {
+          await tx.product.update({
+            where: { id: it.productId },
+            data: { stock: { increment: it.quantity } },
+          });
+        }
+      }
+
+      return ret;
+    });
+  }
+
+  async findAll(clientId?: string, orderId?: string, status?: string) {
+    const where: any = {};
+    if (clientId) where.clientId = clientId;
+    if (orderId) where.orderId = orderId;
+    if (status) where.status = status;
+    return this.prisma.return.findMany({
+      where,
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+      include: {
+        items: true,
+        order: { select: { id: true, orderNumber: true, date: true, clientName: true, clientPhone: true, agentName: true } },
+        createdBy: { select: { id: true, name: true, phone: true, role: true } },
+        acceptedBy: { select: { id: true, name: true, phone: true, role: true } },
+      },
+    });
+  }
+
+  async accept(id: string, dto: { comment?: string; acceptedByUserId?: string }) {
+    return this.prisma.$transaction(async (tx) => {
+      const ret = await tx.return.findUnique({
+        where: { id },
+        include: { items: true },
+      });
+      if (!ret) throw new BadRequestException('Vozvrat topilmadi');
+      if (ret.status === 'accepted') throw new BadRequestException('Allaqachon qabul qilingan');
+      for (const it of ret.items) {
+        await tx.product.update({
+          where: { id: it.productId },
+          data: { stock: { increment: it.quantity } },
+        });
+      }
+      return tx.return.update({
+        where: { id },
+        data: {
+          status: 'accepted',
+          acceptedAt: new Date(),
+          acceptedByUserId: dto.acceptedByUserId || null,
+          comment: dto.comment?.trim() || null,
+        },
+        include: {
+          items: true,
+          createdBy: { select: { id: true, name: true, phone: true, role: true } },
+          acceptedBy: { select: { id: true, name: true, phone: true, role: true } },
+        },
+      });
+    });
+  }
+}
+

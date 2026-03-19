@@ -7,6 +7,8 @@ import { ProductsList } from './pages/agent/ProductsList';
 import { CreateOrder } from './pages/agent/CreateOrder';
 import { OrderHistory } from './pages/agent/OrderHistory';
 import { OrderDetail } from './pages/agent/OrderDetail';
+import { AgentSalesByDate } from './pages/agent/AgentSalesByDate';
+import { AgentPaymentIn } from './pages/agent/AgentPaymentIn';
 import { DeliveryOrders } from './pages/delivery/DeliveryOrders';
 import { DeliveryOrderDetail } from './pages/delivery/DeliveryOrderDetail';
 import { DeliveryMap } from './pages/delivery/DeliveryMap';
@@ -35,6 +37,8 @@ export const router = createBrowserRouter([
       { path: 'agent/orders', Component: OrderHistory },
       { path: 'agent/orders/create', Component: CreateOrder },
       { path: 'agent/orders/:id', Component: OrderDetail },
+      { path: 'agent/sales', Component: AgentSalesByDate },
+      { path: 'agent/payments/in', Component: AgentPaymentIn },
       { path: 'delivery', Component: DeliveryDashboard },
       { path: 'delivery/orders', Component: DeliveryOrders },
       { path: 'delivery/profile', Component: DeliveryProfile },

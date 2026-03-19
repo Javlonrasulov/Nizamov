@@ -4,6 +4,7 @@ import {
   Check, X, Trash2, Pencil, Plus, CalendarDays,
   Download, TrendingUp, TrendingDown, Wallet, SlidersHorizontal, ChevronDown, Table2,
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { useApp, AVAILABLE_ICONS, CATEGORY_COLORS, COLOR_MAP, ExpenseCategoryDef } from '../../context/AppContext';
 import { AdminLayout } from '../../components/AdminLayout';
 import { SimpleLineChart, SimpleGroupedBar, SimpleVBarChart } from '../../components/SimpleCharts';
@@ -333,7 +334,7 @@ function CategoryManager() {
    MAIN PAGE
 ═══════════════════════════════════════════ */
 export const AdminReports = () => {
-  const { t, adminDateFrom, adminDateTo, expenses, addExpense, deleteExpense, expenseCategories } = useApp();
+  const { t, adminDateFrom, adminDateTo, expenses, addExpense, deleteExpense, expenseCategories, products } = useApp();
   const filteredOrders = useAdminVisibleOrders();
   const hasDateFilter = adminDateFrom || adminDateTo;
 
@@ -348,7 +349,18 @@ export const AdminReports = () => {
   const totalSales   = filteredOrders.reduce((s, o) => s + o.total, 0);
   const totalOrders  = filteredOrders.length;
   const totalExpense = filteredExpenses.reduce((s, e) => s + e.amount, 0);
-  const netProfit    = totalSales - totalExpense;
+
+  const productCostById: Record<string, number> = {};
+  products.forEach(p => { productCostById[p.id] = p.cost ?? 0; });
+
+  const orderGrossProfit = (o: typeof filteredOrders[number]) =>
+    (o.items || []).reduce((sum, it) => {
+      const cost = productCostById[it.productId] ?? 0;
+      return sum + (it.price - cost) * it.quantity;
+    }, 0);
+
+  const totalGrossProfit = filteredOrders.reduce((s, o) => s + orderGrossProfit(o), 0);
+  const netProfit    = totalGrossProfit - totalExpense;
 
   /* Form state */
   const today = new Date().toISOString().split('T')[0];
@@ -388,7 +400,13 @@ export const AdminReports = () => {
 
   /* Charts */
   const dateMap: Record<string, number> = {};
-  filteredOrders.forEach(o => { dateMap[o.date] = (dateMap[o.date] || 0) + o.total; });
+  const profitMap: Record<string, number> = {};
+  const ordersCountMap: Record<string, number> = {};
+  filteredOrders.forEach(o => {
+    dateMap[o.date] = (dateMap[o.date] || 0) + o.total;
+    profitMap[o.date] = (profitMap[o.date] || 0) + orderGrossProfit(o);
+    ordersCountMap[o.date] = (ordersCountMap[o.date] || 0) + 1;
+  });
   const lineData = Object.entries(dateMap).sort(([a], [b]) => a.localeCompare(b)).map(([d, v]) => ({ label: d.slice(5), value: v }));
 
   const agentMap: Record<string, number> = {};
@@ -396,7 +414,10 @@ export const AdminReports = () => {
   const agentBarData = Object.entries(agentMap).sort(([, a], [, b]) => b - a).map(([name, value]) => ({ label: name.split(' ')[0], value }));
 
   const dailyRows = Object.entries(dateMap).sort(([a], [b]) => a.localeCompare(b)).map(([date, sales]) => ({
-    date, orders: filteredOrders.filter(o => o.date === date).length, sales,
+    date,
+    orders: ordersCountMap[date] || 0,
+    sales,
+    profit: profitMap[date] || 0,
   }));
 
   /* Expense charts data */
@@ -413,17 +434,26 @@ export const AdminReports = () => {
   }));
 
   const handleExport = () => {
-    const h1 = ['Sana', 'Zakazlar', 'Savdo', 'Foyda (22%)'];
-    const r1 = dailyRows.map(r => [r.date, r.orders, r.sales, Math.round(r.sales * 0.22)]);
+    const h1 = ['Sana', 'Zakazlar', 'Savdo', 'Foyda'];
+    const r1 = dailyRows.map(r => [r.date, r.orders, r.sales, Math.round(r.profit)]);
     const h2 = ['Sana', 'Kategoriya', 'Summa', 'Izoh'];
-    const r2 = filteredExpenses.map(e => [e.date, expenseCategories.find(c => c.id === e.categoryId)?.label || e.categoryId, e.amount, e.comment]);
-    const csv = [...[h1, ...r1], [], ...[h2, ...r2]].map(r => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url; a.download = `hisobot_${adminDateFrom || 'barchasi'}.csv`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    const r2 = filteredExpenses.map(e => [
+      e.date,
+      expenseCategories.find(c => c.id === e.categoryId)?.label || e.categoryId,
+      e.amount,
+      e.comment,
+    ]);
+
+    const wb = XLSX.utils.book_new();
+    const ws1 = XLSX.utils.aoa_to_sheet([h1, ...r1]);
+    const ws2 = XLSX.utils.aoa_to_sheet([h2, ...r2]);
+
+    XLSX.utils.book_append_sheet(wb, ws1, 'Hisobot');
+    XLSX.utils.book_append_sheet(wb, ws2, 'Chiqimlar');
+
+    const from = adminDateFrom || 'barchasi';
+    const to = adminDateTo && adminDateTo !== adminDateFrom ? `_${adminDateTo}` : '';
+    XLSX.writeFile(wb, `hisobot_${from}${to}.xlsx`);
   };
 
   /* ── Helper to get category def ── */
@@ -747,14 +777,14 @@ export const AdminReports = () => {
                         <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">{row.date}</td>
                         <td className="px-6 py-4 text-right text-sm text-gray-600 dark:text-gray-300">{row.orders}</td>
                         <td className="px-6 py-4 text-right text-sm font-semibold text-gray-900 dark:text-white">{row.sales.toLocaleString()} {t('common.sum')}</td>
-                        <td className="px-6 py-4 text-right text-sm font-semibold text-green-600 dark:text-green-400">{Math.round(row.sales * 0.22).toLocaleString()} {t('common.sum')}</td>
+                        <td className="px-6 py-4 text-right text-sm font-semibold text-green-600 dark:text-green-400">{Math.round(row.profit).toLocaleString()} {t('common.sum')}</td>
                       </tr>
                     ))}
                     <tr className="bg-blue-50/60 dark:bg-blue-900/20 border-t border-blue-100 dark:border-blue-900/30">
                       <td className="px-6 py-3 text-sm font-bold text-gray-900 dark:text-white">{t('common.total')}</td>
                       <td className="px-6 py-3 text-right text-sm font-bold text-gray-900 dark:text-white">{totalOrders}</td>
                       <td className="px-6 py-3 text-right text-sm font-bold text-[#2563EB] dark:text-blue-400">{totalSales.toLocaleString()} {t('common.sum')}</td>
-                      <td className="px-6 py-3 text-right text-sm font-bold text-green-600 dark:text-green-400">{Math.round(totalSales * 0.22).toLocaleString()} {t('common.sum')}</td>
+                      <td className="px-6 py-3 text-right text-sm font-bold text-green-600 dark:text-green-400">{Math.round(totalGrossProfit).toLocaleString()} {t('common.sum')}</td>
                     </tr>
                   </tbody>
                 </table>

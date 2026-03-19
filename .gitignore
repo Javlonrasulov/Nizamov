@@ -43,6 +43,7 @@ mobile/android/app/build/
 mobile/ios/build/
 mobile/.expo/
 mobile-apk-build/
+mobile-apk-build*/
 *.jks
 *.keystore
 

@@ -107,6 +107,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // Ilova fokusiga qaytganda (APK yoki brauzer) serverdan ma'lumotlarni yangilash
+  useEffect(() => {
+    if (!currentUser) return;
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') fetchData();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [currentUser?.id, fetchData]);
+
   // Mock login holatida backend ID ni telefon orqali aniqlash
   useEffect(() => {
     if (!apiConnected || !currentUser) return;

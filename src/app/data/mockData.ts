@@ -1,5 +1,5 @@
 export type OrderStatus = 'new' | 'tayyorlanmagan' | 'yuborilgan' | 'accepted' | 'delivering' | 'delivered' | 'cancelled' | 'sent';
-export type UserRole = 'agent' | 'delivery' | 'admin';
+export type UserRole = 'agent' | 'delivery' | 'admin' | 'sklad';
 export type WeekDay = 'du' | 'se' | 'ch' | 'pa' | 'ju' | 'sh';
 
 export interface User {

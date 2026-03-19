@@ -23,12 +23,14 @@ const NAV_ITEMS = [
   { path: '/admin/agents-mgmt', icon: UserCog, labelKey: 'admin.agentsPage' as const },
   { path: '/admin/reports', icon: BarChart2, labelKey: 'admin.reportsPage' as const },
   { path: '/admin/warehouse', icon: Warehouse, labelKey: 'admin.warehouse' as const },
+  { path: '/admin/profile', icon: UserCog, labelKey: 'admin.profilePage' as const },
 ];
 
 const MIN_WIDTH = 64;
 const MAX_WIDTH = 320;
 const COLLAPSE_THRESHOLD = 90;
 const DEFAULT_WIDTH = 224;
+const SIDEBAR_WIDTH_STORAGE_KEY = 'adminSidebarWidth';
 
 export const AdminLayout = ({ children }: AdminLayoutProps) => {
   const { t, lang, setLang, currentUser, logout, theme, toggleTheme } = useApp();
@@ -38,7 +40,16 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   // Sidebar width state
-  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_WIDTH);
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    try {
+      const raw = localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY);
+      const n = raw ? Number(raw) : NaN;
+      if (!Number.isFinite(n)) return DEFAULT_WIDTH;
+      return Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, n));
+    } catch {
+      return DEFAULT_WIDTH;
+    }
+  });
   const [isResizing, setIsResizing] = useState(false);
   const resizeStartX = useRef(0);
   const resizeStartWidth = useRef(DEFAULT_WIDTH);
@@ -46,6 +57,18 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
   const collapsed = sidebarWidth <= COLLAPSE_THRESHOLD;
 
   const langs: Language[] = ['uz_lat', 'uz_kir', 'ru'];
+
+  const isSklad = currentUser?.role === 'sklad';
+  const skladAllowedPaths = ['/admin/orders', '/admin/clients', '/admin/profile'];
+
+  useEffect(() => {
+    if (!isSklad) return;
+    const p = location.pathname;
+    const allowed = skladAllowedPaths.some(ap => p === ap || p.startsWith(`${ap}/`));
+    if (!allowed) {
+      navigate('/admin/orders', { replace: true });
+    }
+  }, [isSklad, location.pathname, navigate]);
 
   const isActive = (path: string) => {
     if (path === '/admin') return location.pathname === '/admin';
@@ -96,6 +119,19 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
     setSidebarWidth(prev => prev <= COLLAPSE_THRESHOLD ? DEFAULT_WIDTH : MIN_WIDTH);
   };
 
+  // Persist sidebar width across page navigations
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(sidebarWidth));
+    } catch {
+      // ignore (private mode / blocked storage)
+    }
+  }, [sidebarWidth]);
+
+  const navItems = isSklad
+    ? NAV_ITEMS.filter(i => i.path === '/admin/orders' || i.path === '/admin/clients' || i.path === '/admin/profile')
+    : NAV_ITEMS;
+
   const SidebarContent = ({ isDesktop = false }: { isDesktop?: boolean }) => (
     <div className="flex flex-col h-full relative">
       {/* Logo */}
@@ -113,7 +149,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
 
       {/* Nav */}
       <nav className="flex-1 py-4 px-2 overflow-y-auto">
-        {NAV_ITEMS.map(item => {
+        {navItems.map(item => {
           const Icon = item.icon;
           const active = isActive(item.path);
           return (
