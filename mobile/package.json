@@ -1,7 +1,7 @@
 {
   "name": "crm-mobile",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "cap:sync": "npm run build && npx cap sync android",
     "android": "npm run build && npx cap sync android && npx cap open android",
-    "apk": "npm run build && npx cap sync android && cd android && gradlew.bat assembleDebug"
+    "apk": "npm run build && npx cap sync android && cd android && gradlew.bat assembleDebug",
+    "apk:desktop": "node -e \"const fs=require('fs');const p=require('path');const src=p.join(process.cwd(),'android','app','build','outputs','apk','debug','app-debug.apk');const d=p.join(process.env.USERPROFILE||process.env.HOME||'','Desktop','Sainur-CRM-1.0.1-19.03.2026.apk');if(fs.existsSync(src)){fs.copyFileSync(src,d);console.log('APK Desktop ga nusxalandi:',d);}else{console.log('APK topilmadi. Avval npm run apk yoki Android Studio da build qiling.');}\""
   },
   "dependencies": {
     "@capacitor/core": "^6.1.2",

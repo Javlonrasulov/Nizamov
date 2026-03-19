@@ -1,6 +1,24 @@
-// Brauzerda localhost, boshqa joyda env
-const isBrowserLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-const API_BASE = isBrowserLocalhost ? 'http://localhost:3000' : (import.meta.env.VITE_API_URL || 'http://localhost:3000');
+// Brauzerda localhost bo'lsa backend ham lokal bo'ladi.
+// Productionda esa VITE_API_URL bo'lmasa api.sainur.uz ga fallback qilamiz.
+const isBrowserLocalhost =
+  typeof window !== 'undefined'
+  && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+function resolveApiBase(): string {
+  if (isBrowserLocalhost) return 'http://localhost:3000';
+  const env = (import.meta as any)?.env?.VITE_API_URL as string | undefined;
+  if (env) return env.replace(/\/+$/, '');
+
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname || '';
+    if (host.endsWith('sainur.uz')) return 'https://api.sainur.uz';
+  }
+
+  // Last resort (avoids breaking builds), but should be overridden via VITE_API_URL.
+  return 'http://localhost:3000';
+}
+
+const API_BASE = resolveApiBase();
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {

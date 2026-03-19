@@ -1,0 +1,4 @@
+Build versiya: 1.0.1
+Sana va vaqt: 19.03.2026
+O'zgarishlar: Dostavchi dashboardida "Yangilash" tugmasi (refetchData), vozvrat modal, tarjimalar.
+APK build: Kompyuteringizda Java versiyasi Gradle bilan mos kelmadi (Java 25). APK yasash uchun JDK 17 yoki 21 o'rnating va ANDROID_HOME sozlang, keyin: mobile\android da "gradlew.bat assembleDebug".
