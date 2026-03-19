@@ -48,6 +48,7 @@ export const AdminOrders = () => {
   const [vehicleName, setVehicleName] = useState('');
   const [vehiclesList, setVehiclesList] = useState<string[]>(loadVehicles);
   const [debtByOrderId, setDebtByOrderId] = useState<Record<string, number>>({});
+  const [paidByOrderId, setPaidByOrderId] = useState<Record<string, number>>({});
   const [debtLoading, setDebtLoading] = useState(false);
   const [returnedByOrderId, setReturnedByOrderId] = useState<Record<string, boolean>>({});
   const [returnsDetailByOrderId, setReturnsDetailByOrderId] = useState<Record<string, {
@@ -186,26 +187,29 @@ export const AdminOrders = () => {
     setDebtLoading(true);
     (async () => {
       const next: Record<string, number> = {};
+      const nextPaid: Record<string, number> = {};
       for (const clientId of clientIds) {
         try {
           const bal = await apiGetClientBalance(clientId);
-          for (const row of bal.perOrder) next[row.orderId] = row.debt;
+          for (const row of bal.perOrder) {
+            next[row.orderId] = row.debt;
+            nextPaid[row.orderId] = row.paid;
+          }
         } catch {
           // ignore
         }
       }
       if (!cancelled) setDebtByOrderId(prev => ({ ...prev, ...next }));
+      if (!cancelled) setPaidByOrderId(prev => ({ ...prev, ...nextPaid }));
       if (!cancelled) setDebtLoading(false);
     })();
 
     return () => { cancelled = true; };
   }, [adminVisibleOrders, search]);
 
-  // Vozvrat bo'lgan zakazlarni va tafsilotlarni yuklash (Bekor qilindi filter uchun)
+  // Vozvrat bo'lgan zakazlarni va tafsilotlarni yuklash
   // Barcha vozvratlarni bir marta yuklab, vozvrat bor har qanday orderId ni belgilaymiz (sana oralig'ida bo'lmasa ham)
   useEffect(() => {
-    if (statusFilter !== 'cancelled') return;
-
     let cancelled = false;
     setReturnsLoading(true);
     (async () => {
@@ -291,7 +295,16 @@ export const AdminOrders = () => {
     })();
 
     return () => { cancelled = true; };
-  }, [statusFilter, adminVisibleOrders, refreshReturnsDetailTrigger]);
+  }, [adminVisibleOrders, refreshReturnsDetailTrigger]);
+
+  const getEffectiveDebt = (orderId: string) => {
+    const detail = returnsDetailByOrderId[orderId];
+    if (detail) {
+      const paid = paidByOrderId[orderId] ?? 0;
+      return Math.max(0, detail.deliveredAmount - paid);
+    }
+    return debtByOrderId[orderId] ?? 0;
+  };
 
   // Kutilayotgan vozvratlarni yuklash (Qabul qilindi uchun)
   useEffect(() => {
@@ -334,7 +347,7 @@ export const AdminOrders = () => {
     const matchStatus = statusFilter === 'all'
       || o.status === statusFilter
       || (statusFilter === 'tayyorlanmagan' && o.status === 'sent')
-      || (statusFilter === 'delivered_debt' && o.status === 'delivered' && (debtByOrderId[o.id] ?? 0) > 0)
+      || (statusFilter === 'delivered_debt' && o.status === 'delivered' && getEffectiveDebt(o.id) > 0)
       || (statusFilter === 'cancelled' && returnedByOrderId[o.id]);
     return matchSearch && matchStatus;
   });
@@ -691,10 +704,10 @@ export const AdminOrders = () => {
                       <td className="px-5 py-4 text-right text-sm font-bold text-gray-900 dark:text-white">{order.total.toLocaleString()} so'm</td>
                       <td className="px-5 py-4">
                         <div className="space-y-1">
-                          {!(statusFilter === 'cancelled' && returnedByOrderId[order.id]) && (
+                          {!(returnedByOrderId[order.id] && order.status === 'delivered') && (
                             <StatusBadge status={order.status} />
                           )}
-                          {statusFilter === 'cancelled' && returnedByOrderId[order.id] && (
+                          {returnedByOrderId[order.id] && (
                             <div className="text-[11px] leading-4 space-y-1">
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-200 border border-amber-100 dark:border-amber-800">
                                 {t('returns.title')}
@@ -723,9 +736,9 @@ export const AdminOrders = () => {
                           )}
                           {order.status === 'delivered' && (
                             <div className="text-[11px] leading-4">
-                              {(debtByOrderId[order.id] ?? 0) > 0 ? (
+                              {getEffectiveDebt(order.id) > 0 ? (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-300 border border-red-100 dark:border-red-800">
-                                  {t('payments.badge.debt')}: {(debtByOrderId[order.id] ?? 0).toLocaleString('ru-RU')} {t('common.sum')}
+                                  {t('payments.badge.debt')}: {getEffectiveDebt(order.id).toLocaleString('ru-RU')} {t('common.sum')}
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-100 dark:border-green-800">
@@ -803,7 +816,7 @@ export const AdminOrders = () => {
                             <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('orders.items')}</span>
                           </div>
                           <div className="overflow-x-auto rounded border-2 border-gray-300 dark:border-gray-500 shadow-sm bg-gray-50 dark:bg-gray-800/80">
-                            {statusFilter === 'cancelled' && returnedByOrderId[order.id] && returnsDetailByOrderId[order.id] ? (
+                            {returnedByOrderId[order.id] && returnsDetailByOrderId[order.id] ? (
                               <table className="w-full text-sm border-collapse" style={{ tableLayout: 'fixed', minWidth: 520 }}>
                                 <thead>
                                   <tr className="bg-[#217346] text-white">
