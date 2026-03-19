@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import {
   Search, Plus, Phone, MapPin, ChevronRight,
@@ -248,8 +248,14 @@ function ClientOrdersModal({
   onClose: () => void;
 }) {
   const { clients, orders } = useApp();
-  const client = clients.find(c => c.id === clientId)!;
+  const client = clients.find(c => c.id === clientId);
   const today = toYMD(new Date());
+
+  useEffect(() => {
+    if (clientId && !client) onClose();
+  }, [clientId, client, onClose]);
+
+  if (!client) return null;
 
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [rangeStart, setRangeStart] = useState<string | null>(today);
@@ -378,7 +384,7 @@ function ClientOrdersModal({
                   rangeEnd={rangeEnd}
                   hoverDate={hoverDate}
                   onDateClick={handleDateClick}
-                  onDateHover={d => rangeStart && !rangeEnd ? setHoverDate(d) : undefined}
+                  onDateHover={d => { if (rangeStart && !rangeEnd) setHoverDate(d); }}
                   onMouseLeave={() => setHoverDate(null)}
                   onToday={handleToday}
                   onClear={handleClear}

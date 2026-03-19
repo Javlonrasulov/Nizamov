@@ -86,16 +86,8 @@ export const OrderHistory = () => {
     }
   };
 
-  const isPastDay = (dateStr: string) => dateStr < todayStr;
-
-  const filtered = myOrders.filter(o => {
-    if (!selectedDates.has(o.date)) return false;
-    // Agent omborga yuborgandan keyin (tayyorlanmagan/yuborilgan/sent) zakazni ko'rmaydi.
-    // Faqat "new" (ish jarayonida) va "delivered" (yetkazilgan) ko'rinadi.
-    if (o.status === 'delivered') return true;
-    if (isPastDay(o.date)) return false;
-    return o.status === 'new';
-  });
+  // Tanlangan sanalardagi barcha agent zakazlari — yuborilgandan keyingi qadamlarni ham ko'rsatamiz (tayyorlanmagan, yuborilgan, yetkazilgan va h.k.)
+  const filtered = myOrders.filter(o => selectedDates.has(o.date));
 
   // Sort by date desc
   const sortedFiltered = [...filtered].sort((a, b) => b.date.localeCompare(a.date));

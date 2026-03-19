@@ -16,8 +16,9 @@ export const AgentDashboard = () => {
 
   const today = new Date().toISOString().split('T')[0];
   const myOrders = orders.filter(o => o.agentId === currentUser?.id);
-  // Agent omborga yuborgandan keyin zakazlar dashboardda ko'rinmasin.
-  const visibleOrders = myOrders.filter(o => o.status === 'new' || o.status === 'delivered');
+  // Barcha bosqichlar ko‘rinsin: new, tayyorlanmagan, yuborilgan, yetkazilgan va h.k.
+  const visibleStatuses: string[] = ['new', 'tayyorlanmagan', 'sent', 'yuborilgan', 'accepted', 'delivering', 'delivered'];
+  const visibleOrders = myOrders.filter(o => visibleStatuses.includes(o.status));
   const todayOrders = visibleOrders.filter(o => o.date === today);
   const todaySales = todayOrders.reduce((sum, o) => sum + o.total, 0);
   const recentOrders = visibleOrders.slice(0, 3);
