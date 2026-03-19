@@ -249,7 +249,7 @@ function ClientOrdersModal({
   clientId: string;
   onClose: () => void;
 }) {
-  const { clients, orders } = useApp();
+  const { clients, orders, lang } = useApp();
   const client = clients.find(c => c.id === clientId);
   if (!client) return null;
   const today = toYMD(new Date());
@@ -294,6 +294,12 @@ function ClientOrdersModal({
   // Filtrlash uchun sana oraliqni hisoblash
   const [sortedStart, sortedEnd] = sortRange(rangeStart, rangeEnd);
 
+  const locale = lang === 'ru'
+    ? 'ru-RU'
+    : (lang === 'uz_kir' ? 'uz-Cyrl-UZ' : 'uz-Latn-UZ');
+  const monthLabel = (monthIndex: number) =>
+    new Date(2000, monthIndex, 1).toLocaleString(locale, { month: 'short' }) || '';
+
   const filteredOrders = sortedStart
     ? clientOrders
       .filter(o => {
@@ -309,9 +315,9 @@ function ClientOrdersModal({
   // Range label
   const rangeLabel = (() => {
     if (!sortedStart) return 'Kun tanlang';
-    if (!sortedEnd || sortedStart === sortedEnd) return formatDateLabel(sortedStart);
+    if (!sortedEnd || sortedStart === sortedEnd) return formatDateLabel(sortedStart, monthLabel);
     const days = getDatesInRange(sortedStart, sortedEnd).length;
-    return `${formatDateLabel(sortedStart)} — ${formatDateLabel(sortedEnd)} (${days} kun)`;
+    return `${formatDateLabel(sortedStart, monthLabel)} — ${formatDateLabel(sortedEnd, monthLabel)} (${days} kun)`;
   })();
 
   return (
