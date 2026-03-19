@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -376,17 +376,19 @@ export const AdminDateFilter = () => {
   );
 };
 
-// Hook: filter orders by admin date range
+// Hook: filter orders by admin date range (memoized to avoid infinite loops in effects that depend on result)
 export function useFilteredOrders() {
   const { orders, adminDateFrom, adminDateTo } = useApp();
-  if (!adminDateFrom && !adminDateTo) return orders;
-  const from = adminDateFrom || '0000-00-00';
-  const to = adminDateTo || '9999-99-99';
-  return orders.filter(o => o.date >= from && o.date <= to);
+  return useMemo(() => {
+    if (!adminDateFrom && !adminDateTo) return orders;
+    const from = adminDateFrom || '0000-00-00';
+    const to = adminDateTo || '9999-99-99';
+    return orders.filter(o => o.date >= from && o.date <= to);
+  }, [orders, adminDateFrom, adminDateTo]);
 }
 
 // Admin faqat omborga yuborilgan zakazlarni ko'radi (status !== 'new' - ya'ni tayyorlanmagan, sent, accepted, ...)
 export function useAdminVisibleOrders() {
   const filtered = useFilteredOrders();
-  return filtered.filter(o => o.status !== 'new');
+  return useMemo(() => filtered.filter(o => o.status !== 'new'), [filtered]);
 }

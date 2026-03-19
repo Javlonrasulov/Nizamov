@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Search, MapPin, Phone, CalendarDays, Plus, LayoutGrid, List,
   Edit2, Trash2, X, Check, User, Users, Package, ShoppingBag,
@@ -662,11 +662,12 @@ export const AdminClients = () => {
   const [bulkViewMonth, setBulkViewMonth] = useState(initialView.m);
 
   const hasFilter = adminDateFrom || adminDateTo;
-  const activeClientIds = hasFilter
-    ? new Set(filteredOrders.map(o => o.clientId))
-    : null;
+  const activeClientIds = useMemo(
+    () => (hasFilter ? new Set(filteredOrders.map(o => o.clientId)) : null),
+    [hasFilter, filteredOrders]
+  );
 
-  const filteredBase = clients.filter(c => {
+  const filteredBase = useMemo(() => clients.filter(c => {
     const q = search.toLowerCase();
     const matchSearch =
       c.name.toLowerCase().includes(q) ||
@@ -675,7 +676,7 @@ export const AdminClients = () => {
     const matchDate  = !activeClientIds || activeClientIds.has(c.id);
     const matchAgent = agentFilter === 'all' || c.agentId === agentFilter;
     return matchSearch && matchDate && matchAgent;
-  });
+  }), [clients, search, activeClientIds, agentFilter]);
 
   // Load balances when needed (debt filter, selection, or history panel)
   useEffect(() => {
