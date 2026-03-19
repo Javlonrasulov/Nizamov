@@ -849,37 +849,63 @@ export const AdminOrders = () => {
                                 </div>
                               </div>
 
-                              <div className="space-y-2">
-                                {debtLoading && paymentsByOrderId[order.id] == null ? (
-                                  <p className="text-xs text-gray-400 dark:text-gray-500">...</p>
-                                ) : (
-                                  (paymentsByOrderId[order.id] || []).length > 0
-                                    ? paymentsByOrderId[order.id].slice().sort((a, b) => b.date.localeCompare(a.date)).map(p => (
-                                      <div
-                                        key={p.id}
-                                        className="flex items-start justify-between gap-3 bg-gray-50 dark:bg-gray-900/20 rounded-xl p-2 border border-gray-100 dark:border-gray-700"
-                                      >
-                                        <div className="min-w-0">
-                                          <p className="text-[11px] font-semibold text-gray-800 dark:text-gray-100 truncate">
-                                            {p.date} · {t(`payments.method.${p.method}` as any)}
-                                          </p>
-                                          <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
-                                            {p.collectedBy?.name
-                                              ? `${t('payments.collectedBy')}: ${p.collectedBy.name}`
-                                              : ''}
-                                          </p>
-                                        </div>
-                                        <p className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 shrink-0">
-                                          {p.amount.toLocaleString('ru-RU')} {t('common.sum')}
-                                        </p>
-                                      </div>
-                                    ))
-                                    : (
-                                      <p className="text-xs text-gray-400 dark:text-gray-500">
-                                        {t('admin.suppliers.noPayments')}
-                                      </p>
-                                    )
-                                )}
+                              <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/20">
+                                <table className="w-full text-xs border-collapse" style={{ tableLayout: 'fixed', minWidth: 520 }}>
+                                  <thead>
+                                    <tr className="bg-gray-50 dark:bg-gray-800/60">
+                                      <th className="text-left px-2 py-2 font-semibold text-gray-600 dark:text-gray-300 border-b border-gray-100 dark:border-gray-700">
+                                        {t('common.date')}
+                                      </th>
+                                      <th className="text-left px-2 py-2 font-semibold text-gray-600 dark:text-gray-300 border-b border-gray-100 dark:border-gray-700 w-28">
+                                        {t('payments.method')}
+                                      </th>
+                                      <th className="text-left px-2 py-2 font-semibold text-gray-600 dark:text-gray-300 border-b border-gray-100 dark:border-gray-700">
+                                        {t('payments.collectedBy')}
+                                      </th>
+                                      <th className="text-right px-2 py-2 font-semibold text-gray-600 dark:text-gray-300 border-b border-gray-100 dark:border-gray-700 w-28">
+                                        {t('common.sum')}
+                                      </th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {debtLoading && paymentsByOrderId[order.id] == null ? (
+                                      <tr>
+                                        <td className="px-2 py-3 text-gray-400 dark:text-gray-500" colSpan={4}>
+                                          ...
+                                        </td>
+                                      </tr>
+                                    ) : (paymentsByOrderId[order.id] || []).length > 0 ? (
+                                      paymentsByOrderId[order.id]
+                                        .slice()
+                                        .sort((a, b) => b.date.localeCompare(a.date))
+                                        .map(p => (
+                                          <tr
+                                            key={p.id}
+                                            className="border-t border-gray-100 dark:border-gray-700"
+                                          >
+                                            <td className="px-2 py-2 text-gray-700 dark:text-gray-200 truncate">
+                                              {p.date}
+                                            </td>
+                                            <td className="px-2 py-2 text-gray-700 dark:text-gray-200 truncate">
+                                              {t(`payments.method.${p.method}` as any)}
+                                            </td>
+                                            <td className="px-2 py-2 text-gray-700 dark:text-gray-200 truncate">
+                                              {p.collectedBy?.name || '-'}
+                                            </td>
+                                            <td className="px-2 py-2 text-right font-semibold text-indigo-600 dark:text-indigo-400">
+                                              {p.amount.toLocaleString('ru-RU')}
+                                            </td>
+                                          </tr>
+                                        ))
+                                    ) : (
+                                      <tr>
+                                        <td className="px-2 py-3 text-gray-400 dark:text-gray-500" colSpan={4}>
+                                          {t('admin.suppliers.noPayments')}
+                                        </td>
+                                      </tr>
+                                    )}
+                                  </tbody>
+                                </table>
                               </div>
                             </div>
                           )}
