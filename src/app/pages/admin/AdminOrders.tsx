@@ -948,20 +948,20 @@ export const AdminOrders = () => {
                                 </div>
                               </div>
 
-                              <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/20">
-                                <table className="w-full text-xs border-collapse" style={{ tableLayout: 'fixed', minWidth: 520 }}>
+                              <div className="overflow-x-auto rounded border-2 border-gray-300 dark:border-gray-500 shadow-sm bg-gray-50 dark:bg-gray-800/80">
+                                <table className="w-full text-sm border-collapse" style={{ tableLayout: 'fixed', minWidth: 520 }}>
                                   <thead>
-                                    <tr className="bg-gray-50 dark:bg-gray-800/60">
-                                      <th className="text-left px-2 py-2 font-semibold text-gray-600 dark:text-gray-300 border-b border-gray-100 dark:border-gray-700">
+                                    <tr className="bg-[#217346] text-white">
+                                      <th className="text-left px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-24">
                                         {t('common.date')}
                                       </th>
-                                      <th className="text-left px-2 py-2 font-semibold text-gray-600 dark:text-gray-300 border-b border-gray-100 dark:border-gray-700 w-28">
+                                      <th className="text-left px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-28">
                                         {t('payments.method')}
                                       </th>
-                                      <th className="text-left px-2 py-2 font-semibold text-gray-600 dark:text-gray-300 border-b border-gray-100 dark:border-gray-700">
+                                      <th className="text-left px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500">
                                         {t('payments.collectedBy')}
                                       </th>
-                                      <th className="text-right px-2 py-2 font-semibold text-gray-600 dark:text-gray-300 border-b border-gray-100 dark:border-gray-700 w-28">
+                                      <th className="text-right px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-28">
                                         {t('common.sum')}
                                       </th>
                                     </tr>
@@ -969,7 +969,7 @@ export const AdminOrders = () => {
                                   <tbody>
                                     {debtLoading && paymentsByOrderId[order.id] == null ? (
                                       <tr>
-                                        <td className="px-2 py-3 text-gray-400 dark:text-gray-500" colSpan={4}>
+                                        <td className="px-3 py-2 text-gray-400 dark:text-gray-500 border border-gray-300 dark:border-gray-500" colSpan={4}>
                                           ...
                                         </td>
                                       </tr>
@@ -977,28 +977,28 @@ export const AdminOrders = () => {
                                       paymentsByOrderId[order.id]
                                         .slice()
                                         .sort((a, b) => b.date.localeCompare(a.date))
-                                        .map(p => (
+                                        .map((p, idx) => (
                                           <tr
                                             key={p.id}
-                                            className="border-t border-gray-100 dark:border-gray-700"
+                                            className={`border border-gray-300 dark:border-gray-500 ${idx % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50/80 dark:bg-gray-700/50'}`}
                                           >
-                                            <td className="px-2 py-2 text-gray-700 dark:text-gray-200 truncate">
+                                            <td className="px-3 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-500 truncate">
                                               {p.date}
                                             </td>
-                                            <td className="px-2 py-2 text-gray-700 dark:text-gray-200 truncate">
+                                            <td className="px-3 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-500 truncate">
                                               {t(`payments.method.${p.method}` as any)}
                                             </td>
-                                            <td className="px-2 py-2 text-gray-700 dark:text-gray-200 truncate">
+                                            <td className="px-3 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-500 truncate">
                                               {p.collectedBy?.name || '-'}
                                             </td>
-                                            <td className="px-2 py-2 text-right font-semibold text-indigo-600 dark:text-indigo-400">
+                                            <td className="px-3 py-2 text-right font-semibold text-indigo-600 dark:text-indigo-400 border border-gray-300 dark:border-gray-500">
                                               {p.amount.toLocaleString('ru-RU')}
                                             </td>
                                           </tr>
                                         ))
                                     ) : (
                                       <tr>
-                                        <td className="px-2 py-3 text-gray-400 dark:text-gray-500" colSpan={4}>
+                                        <td className="px-3 py-2 text-gray-400 dark:text-gray-500 border border-gray-300 dark:border-gray-500" colSpan={4}>
                                           {t('admin.suppliers.noPayments')}
                                         </td>
                                       </tr>
