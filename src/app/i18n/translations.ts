@@ -415,6 +415,11 @@ type TranslationKeys = {
   'returns.comment': string;
   'returns.commentPlaceholder': string;
   'returns.acceptedReturnsHistory': string;
+  'returns.deliveredAmount': string;
+  'returns.cancelledAmount': string;
+  'returns.orderedQty': string;
+  'returns.cancelledQty': string;
+  'returns.deliveredQty': string;
 
   // Admin clients
   'admin.clients.searchPlaceholder': string;
@@ -843,6 +848,11 @@ const uz_lat: TranslationKeys = {
   'returns.comment': 'Izoh',
   'returns.commentPlaceholder': 'Izoh yozing (ixtiyoriy)',
   'returns.acceptedReturnsHistory': 'Qabul qilingan vozvratlar',
+  'returns.deliveredAmount': 'Olingan summa',
+  'returns.cancelledAmount': 'Bekor qilingan summa',
+  'returns.orderedQty': 'Buyurtma',
+  'returns.cancelledQty': 'Bekor',
+  'returns.deliveredQty': 'Yetkazilgan',
   'admin.clients.searchPlaceholder': 'Klient qidirish...',
   'admin.clients.add': "Yangi klient",
   'admin.clients.notFound': 'Klient topilmadi',
@@ -1268,6 +1278,11 @@ const uz_kir: TranslationKeys = {
   'returns.comment': 'Изоҳ',
   'returns.commentPlaceholder': 'Изоҳ ёзинг (ихтиёрий)',
   'returns.acceptedReturnsHistory': 'Қабул қилинган возвратлар',
+  'returns.deliveredAmount': 'Олинган сумма',
+  'returns.cancelledAmount': 'Бекор қилинган сумма',
+  'returns.orderedQty': 'Буюртма',
+  'returns.cancelledQty': 'Бекор',
+  'returns.deliveredQty': 'Етказилган',
   'admin.clients.searchPlaceholder': 'Клиент қидириш...',
   'admin.clients.add': "Янги клиент",
   'admin.clients.notFound': 'Клиент топилмади',
@@ -1693,6 +1708,11 @@ const ru: TranslationKeys = {
   'returns.comment': 'Комментарий',
   'returns.commentPlaceholder': 'Напишите комментарий (необязательно)',
   'returns.acceptedReturnsHistory': 'Принятые возвраты',
+  'returns.deliveredAmount': 'Сумма полученного',
+  'returns.cancelledAmount': 'Сумма отменённого',
+  'returns.orderedQty': 'Заказано',
+  'returns.cancelledQty': 'Отменено',
+  'returns.deliveredQty': 'Доставлено',
   'admin.clients.searchPlaceholder': 'Поиск клиента...',
   'admin.clients.add': 'Новый клиент',
   'admin.clients.notFound': 'Клиент не найден',

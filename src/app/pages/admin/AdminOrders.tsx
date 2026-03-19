@@ -50,7 +50,15 @@ export const AdminOrders = () => {
   const [debtByOrderId, setDebtByOrderId] = useState<Record<string, number>>({});
   const [debtLoading, setDebtLoading] = useState(false);
   const [returnedByOrderId, setReturnedByOrderId] = useState<Record<string, boolean>>({});
-  const [returnsDetailByOrderId, setReturnsDetailByOrderId] = useState<Record<string, { items: { productName: string; quantity: number }[]; isFull: boolean; acceptedBy?: string; comment?: string }>>({});
+  const [returnsDetailByOrderId, setReturnsDetailByOrderId] = useState<Record<string, {
+    items: { productName: string; quantity: number }[];
+    productBreakdown: { productName: string; orderedQty: number; cancelledQty: number; deliveredQty: number }[];
+    isFull: boolean;
+    cancelledAmount: number;
+    deliveredAmount: number;
+    acceptedBy?: string;
+    comment?: string;
+  }>>({});
   const [returnsLoading, setReturnsLoading] = useState(false);
   const [pendingReturns, setPendingReturns] = useState<Awaited<ReturnType<typeof apiGetReturns>>>([]);
   const [pendingReturnsLoading, setPendingReturnsLoading] = useState(false);
@@ -204,7 +212,15 @@ export const AdminOrders = () => {
       try {
         const allReturns = await apiGetReturns();
         const next: Record<string, boolean> = {};
-        const nextDetail: Record<string, { items: { productName: string; quantity: number }[]; isFull: boolean; acceptedBy?: string; comment?: string }> = {};
+        const nextDetail: Record<string, {
+          items: { productName: string; quantity: number }[];
+          productBreakdown: { productName: string; orderedQty: number; cancelledQty: number; deliveredQty: number }[];
+          isFull: boolean;
+          cancelledAmount: number;
+          deliveredAmount: number;
+          acceptedBy?: string;
+          comment?: string;
+        }> = {};
         const returnsByOrderId = new Map<string, typeof allReturns>();
         for (const r of allReturns || []) {
           next[r.orderId] = true;
@@ -225,17 +241,39 @@ export const AdminOrders = () => {
           const order = adminVisibleOrders.find(o => o.id === orderId);
           const orderItems = order?.items || [];
           let isFull = orderItems.length > 0;
+          const productBreakdown: { productName: string; orderedQty: number; cancelledQty: number; deliveredQty: number }[] = [];
           for (const ord of orderItems) {
             const ret = byProduct.get(ord.productId);
             if (!ret || ret.quantity < Number(ord.quantity || 0)) {
               isFull = false;
-              break;
             }
+            const orderedQty = Number(ord.quantity || 0);
+            const cancelledQty = Math.min(orderedQty, ret?.quantity || 0);
+            const deliveredQty = Math.max(0, orderedQty - cancelledQty);
+            productBreakdown.push({
+              productName: ord.productName || '',
+              orderedQty,
+              cancelledQty,
+              deliveredQty,
+            });
+          }
+          let cancelledAmount = 0;
+          let deliveredAmount = 0;
+          for (const ord of orderItems) {
+            const ordQty = Number(ord.quantity || 0);
+            const unitPrice = Number(ord.price || 0);
+            const retQty = Math.min(ordQty, byProduct.get(ord.productId)?.quantity || 0);
+            const delQty = Math.max(0, ordQty - retQty);
+            cancelledAmount += retQty * unitPrice;
+            deliveredAmount += delQty * unitPrice;
           }
           const acceptedReturn = rows.find((r: any) => r.status === 'accepted');
           nextDetail[orderId] = {
             items,
+            productBreakdown,
             isFull,
+            cancelledAmount,
+            deliveredAmount,
             acceptedBy: acceptedReturn?.acceptedBy?.name,
             comment: acceptedReturn?.comment || undefined,
           };
@@ -669,14 +707,36 @@ export const AdminOrders = () => {
                                       {t('returns.allCancelled')}
                                     </div>
                                   ) : (
-                                    <ul className="mt-0.5 list-disc list-inside text-gray-600 dark:text-gray-300">
-                                      {returnsDetailByOrderId[order.id].items.map((it, i) => (
-                                        <li key={i}>{it.productName} × {it.quantity}</li>
-                                      ))}
-                                    </ul>
+                                    <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+                                      {t('returns.partialCancelled')}
+                                    </div>
                                   )}
+                                  <div className="mt-1 space-y-0.5">
+                                    {returnsDetailByOrderId[order.id].productBreakdown.map((it, i) => (
+                                      <div key={i} className="text-[10px] text-gray-700 dark:text-gray-300">
+                                        <span className="font-medium">{it.productName}</span>{' '}
+                                        <span className="text-gray-500 dark:text-gray-400">
+                                          ({t('returns.orderedQty')}: {it.orderedQty})
+                                        </span>{' '}
+                                        <span className="text-red-700 dark:text-red-400">
+                                          {t('returns.cancelledQty')}: {it.cancelledQty}
+                                        </span>{' '}
+                                        <span className="text-green-700 dark:text-green-400">
+                                          {t('returns.deliveredQty')}: {it.deliveredQty}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
                                   <div className="text-[10px] font-medium text-gray-600 dark:text-gray-400 mt-0.5">
                                     {returnsDetailByOrderId[order.id].isFull ? t('returns.allCancelledLabel') : t('returns.partialCancelled')}
+                                  </div>
+                                  <div className="mt-1 space-y-0.5 text-[10px]">
+                                    <div className="text-green-700 dark:text-green-400 font-medium">
+                                      {t('returns.deliveredAmount')}: {returnsDetailByOrderId[order.id].deliveredAmount.toLocaleString('ru-RU')} {t('common.sum')}
+                                    </div>
+                                    <div className="text-red-700 dark:text-red-400 font-medium">
+                                      {t('returns.cancelledAmount')}: {returnsDetailByOrderId[order.id].cancelledAmount.toLocaleString('ru-RU')} {t('common.sum')}
+                                    </div>
                                   </div>
                                   {(returnsDetailByOrderId[order.id].acceptedBy || returnsDetailByOrderId[order.id].comment) && (
                                     <div className="text-[10px] text-green-600 dark:text-green-400 mt-1 space-y-0.5">
