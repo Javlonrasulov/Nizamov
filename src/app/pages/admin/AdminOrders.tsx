@@ -52,7 +52,7 @@ export const AdminOrders = () => {
   const [returnedByOrderId, setReturnedByOrderId] = useState<Record<string, boolean>>({});
   const [returnsDetailByOrderId, setReturnsDetailByOrderId] = useState<Record<string, {
     items: { productName: string; quantity: number }[];
-    productBreakdown: { productName: string; orderedQty: number; cancelledQty: number; deliveredQty: number }[];
+    productBreakdown: { productName: string; orderedQty: number; cancelledQty: number; deliveredQty: number; price: number }[];
     isFull: boolean;
     cancelledAmount: number;
     deliveredAmount: number;
@@ -214,7 +214,7 @@ export const AdminOrders = () => {
         const next: Record<string, boolean> = {};
         const nextDetail: Record<string, {
           items: { productName: string; quantity: number }[];
-          productBreakdown: { productName: string; orderedQty: number; cancelledQty: number; deliveredQty: number }[];
+          productBreakdown: { productName: string; orderedQty: number; cancelledQty: number; deliveredQty: number; price: number }[];
           isFull: boolean;
           cancelledAmount: number;
           deliveredAmount: number;
@@ -241,7 +241,7 @@ export const AdminOrders = () => {
           const order = adminVisibleOrders.find(o => o.id === orderId);
           const orderItems = order?.items || [];
           let isFull = orderItems.length > 0;
-          const productBreakdown: { productName: string; orderedQty: number; cancelledQty: number; deliveredQty: number }[] = [];
+          const productBreakdown: { productName: string; orderedQty: number; cancelledQty: number; deliveredQty: number; price: number }[] = [];
           for (const ord of orderItems) {
             const ret = byProduct.get(ord.productId);
             if (!ret || ret.quantity < Number(ord.quantity || 0)) {
@@ -250,11 +250,13 @@ export const AdminOrders = () => {
             const orderedQty = Number(ord.quantity || 0);
             const cancelledQty = Math.min(orderedQty, ret?.quantity || 0);
             const deliveredQty = Math.max(0, orderedQty - cancelledQty);
+            const price = Number(ord.price || 0);
             productBreakdown.push({
               productName: ord.productName || '',
               orderedQty,
               cancelledQty,
               deliveredQty,
+              price,
             });
           }
           let cancelledAmount = 0;
@@ -702,41 +704,8 @@ export const AdminOrders = () => {
                               )}
                               {!returnsLoading && returnsDetailByOrderId[order.id] && (
                                 <>
-                                  {returnsDetailByOrderId[order.id].isFull ? (
-                                    <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
-                                      {t('returns.allCancelled')}
-                                    </div>
-                                  ) : (
-                                    <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
-                                      {t('returns.partialCancelled')}
-                                    </div>
-                                  )}
-                                  <div className="mt-1 space-y-0.5">
-                                    {returnsDetailByOrderId[order.id].productBreakdown.map((it, i) => (
-                                      <div key={i} className="text-[10px] text-gray-700 dark:text-gray-300">
-                                        <span className="font-medium">{it.productName}</span>{' '}
-                                        <span className="text-gray-500 dark:text-gray-400">
-                                          ({t('returns.orderedQty')}: {it.orderedQty})
-                                        </span>{' '}
-                                        <span className="text-red-700 dark:text-red-400">
-                                          {t('returns.cancelledQty')}: {it.cancelledQty}
-                                        </span>{' '}
-                                        <span className="text-green-700 dark:text-green-400">
-                                          {t('returns.deliveredQty')}: {it.deliveredQty}
-                                        </span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                  <div className="text-[10px] font-medium text-gray-600 dark:text-gray-400 mt-0.5">
+                                  <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
                                     {returnsDetailByOrderId[order.id].isFull ? t('returns.allCancelledLabel') : t('returns.partialCancelled')}
-                                  </div>
-                                  <div className="mt-1 space-y-0.5 text-[10px]">
-                                    <div className="text-green-700 dark:text-green-400 font-medium">
-                                      {t('returns.deliveredAmount')}: {returnsDetailByOrderId[order.id].deliveredAmount.toLocaleString('ru-RU')} {t('common.sum')}
-                                    </div>
-                                    <div className="text-red-700 dark:text-red-400 font-medium">
-                                      {t('returns.cancelledAmount')}: {returnsDetailByOrderId[order.id].cancelledAmount.toLocaleString('ru-RU')} {t('common.sum')}
-                                    </div>
                                   </div>
                                   {(returnsDetailByOrderId[order.id].acceptedBy || returnsDetailByOrderId[order.id].comment) && (
                                     <div className="text-[10px] text-green-600 dark:text-green-400 mt-1 space-y-0.5">
@@ -834,42 +803,98 @@ export const AdminOrders = () => {
                             <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('orders.items')}</span>
                           </div>
                           <div className="overflow-x-auto rounded border-2 border-gray-300 dark:border-gray-500 shadow-sm bg-gray-50 dark:bg-gray-800/80">
-                            <table className="w-full text-sm border-collapse" style={{ tableLayout: 'fixed', minWidth: 380 }}>
-                              <thead>
-                                <tr className="bg-[#217346] text-white">
-                                  <th className="text-left px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-10">#</th>
-                                  <th className="text-left px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500">{t('admin.suppliers.productName')}</th>
-                                  <th className="text-right px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-20">{t('admin.suppliers.quantity')}</th>
-                                  <th className="text-right px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-24">{t('admin.suppliers.salePrice')}</th>
-                                  <th className="text-right px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-24">{t('admin.suppliers.totalSum')}</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {order.items?.map((item, idx) => (
-                                  <tr
-                                    key={idx}
-                                    className={`border border-gray-300 dark:border-gray-500 ${idx % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50/80 dark:bg-gray-700/50'}`}
-                                  >
-                                    <td className="px-3 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-500">{idx + 1}</td>
-                                    <td className="px-3 py-2 font-medium text-gray-900 dark:text-white border border-gray-300 dark:border-gray-500">{item.productName}</td>
-                                    <td className="px-3 py-2 text-right text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-500">{item.quantity} {t('common.pcs')}</td>
-                                    <td className="px-3 py-2 text-right text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-500">{(item.price || 0).toLocaleString('ru-RU')} {t('common.sum')}</td>
-                                    <td className="px-3 py-2 text-right font-semibold text-[#217346] dark:text-green-400 border border-gray-300 dark:border-gray-500">
-                                      {((item.quantity || 0) * (item.price || 0)).toLocaleString('ru-RU')} {t('common.sum')}
+                            {statusFilter === 'cancelled' && returnedByOrderId[order.id] && returnsDetailByOrderId[order.id] ? (
+                              <table className="w-full text-sm border-collapse" style={{ tableLayout: 'fixed', minWidth: 520 }}>
+                                <thead>
+                                  <tr className="bg-[#217346] text-white">
+                                    <th className="text-left px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-10">#</th>
+                                    <th className="text-left px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500">{t('admin.suppliers.productName')}</th>
+                                    <th className="text-right px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-16">{t('returns.orderedQty')}</th>
+                                    <th className="text-right px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-16">{t('returns.cancelledQty')}</th>
+                                    <th className="text-right px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-16">{t('returns.deliveredQty')}</th>
+                                    <th className="text-right px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-24">{t('admin.suppliers.salePrice')}</th>
+                                    <th className="text-right px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-24">{t('returns.deliveredAmount')}</th>
+                                    <th className="text-right px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-24">{t('returns.cancelledAmount')}</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {returnsDetailByOrderId[order.id].productBreakdown.map((row, idx) => (
+                                    <tr
+                                      key={idx}
+                                      className={`border border-gray-300 dark:border-gray-500 ${idx % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50/80 dark:bg-gray-700/50'}`}
+                                    >
+                                      <td className="px-3 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-500">{idx + 1}</td>
+                                      <td className="px-3 py-2 font-medium text-gray-900 dark:text-white border border-gray-300 dark:border-gray-500">{row.productName}</td>
+                                      <td className="px-3 py-2 text-right text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-500">{row.orderedQty} {t('common.pcs')}</td>
+                                      <td className="px-3 py-2 text-right text-red-700 dark:text-red-400 border border-gray-300 dark:border-gray-500">{row.cancelledQty} {t('common.pcs')}</td>
+                                      <td className="px-3 py-2 text-right text-green-700 dark:text-green-400 border border-gray-300 dark:border-gray-500">{row.deliveredQty} {t('common.pcs')}</td>
+                                      <td className="px-3 py-2 text-right text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-500">{(row.price || 0).toLocaleString('ru-RU')} {t('common.sum')}</td>
+                                      <td className="px-3 py-2 text-right font-semibold text-green-700 dark:text-green-400 border border-gray-300 dark:border-gray-500">
+                                        {(row.deliveredQty * (row.price || 0)).toLocaleString('ru-RU')} {t('common.sum')}
+                                      </td>
+                                      <td className="px-3 py-2 text-right font-semibold text-red-700 dark:text-red-400 border border-gray-300 dark:border-gray-500">
+                                        {(row.cancelledQty * (row.price || 0)).toLocaleString('ru-RU')} {t('common.sum')}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                                <tfoot>
+                                  <tr className="bg-gray-100 dark:bg-gray-700/40">
+                                    <td className="px-3 py-2 border border-gray-300 dark:border-gray-500" />
+                                    <td className="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-500">{t('common.total')}</td>
+                                    <td className="px-3 py-2 border border-gray-300 dark:border-gray-500" />
+                                    <td className="px-3 py-2 border border-gray-300 dark:border-gray-500" />
+                                    <td className="px-3 py-2 border border-gray-300 dark:border-gray-500" />
+                                    <td className="px-3 py-2 border border-gray-300 dark:border-gray-500" />
+                                    <td className="px-3 py-2 text-right font-bold text-green-700 dark:text-green-400 border border-gray-300 dark:border-gray-500">
+                                      {returnsDetailByOrderId[order.id].deliveredAmount.toLocaleString('ru-RU')} {t('common.sum')}
+                                    </td>
+                                    <td className="px-3 py-2 text-right font-bold text-red-700 dark:text-red-400 border border-gray-300 dark:border-gray-500">
+                                      {returnsDetailByOrderId[order.id].cancelledAmount.toLocaleString('ru-RU')} {t('common.sum')}
                                     </td>
                                   </tr>
-                                ))}
-                                <tr className="bg-gray-100 dark:bg-gray-700/40">
-                                  <td className="px-3 py-2 border border-gray-300 dark:border-gray-500" />
-                                  <td className="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-500">{t('common.total')}</td>
-                                  <td className="px-3 py-2 border border-gray-300 dark:border-gray-500" />
-                                  <td className="px-3 py-2 border border-gray-300 dark:border-gray-500" />
-                                  <td className="px-3 py-2 text-right font-bold text-[#217346] dark:text-green-400 border border-gray-300 dark:border-gray-500">
-                                    {(order.total || 0).toLocaleString('ru-RU')} {t('common.sum')}
-                                  </td>
-                                </tr>
-                              </tbody>
-                            </table>
+                                </tfoot>
+                              </table>
+                            ) : (
+                              <table className="w-full text-sm border-collapse" style={{ tableLayout: 'fixed', minWidth: 380 }}>
+                                <thead>
+                                  <tr className="bg-[#217346] text-white">
+                                    <th className="text-left px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-10">#</th>
+                                    <th className="text-left px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500">{t('admin.suppliers.productName')}</th>
+                                    <th className="text-right px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-20">{t('admin.suppliers.quantity')}</th>
+                                    <th className="text-right px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-24">{t('admin.suppliers.salePrice')}</th>
+                                    <th className="text-right px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-24">{t('admin.suppliers.totalSum')}</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {order.items?.map((item, idx) => (
+                                    <tr
+                                      key={idx}
+                                      className={`border border-gray-300 dark:border-gray-500 ${idx % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50/80 dark:bg-gray-700/50'}`}
+                                    >
+                                      <td className="px-3 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-500">{idx + 1}</td>
+                                      <td className="px-3 py-2 font-medium text-gray-900 dark:text-white border border-gray-300 dark:border-gray-500">{item.productName}</td>
+                                      <td className="px-3 py-2 text-right text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-500">{item.quantity} {t('common.pcs')}</td>
+                                      <td className="px-3 py-2 text-right text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-500">{(item.price || 0).toLocaleString('ru-RU')} {t('common.sum')}</td>
+                                      <td className="px-3 py-2 text-right font-semibold text-[#217346] dark:text-green-400 border border-gray-300 dark:border-gray-500">
+                                        {((item.quantity || 0) * (item.price || 0)).toLocaleString('ru-RU')} {t('common.sum')}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                                <tfoot>
+                                  <tr className="bg-gray-100 dark:bg-gray-700/40">
+                                    <td className="px-3 py-2 border border-gray-300 dark:border-gray-500" />
+                                    <td className="px-3 py-2 font-semibold text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-500">{t('common.total')}</td>
+                                    <td className="px-3 py-2 border border-gray-300 dark:border-gray-500" />
+                                    <td className="px-3 py-2 border border-gray-300 dark:border-gray-500" />
+                                    <td className="px-3 py-2 text-right font-bold text-[#217346] dark:text-green-400 border border-gray-300 dark:border-gray-500">
+                                      {(order.total || 0).toLocaleString('ru-RU')} {t('common.sum')}
+                                    </td>
+                                  </tr>
+                                </tfoot>
+                              </table>
+                            )}
                           </div>
                         </td>
                       </tr>
