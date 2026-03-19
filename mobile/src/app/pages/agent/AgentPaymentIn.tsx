@@ -44,9 +44,12 @@ export const AgentPaymentIn = () => {
   const selectedClient = selectedClientId ? myClients.find(c => c.id === selectedClientId) : null;
   const selectedDebt = selectedClient ? (balances[selectedClient.id]?.debt ?? 0) : 0;
 
+  // balances / balancesLoading ni dependency qilmang: har safar setBalances effektni qayta ishga tushiradi,
+  // cleanup async ni bekor qiladi — ketma-ket yuklashlar to‘xtab, qarzlar ko‘rinmay qoladi (AdminClients kabi).
   useEffect(() => {
     const ids = new Set<string>();
-    visible.forEach(c => ids.add(c.id));
+    const vis = expandClients ? filtered : filtered.slice(0, INITIAL_VISIBLE);
+    vis.forEach(c => ids.add(c.id));
     if (selectedClientId) ids.add(selectedClientId);
     const toLoad = Array.from(ids).filter(id => !balances[id] && !balancesLoading[id]);
     if (toLoad.length === 0) return;
@@ -62,12 +65,12 @@ export const AgentPaymentIn = () => {
         } catch {
           // ignore
         } finally {
-          if (!cancelled) setBalancesLoading(prev => ({ ...prev, [id]: false }));
+          setBalancesLoading(prev => ({ ...prev, [id]: false }));
         }
       }
     })();
     return () => { cancelled = true; };
-  }, [visible, selectedClientId, balances, balancesLoading]);
+  }, [filtered, expandClients, selectedClientId]);
 
   const reset = () => {
     setStep(1);

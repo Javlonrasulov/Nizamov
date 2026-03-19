@@ -41,9 +41,17 @@ function toYMD(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-function formatDateLabel(ymd: string, monthLabel: (monthIndex: number) => string) {
-  const [, m, d] = ymd.split('-');
-  return `${d}-${monthLabel(parseInt(m) - 1)}`;
+/** Sana satrini ko'rsatish (callback emas — minifikatsiya/APK da "is not a function" oldini olish) */
+function formatDateLabel(ymd: string, locale: string): string {
+  const parts = ymd.split('-');
+  const m = parts[1];
+  const d = parts[2];
+  if (m == null || d == null || m === '' || d === '') return ymd;
+  const monthIdx = parseInt(m, 10) - 1;
+  if (!Number.isFinite(monthIdx) || monthIdx < 0 || monthIdx > 11) return ymd;
+  const monthStr =
+    new Date(2000, monthIdx, 1).toLocaleString(locale, { month: 'short' }) || m;
+  return `${d}-${monthStr}`;
 }
 
 // Ikkita sanani tartiblaydi: [kichik, katta]
@@ -249,7 +257,7 @@ function ClientOrdersModal({
   clientId: string;
   onClose: () => void;
 }) {
-  const { clients, orders, lang } = useApp();
+  const { clients, orders, lang, t } = useApp();
   const client = clients.find(c => c.id === clientId);
   if (!client) return null;
   const today = toYMD(new Date());
@@ -297,8 +305,6 @@ function ClientOrdersModal({
   const locale = lang === 'ru'
     ? 'ru-RU'
     : (lang === 'uz_kir' ? 'uz-Cyrl-UZ' : 'uz-Latn-UZ');
-  const monthLabel = (monthIndex: number) =>
-    new Date(2000, monthIndex, 1).toLocaleString(locale, { month: 'short' }) || '';
 
   const filteredOrders = sortedStart
     ? clientOrders
@@ -315,9 +321,9 @@ function ClientOrdersModal({
   // Range label
   const rangeLabel = (() => {
     if (!sortedStart) return 'Kun tanlang';
-    if (!sortedEnd || sortedStart === sortedEnd) return formatDateLabel(sortedStart, monthLabel);
+    if (!sortedEnd || sortedStart === sortedEnd) return formatDateLabel(sortedStart, locale);
     const days = getDatesInRange(sortedStart, sortedEnd).length;
-    return `${formatDateLabel(sortedStart, monthLabel)} — ${formatDateLabel(sortedEnd, monthLabel)} (${days} kun)`;
+    return `${formatDateLabel(sortedStart, locale)} — ${formatDateLabel(sortedEnd, locale)} (${days} kun)`;
   })();
 
   return (
@@ -436,7 +442,7 @@ function ClientOrdersModal({
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">{order.id}</span>
-                        <span className="text-[10px] text-gray-400 dark:text-gray-500">{formatDateLabel(order.date, monthLabel)}</span>
+                        <span className="text-[10px] text-gray-400 dark:text-gray-500">{formatDateLabel(order.date, locale)}</span>
                       </div>
                       <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[order.status]}`}>
                         {t(`status.${order.status}` as any)}

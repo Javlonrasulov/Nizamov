@@ -45,10 +45,11 @@ export const DeliveryOrderDetail = () => {
 
   const canChangeStatus = order.status === 'yuborilgan' || order.status === 'delivering' || order.status === 'accepted';
 
-  const openPayModal = () => {
-    setPaidToggle(true);
+  const openPayModal = (initialAmount?: number) => {
+    const baseAmount = Math.max(0, Number(initialAmount ?? order.total ?? 0) || 0);
+    setPaidToggle(baseAmount > 0);
     setMethod('cash');
-    setAmount(String(order.total || ''));
+    setAmount(String(baseAmount));
     setPayOpen(true);
   };
 
@@ -118,16 +119,16 @@ export const DeliveryOrderDetail = () => {
               <div key={item.productId} className="flex items-center justify-between px-4 py-3 border-b border-gray-50 dark:border-gray-700 last:border-0">
                 <div>
                   <p className="text-sm font-medium text-gray-900 dark:text-white">{item.productName}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{item.quantity} × {item.price.toLocaleString()} {t('common.sum')}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{item.quantity} × {item.price.toLocaleString('ru-RU')} {t('common.sum')}</p>
                 </div>
                 <p className="text-sm font-bold text-gray-900 dark:text-white">
-                  {(item.quantity * item.price).toLocaleString()} {t('common.sum')}
+                  {(item.quantity * item.price).toLocaleString('ru-RU')} {t('common.sum')}
                 </p>
               </div>
             ))}
             <div className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50">
               <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t('orders.totalAmount')}</p>
-              <p className="text-base font-bold text-[#2563EB] dark:text-blue-400">{order.total.toLocaleString()} {t('common.sum')}</p>
+              <p className="text-base font-bold text-[#2563EB] dark:text-blue-400">{order.total.toLocaleString('ru-RU')} {t('common.sum')}</p>
             </div>
           </div>
 
@@ -231,7 +232,7 @@ export const DeliveryOrderDetail = () => {
                     />
                   </div>
                   <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">
-                    {t('payments.delivery.orderTotal')}: {order.total.toLocaleString()} {t('common.sum')}
+                    {t('payments.delivery.orderTotal')}: {parseInt(amount || '0', 10).toLocaleString('ru-RU')} {t('common.sum')}
                   </p>
                 </div>
               </div>
@@ -364,6 +365,14 @@ export const DeliveryOrderDetail = () => {
                     setReturnError(t('returns.error.noItems'));
                     return;
                   }
+
+                  // Qaytarilgan miqdor qiymati bo‘yicha qolganini hisoblaymiz.
+                  const returnedAmount = order.items.reduce((sum, it) => {
+                    const qty = returnQtyByProduct[it.productId] ?? 0;
+                    return sum + qty * (it.price ?? 0);
+                  }, 0);
+                  const remainingAmount = Math.max(0, (order.total ?? 0) - returnedAmount);
+
                   setReturnSaving(true);
                   setReturnError('');
                   try {
@@ -377,7 +386,8 @@ export const DeliveryOrderDetail = () => {
                       items,
                     });
                     setReturnOpen(false);
-                    navigate('/delivery');
+                    // Qisman vozvratdan keyin avtomatik pul kiritish oynasini ochamiz.
+                    openPayModal(remainingAmount);
                   } catch (e: any) {
                     setReturnError(e?.message || 'Xatolik');
                   } finally {

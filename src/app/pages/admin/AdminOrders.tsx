@@ -6,7 +6,7 @@ import { StatusBadge } from '../../components/StatusBadge';
 import { OrderStatus } from '../../data/mockData';
 import { useAdminVisibleOrders } from '../../components/AdminDateFilter';
 import { apiGetUsers } from '../../api/users';
-import { apiGetClientBalance } from '../../api/payments';
+import { apiGetClientBalance, type Payment } from '../../api/payments';
 import { apiAcceptReturn, apiCreateReturn, apiGetReturns } from '../../api/returns';
 import type { User } from '../../data/mockData';
 
@@ -49,6 +49,7 @@ export const AdminOrders = () => {
   const [vehiclesList, setVehiclesList] = useState<string[]>(loadVehicles);
   const [debtByOrderId, setDebtByOrderId] = useState<Record<string, number>>({});
   const [paidByOrderId, setPaidByOrderId] = useState<Record<string, number>>({});
+  const [paymentsByOrderId, setPaymentsByOrderId] = useState<Record<string, Payment[]>>({});
   const [debtLoading, setDebtLoading] = useState(false);
   const [returnedByOrderId, setReturnedByOrderId] = useState<Record<string, boolean>>({});
   const [returnsDetailByOrderId, setReturnsDetailByOrderId] = useState<Record<string, {
@@ -183,11 +184,14 @@ export const AdminOrders = () => {
     const clientIds = Array.from(new Set(delivered.map(o => o.clientId).filter(Boolean)));
     if (clientIds.length === 0) return;
 
+    const deliveredOrderIds = new Set(delivered.map(o => o.id));
+
     let cancelled = false;
     setDebtLoading(true);
     (async () => {
       const next: Record<string, number> = {};
       const nextPaid: Record<string, number> = {};
+      const nextPayments: Record<string, Payment[]> = {};
       for (const clientId of clientIds) {
         try {
           const bal = await apiGetClientBalance(clientId);
@@ -195,12 +199,21 @@ export const AdminOrders = () => {
             next[row.orderId] = row.debt;
             nextPaid[row.orderId] = row.paid;
           }
+
+          for (const p of bal.payments || []) {
+            if (!p.orderId) continue;
+            if (!deliveredOrderIds.has(p.orderId)) continue;
+            const arr = nextPayments[p.orderId] || [];
+            arr.push(p);
+            nextPayments[p.orderId] = arr;
+          }
         } catch {
           // ignore
         }
       }
       if (!cancelled) setDebtByOrderId(prev => ({ ...prev, ...next }));
       if (!cancelled) setPaidByOrderId(prev => ({ ...prev, ...nextPaid }));
+      if (!cancelled) setPaymentsByOrderId(prev => ({ ...prev, ...nextPayments }));
       if (!cancelled) setDebtLoading(false);
     })();
 
@@ -811,6 +824,65 @@ export const AdminOrders = () => {
                     {expandedOrderId === order.id && (
                       <tr key={`${order.id}-expand`} className="bg-gray-50/80 dark:bg-gray-800/80">
                         <td colSpan={8} className="px-5 py-4">
+                          {order.status === 'delivered' && (
+                            <div className="mb-3 bg-white dark:bg-gray-800 rounded-2xl p-3 border border-gray-100 dark:border-gray-700 shadow-sm">
+                              <div className="flex items-center justify-between gap-3 mb-2">
+                                <div className="min-w-0">
+                                  <p className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+                                    {t('payments.history')}
+                                  </p>
+                                  <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                                    {t('orders.id')}: {formatOrderId(order)}
+                                  </p>
+                                </div>
+                                <div className="shrink-0">
+                                  {getEffectiveDebt(order.id) > 0 ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-300 border border-red-100 dark:border-red-800">
+                                      {t('payments.badge.debt')}: {getEffectiveDebt(order.id).toLocaleString('ru-RU')} {t('common.sum')}
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-100 dark:border-green-800">
+                                      {t('payments.badge.paid')}:{' '}
+                                      {(paidByOrderId[order.id] ?? 0).toLocaleString('ru-RU')} {t('common.sum')}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="space-y-2">
+                                {debtLoading && paymentsByOrderId[order.id] == null ? (
+                                  <p className="text-xs text-gray-400 dark:text-gray-500">...</p>
+                                ) : (
+                                  (paymentsByOrderId[order.id] || []).length > 0
+                                    ? paymentsByOrderId[order.id].slice().sort((a, b) => b.date.localeCompare(a.date)).map(p => (
+                                      <div
+                                        key={p.id}
+                                        className="flex items-start justify-between gap-3 bg-gray-50 dark:bg-gray-900/20 rounded-xl p-2 border border-gray-100 dark:border-gray-700"
+                                      >
+                                        <div className="min-w-0">
+                                          <p className="text-[11px] font-semibold text-gray-800 dark:text-gray-100 truncate">
+                                            {p.date} · {t(`payments.method.${p.method}` as any)}
+                                          </p>
+                                          <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                                            {p.collectedBy?.name
+                                              ? `${t('payments.collectedBy')}: ${p.collectedBy.name}`
+                                              : ''}
+                                          </p>
+                                        </div>
+                                        <p className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 shrink-0">
+                                          {p.amount.toLocaleString('ru-RU')} {t('common.sum')}
+                                        </p>
+                                      </div>
+                                    ))
+                                    : (
+                                      <p className="text-xs text-gray-400 dark:text-gray-500">
+                                        {t('admin.suppliers.noPayments')}
+                                      </p>
+                                    )
+                                )}
+                              </div>
+                            </div>
+                          )}
                           <div className="flex items-center gap-2 mb-3">
                             <Package size={16} className="text-[#2563EB] dark:text-blue-400" />
                             <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('orders.items')}</span>

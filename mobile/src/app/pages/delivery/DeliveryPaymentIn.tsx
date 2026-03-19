@@ -55,9 +55,11 @@ export const DeliveryPaymentIn = () => {
   const selectedClient = selectedClientId ? myClients.find(c => c.id === selectedClientId) : null;
   const selectedDebt = selectedClient ? (balances[selectedClient.id]?.debt ?? 0) : 0;
 
+  // balances ni dependency qilmaslik — har yuklashda effekt bekor bo‘lib qarzlar yuklanmasligi mumkin.
   useEffect(() => {
     const ids = new Set<string>();
-    visible.forEach(c => ids.add(c.id));
+    const vis = expandClients ? filtered : filtered.slice(0, INITIAL_VISIBLE);
+    vis.forEach(c => ids.add(c.id));
     if (selectedClientId) ids.add(selectedClientId);
     const toLoad = Array.from(ids).filter(id => !balances[id] && !balancesLoading[id]);
     if (toLoad.length === 0) return;
@@ -73,12 +75,12 @@ export const DeliveryPaymentIn = () => {
         } catch {
           // ignore
         } finally {
-          if (!cancelled) setBalancesLoading(prev => ({ ...prev, [id]: false }));
+          setBalancesLoading(prev => ({ ...prev, [id]: false }));
         }
       }
     })();
     return () => { cancelled = true; };
-  }, [visible, selectedClientId, balances, balancesLoading]);
+  }, [filtered, expandClients, selectedClientId]);
 
   const reset = () => {
     setStep(1);

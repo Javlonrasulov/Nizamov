@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
   MapPin, Phone, ChevronRight, Package, Calendar,
@@ -8,6 +8,7 @@ import { useApp } from '../../context/AppContext';
 import { MobileShell, MobileHeader, MobileContent } from '../../components/MobileShell';
 import { MobileNav } from '../../components/MobileNav';
 import { StatusBadge } from '../../components/StatusBadge';
+import { apiGetClientBalance, type ClientBalance } from '../../api/payments';
 
 /* ─── Kalendar yordamchi funksiyalar ─── */
 const dayShortKeys = [
@@ -67,6 +68,60 @@ export const DeliveryOrders = () => {
   /* Tanlangan kunlar bo'yicha filtrlash */
   const filtered = myOrders.filter(o => selectedDates.has(o.date));
   const sortedFiltered = [...filtered].sort((a, b) => b.date.localeCompare(a.date));
+
+  const [clientModalOpen, setClientModalOpen] = useState(false);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [balances, setBalances] = useState<Record<string, ClientBalance>>({});
+  const [balancesLoading, setBalancesLoading] = useState<Record<string, boolean>>({});
+  const balancesRef = useRef(balances);
+  const balancesLoadingRef = useRef(balancesLoading);
+
+  useEffect(() => {
+    balancesRef.current = balances;
+  }, [balances]);
+
+  useEffect(() => {
+    balancesLoadingRef.current = balancesLoading;
+  }, [balancesLoading]);
+
+  const visibleClientIds = useMemo(
+    () => Array.from(new Set(sortedFiltered.map(o => o.clientId).filter(Boolean))),
+    [sortedFiltered],
+  );
+  const visibleClientIdsKey = useMemo(() => {
+    const ids = Array.from(new Set(visibleClientIds)).filter(Boolean).sort();
+    return ids.join('|');
+  }, [visibleClientIds]);
+
+  useEffect(() => {
+    const ids = new Set<string>(visibleClientIds);
+    if (selectedClientId) ids.add(selectedClientId);
+
+    const toLoad = Array.from(ids).filter(
+      id => !balancesRef.current[id] && !balancesLoadingRef.current[id],
+    );
+    if (toLoad.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      for (const id of toLoad) {
+        if (cancelled) return;
+        setBalancesLoading(prev => ({ ...prev, [id]: true }));
+        try {
+          const bal = await apiGetClientBalance(id);
+          if (!cancelled) setBalances(prev => ({ ...prev, [id]: bal }));
+        } catch {
+          // ignore
+        } finally {
+          if (!cancelled) setBalancesLoading(prev => ({ ...prev, [id]: false }));
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [visibleClientIdsKey, selectedClientId]);
 
   /* Statistika */
   const todayAll = myOrders.filter(o => o.date === todayStr);
@@ -128,6 +183,12 @@ export const DeliveryOrders = () => {
     : `${formatDisplay(selectedSorted[0])} — ${formatDisplay(selectedSorted[selectedSorted.length - 1])}`;
 
   const formatCurrency = (n: number) => `${n.toLocaleString('ru-RU')} ${t('common.sum')}`;
+  const formatAmount = (n: number) => n.toLocaleString('ru-RU');
+
+  const openClientModal = (clientId: string) => {
+    setSelectedClientId(clientId);
+    setClientModalOpen(true);
+  };
 
   return (
     <MobileShell>
@@ -297,15 +358,37 @@ export const DeliveryOrders = () => {
                 {/* Card header */}
                 <div className="flex items-start justify-between px-4 pt-4 pb-2">
                   <div className="flex-1 min-w-0">
-                    <button
-                      onClick={() => navigate(`/delivery/${order.id}`)}
-                      className="flex items-center gap-1 group"
-                    >
-                      <span className="font-bold text-purple-600 dark:text-purple-400 text-base group-active:underline">
-                        {order.clientName}
-                      </span>
-                      <ChevronRight size={15} className="text-purple-500 dark:text-purple-400 flex-shrink-0" />
-                    </button>
+                      <div className="flex items-center gap-1 group">
+                        <button
+                          type="button"
+                          onClick={() => openClientModal(order.clientId)}
+                          className="flex items-center gap-1 min-w-0"
+                        >
+                          <span className="font-bold text-purple-600 dark:text-purple-400 text-base truncate group-active:underline">
+                            {order.clientName}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/delivery/${order.id}`)}
+                          className="p-1 rounded-full hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
+                          title={t('orders.history')}
+                        >
+                          <ChevronRight size={15} className="text-purple-500 dark:text-purple-400 flex-shrink-0" />
+                        </button>
+                      </div>
+                      {/* Client qarzi badge */}
+                      <div className="mt-1">
+                        {balancesLoading[order.clientId] ? (
+                          <span className="text-[10px] text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700 px-2 py-0.5 rounded-lg">
+                            ...
+                          </span>
+                        ) : ((balances[order.clientId]?.debt ?? 0) > 0) ? (
+                          <span className="text-[10px] bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-300 px-2 py-0.5 rounded-lg font-semibold">
+                            {t('payments.badge.debt')}: {formatAmount(balances[order.clientId]?.debt ?? 0)} {t('common.sum')}
+                          </span>
+                        ) : null}
+                      </div>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <span className="text-xs text-gray-400 font-mono bg-gray-50 dark:bg-gray-700 dark:text-gray-300 px-2 py-0.5 rounded-lg">
                         {formatOrderId(order)}
@@ -381,6 +464,122 @@ export const DeliveryOrders = () => {
             </div>
           )}
         </div>
+
+        {/* ── Client modal (debt + history) ───────────────────────── */}
+        {clientModalOpen && selectedClientId && (
+          <div
+            className="fixed inset-0 z-[9000] bg-black/50 flex items-end justify-center"
+            onClick={() => setClientModalOpen(false)}
+          >
+            <div
+              className="w-full max-w-[430px] bg-white rounded-t-3xl flex flex-col overflow-hidden"
+              style={{ height: '90vh' }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 shrink-0">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-gray-900 truncate">
+                    {orders.find(o => o.clientId === selectedClientId)?.clientName || '...'}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate">
+                    {orders.find(o => o.clientId === selectedClientId)?.clientPhone || ''}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+                  onClick={() => setClientModalOpen(false)}
+                >
+                  <X size={18} className="text-gray-500" />
+                </button>
+              </div>
+
+              <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-3 border border-gray-100 dark:border-gray-700">
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500">{t('payments.clientDebt')}</p>
+                  <p
+                    className={`text-sm font-bold mt-1 ${
+                      (balances[selectedClientId]?.debt ?? 0) > 0
+                        ? 'text-red-600 dark:text-red-300'
+                        : 'text-green-600 dark:text-green-300'
+                    }`}
+                  >
+                    {balancesLoading[selectedClientId] ? '...' : `${formatAmount(balances[selectedClientId]?.debt ?? 0)} ${t('common.sum')}`}
+                  </p>
+                </div>
+
+                {/* Delivered orders + items */}
+                <div>
+                  <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2">
+                    {t('orders.items')}
+                  </p>
+                  <div className="space-y-2">
+                    {orders
+                      .filter(o => o.clientId === selectedClientId && o.deliveryId === currentUser?.id && o.status === 'delivered')
+                      .sort((a, b) => b.date.localeCompare(a.date))
+                      .map(o => (
+                        <div key={o.id} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate">
+                                {formatOrderId(o)}
+                              </p>
+                              <p className="text-[10px] text-gray-400 dark:text-gray-500">{o.date}</p>
+                            </div>
+                            <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 shrink-0">
+                              {o.total.toLocaleString('ru-RU')} {t('common.sum')}
+                            </p>
+                          </div>
+                          <div className="space-y-1.5">
+                            {o.items.map(it => (
+                              <div key={it.productId} className="flex items-center justify-between gap-2">
+                                <span className="text-xs text-gray-700 dark:text-gray-200 truncate">{it.productName}</span>
+                                <span className="text-[10px] text-gray-500 dark:text-gray-400 shrink-0">
+                                  {it.quantity} {t('common.pcs')}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+
+                {/* Payments */}
+                <div>
+                  <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2">
+                    {t('payments.history')}
+                  </p>
+                  <div className="space-y-2">
+                    {(balances[selectedClientId]?.payments ?? []).map(p => (
+                      <div key={p.id} className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-3 border border-gray-100 dark:border-gray-700">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-gray-800 dark:text-gray-100">
+                              {p.date}
+                            </p>
+                            <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                              {t(`payments.method.${p.method}` as any)}
+                              {p.collectedBy?.name ? ` · ${p.collectedBy.name}` : ''}
+                            </p>
+                          </div>
+                          <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 shrink-0">
+                            {formatAmount(p.amount)} {t('common.sum')}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                    {!balancesLoading[selectedClientId] && (balances[selectedClientId]?.payments ?? []).length === 0 ? (
+                      <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-6">
+                        {t('clients.calendar.noOrdersHint')}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </MobileContent>
       <MobileNav role="delivery" />
     </MobileShell>

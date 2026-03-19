@@ -54,7 +54,23 @@ export async function apiCreatePayment(payload: {
   return apiPost<Payment>('/payments', payload);
 }
 
+function normalizeClientBalance(raw: ClientBalance): ClientBalance {
+  return {
+    ...raw,
+    debt: Number(raw.debt) || 0,
+    deliveredTotal: Number(raw.deliveredTotal) || 0,
+    paidTotal: Number(raw.paidTotal) || 0,
+    perOrder: (raw.perOrder ?? []).map((r) => ({
+      ...r,
+      total: Number(r.total) || 0,
+      paid: Number(r.paid) || 0,
+      debt: Number(r.debt) || 0,
+    })),
+  };
+}
+
 export async function apiGetClientBalance(clientId: string): Promise<ClientBalance> {
-  return apiGet<ClientBalance>(`/clients/${clientId}/balance`);
+  const raw = await apiGet<ClientBalance>(`/clients/${clientId}/balance`);
+  return normalizeClientBalance(raw);
 }
 

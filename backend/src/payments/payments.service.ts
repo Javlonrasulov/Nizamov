@@ -60,7 +60,18 @@ export class PaymentsService {
     const [deliveredOrders, payments] = await Promise.all([
       this.prisma.order.findMany({
         where: { clientId, status: 'delivered' },
-        select: { id: true, orderNumber: true, date: true, total: true, createdAt: true, deliveryId: true, deliveryName: true },
+        select: {
+          id: true,
+          orderNumber: true,
+          date: true,
+          total: true,
+          createdAt: true,
+          deliveryId: true,
+          deliveryName: true,
+          items: {
+            select: { productId: true, quantity: true, price: true },
+          },
+        },
         orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
       }),
       this.prisma.payment.findMany({
@@ -70,14 +81,61 @@ export class PaymentsService {
       }),
     ]);
 
-    const deliveredTotal = deliveredOrders.reduce((s, o) => s + (o.total || 0), 0);
+    // Delivered order umumiy summasi `order.total` bo'yicha hisoblanadi,
+    // lekin haydovchi (delivery) qisman `vozvrat` kiritganda mijorga qaytariladigan qismi bo'ladi.
+    // Shu sabab deliveredTotal/perOrder total'ni returns bo'yicha kamaytiramiz.
+    const deliveredOrderIds = deliveredOrders.map(o => o.id);
+    const returns = deliveredOrderIds.length
+      ? await this.prisma.return.findMany({
+        where: { orderId: { in: deliveredOrderIds } },
+        select: {
+          orderId: true,
+          items: { select: { productId: true, quantity: true } },
+        },
+      })
+      : [];
+
+    const returnedQtyByOrder = new Map<string, Map<string, number>>();
+    for (const r of returns) {
+      const byProduct = returnedQtyByOrder.get(r.orderId) || new Map<string, number>();
+      for (const it of r.items || []) {
+        byProduct.set(it.productId, (byProduct.get(it.productId) || 0) + (it.quantity || 0));
+      }
+      returnedQtyByOrder.set(r.orderId, byProduct);
+    }
+
+    const byOrder = new Map<
+      string,
+      {
+        total: number;
+        paid: number;
+        date: string;
+        orderNumber: number | null;
+        deliveryId?: string | null;
+        deliveryName?: string | null;
+      }
+    >();
+    for (const o of deliveredOrders) {
+      const items = o.items || [];
+      const adjustedTotal = items.reduce((sum, it) => {
+        const returnedQty = returnedQtyByOrder.get(o.id)?.get(it.productId) || 0;
+        const cancelledQty = Math.min(it.quantity || 0, returnedQty || 0);
+        const deliveredQty = Math.max(0, (it.quantity || 0) - cancelledQty);
+        return sum + deliveredQty * (it.price || 0);
+      }, 0);
+      byOrder.set(o.id, {
+        total: adjustedTotal,
+        paid: 0,
+        date: o.date,
+        orderNumber: o.orderNumber ?? null,
+        deliveryId: o.deliveryId,
+        deliveryName: o.deliveryName,
+      });
+    }
+
+    const deliveredTotal = Array.from(byOrder.values()).reduce((s, r) => s + (r.total || 0), 0);
     const paidTotal = payments.reduce((s, p) => s + (p.amount || 0), 0);
     const debt = Math.max(0, deliveredTotal - paidTotal);
-
-    const byOrder = new Map<string, { total: number; paid: number; date: string; orderNumber: number | null; deliveryId?: string | null; deliveryName?: string | null }>();
-    for (const o of deliveredOrders) {
-      byOrder.set(o.id, { total: o.total || 0, paid: 0, date: o.date, orderNumber: o.orderNumber ?? null, deliveryId: o.deliveryId, deliveryName: o.deliveryName });
-    }
 
     // 1) Apply linked payments
     const unlinked: Array<{ id: string; amount: number }> = [];

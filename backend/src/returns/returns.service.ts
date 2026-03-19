@@ -17,6 +17,22 @@ export class ReturnsService {
       if (!order) throw new BadRequestException('Zakaz topilmadi');
       if (order.clientId !== dto.clientId) throw new BadRequestException('Klient mos kelmadi');
 
+      // Mobile'dan delivery "vozvrat"ni qayta-qayta bosishi mumkin.
+      // Shunda admin ro'yxatida pending qaytariqlar ko'payib ketmasligi uchun,
+      // bir xil order/client uchun mavjud pending return'ni topib, uni replace qilamiz.
+      const pendingReturns = await tx.return.findMany({
+        where: {
+          orderId: dto.orderId,
+          clientId: dto.clientId,
+          status: 'pending',
+        },
+        include: { items: true },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      const targetPendingReturn = pendingReturns[0] || null;
+      const otherPendingReturnIds = pendingReturns.slice(1).map(r => r.id);
+
       const orderedQty = new Map<string, { qty: number; name: string }>();
       for (const it of order.items) {
         orderedQty.set(it.productId, {
@@ -33,6 +49,19 @@ export class ReturnsService {
       const returnedQty = new Map<string, number>(
         returnedAgg.map((r) => [r.productId, Number(r._sum.quantity || 0)]),
       );
+
+      // Agar mavjud pending return bo'lsa, limitni hisoblashda uni o'z ichidagi
+      // miqdor bilan "qo'shib" yubormaslik kerak (biz uni replace qilmoqdamiz).
+      if (pendingReturns?.length) {
+        // pending return'larni replace qilmoqdamiz: ularning eskisi limit hisobiga kiritilmasligi kerak.
+        for (const pr of pendingReturns) {
+          for (const it of pr.items || []) {
+            const prev = returnedQty.get(it.productId) || 0;
+            const next = Math.max(0, prev - (it.quantity || 0));
+            returnedQty.set(it.productId, next);
+          }
+        }
+      }
 
       // Validate requested items do not exceed remaining
       const reqQtyByProduct = new Map<string, { qty: number; name?: string }>();
@@ -54,23 +83,53 @@ export class ReturnsService {
       }
 
       const status = dto.status === 'accepted' ? 'accepted' : 'pending';
-      const ret = await tx.return.create({
-        data: {
-          clientId: dto.clientId,
-          orderId: dto.orderId,
-          date: dto.date,
-          status,
-          createdByUserId: dto.createdByUserId,
-          items: {
-            create: dto.items.map((it) => ({
-              productId: it.productId,
-              productName: it.productName || orderedQty.get(it.productId)?.name || '',
-              quantity: it.quantity,
-            })),
+
+      // Replace: pending return mavjud bo'lsa, yangi return yaratmaymiz.
+      // (admin ro'yxatida "qayta qayta" ko'rinib ketishini oldini oladi)
+      let ret;
+      if (targetPendingReturn) {
+        if (otherPendingReturnIds.length) {
+          await tx.return.deleteMany({ where: { id: { in: otherPendingReturnIds } } });
+        }
+
+        ret = await tx.return.update({
+          where: { id: targetPendingReturn.id },
+          data: {
+            clientId: dto.clientId,
+            orderId: dto.orderId,
+            date: dto.date,
+            status,
+            createdByUserId: dto.createdByUserId,
+            items: {
+              deleteMany: {},
+              create: dto.items.map(it => ({
+                productId: it.productId,
+                productName: it.productName || orderedQty.get(it.productId)?.name || '',
+                quantity: it.quantity,
+              })),
+            },
           },
-        },
-        include: { items: true },
-      });
+          include: { items: true },
+        });
+      } else {
+        ret = await tx.return.create({
+          data: {
+            clientId: dto.clientId,
+            orderId: dto.orderId,
+            date: dto.date,
+            status,
+            createdByUserId: dto.createdByUserId,
+            items: {
+              create: dto.items.map(it => ({
+                productId: it.productId,
+                productName: it.productName || orderedQty.get(it.productId)?.name || '',
+                quantity: it.quantity,
+              })),
+            },
+          },
+          include: { items: true },
+        });
+      }
 
       if (status === 'accepted') {
         for (const it of ret.items) {
