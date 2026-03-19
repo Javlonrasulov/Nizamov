@@ -14,6 +14,7 @@ import { DeliveryOrderDetail } from './pages/delivery/DeliveryOrderDetail';
 import { DeliveryMap } from './pages/delivery/DeliveryMap';
 import { DeliveryProfile } from './pages/delivery/DeliveryProfile';
 import { DeliveryDashboard } from './pages/delivery/DeliveryDashboard';
+import { DeliveryPaymentIn } from './pages/delivery/DeliveryPaymentIn';
 
 const Root = () => (
   <div style={{ fontFamily: 'Inter, sans-serif' }}>
@@ -41,6 +42,7 @@ export const router = createBrowserRouter([
       { path: 'agent/payments/in', Component: AgentPaymentIn },
       { path: 'delivery', Component: DeliveryDashboard },
       { path: 'delivery/orders', Component: DeliveryOrders },
+      { path: 'delivery/payments/in', Component: DeliveryPaymentIn },
       { path: 'delivery/profile', Component: DeliveryProfile },
       { path: 'delivery/:id', Component: DeliveryOrderDetail },
       { path: 'delivery/:id/map', Component: DeliveryMap },

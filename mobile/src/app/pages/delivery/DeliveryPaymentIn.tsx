@@ -8,8 +8,8 @@ import { apiCreatePayment, apiGetClientBalance, ClientBalance, PaymentMethod } f
 
 const INITIAL_VISIBLE = 5;
 
-export const AgentPaymentIn = () => {
-  const { t, currentUser, clients, refetchData } = useApp();
+export const DeliveryPaymentIn = () => {
+  const { t, currentUser, clients, orders, refetchData } = useApp();
   const navigate = useNavigate();
 
   const [step, setStep] = useState<1 | 2>(1);
@@ -27,7 +27,19 @@ export const AgentPaymentIn = () => {
 
   useEffect(() => { refetchData?.(); }, [refetchData]);
 
-  const myClients = clients.filter(c => c.agentId === currentUser?.id);
+  const deliveryClientIds = useMemo(() => {
+    const ids = new Set<string>();
+    orders
+      .filter(o => o.deliveryId === currentUser?.id)
+      .forEach(o => ids.add(o.clientId));
+    return ids;
+  }, [orders, currentUser?.id]);
+
+  const myClients = useMemo(
+    () => clients.filter(c => deliveryClientIds.has(c.id)),
+    [clients, deliveryClientIds]
+  );
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return myClients;
@@ -40,7 +52,6 @@ export const AgentPaymentIn = () => {
 
   const visible = expandClients ? filtered : filtered.slice(0, INITIAL_VISIBLE);
   const hasMore = filtered.length > INITIAL_VISIBLE;
-
   const selectedClient = selectedClientId ? myClients.find(c => c.id === selectedClientId) : null;
   const selectedDebt = selectedClient ? (balances[selectedClient.id]?.debt ?? 0) : 0;
 
@@ -81,7 +92,7 @@ export const AgentPaymentIn = () => {
     setSavedOk(false);
   };
 
-  const canSubmit = !!selectedClient && !!date && parseInt(amount || '0') > 0 && !!currentUser?.id;
+  const canSubmit = !!selectedClient && !!date && parseInt(amount || '0', 10) > 0 && !!currentUser?.id;
   const formattedAmount = amount ? parseInt(amount, 10).toLocaleString('ru-RU') : '';
 
   const handleSubmit = async () => {
@@ -98,7 +109,7 @@ export const AgentPaymentIn = () => {
       setSavedOk(true);
       setTimeout(() => {
         reset();
-        navigate('/agent');
+        navigate('/delivery');
       }, 800);
     } finally {
       setSaving(false);
@@ -111,83 +122,81 @@ export const AgentPaymentIn = () => {
       <MobileContent className="pb-20">
         <div className="p-4 space-y-4">
           {step === 1 && (
-            <>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-100 dark:border-gray-700 shadow-sm">
-                <div className="flex items-center justify-between gap-3 mb-3">
-                  <div>
-                    <p className="text-sm font-bold text-gray-900 dark:text-white">{t('payments.in.selectClient')}</p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500">{filtered.length} {t('clients.countSuffix')}</p>
-                  </div>
-                  {search.trim() && (
-                    <button
-                      type="button"
-                      onClick={() => setSearch('')}
-                      className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
-                      title={t('common.clear')}
-                    >
-                      <X size={16} />
-                    </button>
-                  )}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-100 dark:border-gray-700 shadow-sm">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div>
+                  <p className="text-sm font-bold text-gray-900 dark:text-white">{t('payments.in.selectClient')}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">{filtered.length} {t('clients.countSuffix')}</p>
                 </div>
-
-                <div className="relative mb-3">
-                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    placeholder={t('clients.search')}
-                    className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-50 dark:placeholder:text-gray-500"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  {visible.map(c => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => { setSelectedClientId(c.id); setStep(2); }}
-                      className="w-full text-left bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-200 dark:border-gray-700 hover:border-[#2563EB]/50 dark:hover:border-blue-500/50 transition-colors"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{c.name}</p>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                          balancesLoading[c.id]
-                            ? 'bg-gray-100 text-gray-500'
-                            : (balances[c.id]?.debt ?? 0) > 0
-                            ? 'bg-red-100 text-red-600'
-                            : 'bg-green-100 text-green-600'
-                        }`}>
-                          {balancesLoading[c.id]
-                            ? '...'
-                            : (balances[c.id]?.debt ?? 0) > 0
-                            ? `${t('payments.badge.debt')}: ${(balances[c.id]?.debt ?? 0).toLocaleString('ru-RU')} ${t('common.sum')}`
-                            : t('payments.badge.paid')}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{c.phone}</p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{c.address}</p>
-                    </button>
-                  ))}
-
-                  {hasMore && !expandClients && (
-                    <button
-                      type="button"
-                      onClick={() => setExpandClients(true)}
-                      className="w-full py-3 rounded-xl border-2 border-dashed border-[#2563EB]/40 text-[#2563EB] dark:text-blue-400 text-sm font-medium flex items-center justify-center gap-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                    >
-                      <ChevronDown size={16} />
-                      {t('common.showAllWithCount').replace('N', String(filtered.length))}
-                    </button>
-                  )}
-
-                  {filtered.length === 0 && (
-                    <div className="text-center py-10 text-sm text-gray-400 dark:text-gray-500">
-                      {t('clients.empty')}
-                    </div>
-                  )}
-                </div>
+                {search.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch('')}
+                    className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
+                    title={t('common.clear')}
+                  >
+                    <X size={16} />
+                  </button>
+                )}
               </div>
-            </>
+
+              <div className="relative mb-3">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder={t('clients.search')}
+                  className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-50 dark:placeholder:text-gray-500"
+                />
+              </div>
+
+              <div className="space-y-2">
+                {visible.map(c => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => { setSelectedClientId(c.id); setStep(2); }}
+                    className="w-full text-left bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-200 dark:border-gray-700 hover:border-[#2563EB]/50 dark:hover:border-blue-500/50 transition-colors"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{c.name}</p>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                        balancesLoading[c.id]
+                          ? 'bg-gray-100 text-gray-500'
+                          : (balances[c.id]?.debt ?? 0) > 0
+                          ? 'bg-red-100 text-red-600'
+                          : 'bg-green-100 text-green-600'
+                      }`}>
+                        {balancesLoading[c.id]
+                          ? '...'
+                          : (balances[c.id]?.debt ?? 0) > 0
+                          ? `${t('payments.badge.debt')}: ${(balances[c.id]?.debt ?? 0).toLocaleString('ru-RU')} ${t('common.sum')}`
+                          : t('payments.badge.paid')}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{c.phone}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{c.address}</p>
+                  </button>
+                ))}
+
+                {hasMore && !expandClients && (
+                  <button
+                    type="button"
+                    onClick={() => setExpandClients(true)}
+                    className="w-full py-3 rounded-xl border-2 border-dashed border-[#2563EB]/40 text-[#2563EB] dark:text-blue-400 text-sm font-medium flex items-center justify-center gap-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                  >
+                    <ChevronDown size={16} />
+                    {t('common.showAllWithCount').replace('N', String(filtered.length))}
+                  </button>
+                )}
+
+                {filtered.length === 0 && (
+                  <div className="text-center py-10 text-sm text-gray-400 dark:text-gray-500">
+                    {t('clients.empty')}
+                  </div>
+                )}
+              </div>
+            </div>
           )}
 
           {step === 2 && selectedClient && (
@@ -282,7 +291,7 @@ export const AgentPaymentIn = () => {
           )}
         </div>
       </MobileContent>
-      <MobileNav role="agent" />
+      <MobileNav role="delivery" />
     </MobileShell>
   );
 };

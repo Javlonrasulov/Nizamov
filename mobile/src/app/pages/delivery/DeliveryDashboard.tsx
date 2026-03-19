@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
   Truck, CheckCircle2, Clock, Package,
-  MapPin, Phone, ChevronRight, ShoppingBag, User, RefreshCw, Check
+  MapPin, Phone, ChevronRight, ShoppingBag, User, RefreshCw, Check, CreditCard
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { MobileShell, MobileHeader, MobileContent } from '../../components/MobileShell';
@@ -144,6 +144,19 @@ export const DeliveryDashboard = () => {
               <div className="text-left">
                 <p className="text-xs font-semibold text-gray-800 dark:text-gray-100">{t('common.profile')}</p>
                 <p className="text-[10px] text-gray-400 dark:text-gray-500">{t('delivery.stat.info')}</p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => navigate('/delivery/payments/in')}
+              className="col-span-2 flex items-center gap-3 bg-white dark:bg-gray-800 rounded-2xl px-4 py-3.5 border border-gray-100 dark:border-gray-700 shadow-sm active:scale-[0.97] transition-all"
+            >
+              <div className="w-9 h-9 rounded-xl bg-green-50 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
+                <CreditCard size={18} className="text-green-600 dark:text-green-400" />
+              </div>
+              <div className="text-left">
+                <p className="text-xs font-semibold text-gray-800 dark:text-gray-100">{t('payments.in.title')}</p>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500">{t('payments.clientDebt')}</p>
               </div>
             </button>
           </div>
