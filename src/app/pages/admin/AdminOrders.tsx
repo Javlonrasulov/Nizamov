@@ -239,14 +239,14 @@ export const AdminOrders = () => {
     return () => { cancelled = true; };
   }, [adminVisibleOrders, search]);
 
-  // Vozvrat bo'lgan zakazlarni va tafsilotlarni yuklash
-  // Barcha vozvratlarni bir marta yuklab, vozvrat bor har qanday orderId ni belgilaymiz (sana oralig'ida bo'lmasa ham)
+  // Admin uchun vozvratlar tafsiloti faqat accepted (admin tasdiqlagan) return'lar asosida bo'lsin.
+  // Aks holda delivery pending return'lar ham "qaytarildi" pill'larini chiqarib yuboradi.
   useEffect(() => {
     let cancelled = false;
     setReturnsLoading(true);
     (async () => {
       try {
-        const allReturns = await apiGetReturns();
+        const allReturns = await apiGetReturns({ status: 'accepted' });
         const next: Record<string, boolean> = {};
         const nextDetail: Record<string, {
           items: { productName: string; quantity: number }[];
