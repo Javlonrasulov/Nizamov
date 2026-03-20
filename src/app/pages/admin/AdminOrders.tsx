@@ -399,7 +399,10 @@ export const AdminOrders = () => {
       const cId = (o as any).clientId as string | undefined;
       const key = cId || `${o.clientName}__${o.clientPhone || ''}`;
       const cur = map.get(key);
-      const totalSum = (o.total || 0) as number;
+      const detail = returnsDetailByOrderId[o.id];
+      // "Jami" summada vozvratlar (bekor qilingan/return qilingan qism) hisobga olinishi kerak.
+      // Shuning uchun biz orderning "qolgan" (deliveredAmount) qiymatini olamiz.
+      const totalSum = detail ? detail.deliveredAmount : (Number(o.total || 0) as number);
       if (!cur) {
         map.set(key, {
           clientId: cId,
@@ -415,7 +418,29 @@ export const AdminOrders = () => {
     }
 
     return Array.from(map.values()).sort((a, b) => b.totalSum - a.totalSum);
-  }, [deliveryFilterId, filtered]);
+  }, [deliveryFilterId, filtered, returnsDetailByOrderId]);
+
+  const deliveryTotals = useMemo(() => {
+    if (!deliveryFilterId) return { grossTotal: 0, returnedTotal: 0, netTotal: 0 };
+    let grossTotal = 0;
+    let returnedTotal = 0;
+    let netTotal = 0;
+
+    for (const o of filtered) {
+      const orderTotal = Number(o.total || 0);
+      grossTotal += orderTotal;
+
+      const detail = returnsDetailByOrderId[o.id];
+      if (detail) {
+        returnedTotal += Number(detail.cancelledAmount || 0);
+        netTotal += Number(detail.deliveredAmount || 0);
+      } else {
+        netTotal += orderTotal;
+      }
+    }
+
+    return { grossTotal, returnedTotal, netTotal };
+  }, [deliveryFilterId, filtered, returnsDetailByOrderId]);
 
   const statuses: Array<OrderStatus | 'all' | 'delivered_debt'> = ['all', 'tayyorlanmagan', 'yuborilgan', 'delivered', 'delivered_debt', 'cancelled'];
 
@@ -606,6 +631,26 @@ export const AdminOrders = () => {
               <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
               {t('common.refresh')}
             </button>
+            <div className="flex items-center gap-2">
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">
+                {t('orders.delivery')}
+              </label>
+              <select
+                value={deliveryFilterId}
+                onChange={e => {
+                  setDeliveryFilterId(e.target.value);
+                  setExpandedOrderId(null);
+                }}
+                className="crm-select px-3 py-2.5 min-w-[220px]"
+              >
+                <option value="">{t('common.all')}</option>
+                {deliveryUsers.map(u => (
+                  <option key={u.id} value={u.id}>
+                    {u.name} ({u.phone})
+                  </option>
+                ))}
+              </select>
+            </div>
             {hasFilter && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800">
               <CalendarDays size={13} className="text-blue-500" />
@@ -628,43 +673,20 @@ export const AdminOrders = () => {
               className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-50 transition-all dark:placeholder:text-gray-500"
             />
           </div>
-            <div className="flex flex-col lg:flex-row lg:items-center gap-2 w-full lg:w-auto">
-              <div className="flex items-start lg:items-center gap-2">
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-                  {t('orders.delivery')}
-                </label>
-              <select
-                value={deliveryFilterId}
-                onChange={e => {
-                  setDeliveryFilterId(e.target.value);
-                  setExpandedOrderId(null);
-                }}
-                  className="crm-select px-3 py-2.5 min-w-[220px]"
+          <div className="flex gap-1.5 overflow-x-auto">
+            {statuses.map(s => (
+              <button
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-medium transition-all border ${
+                  statusFilter === s
+                    ? 'bg-[#2563EB] text-white border-[#2563EB] shadow-sm'
+                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                }`}
               >
-                <option value="">{t('common.all')}</option>
-                {deliveryUsers.map(u => (
-                  <option key={u.id} value={u.id}>
-                    {u.name} ({u.phone})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex gap-1.5 overflow-x-auto">
-              {statuses.map(s => (
-                <button
-                  key={s}
-                  onClick={() => setStatusFilter(s)}
-                  className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-medium transition-all border ${
-                    statusFilter === s
-                      ? 'bg-[#2563EB] text-white border-[#2563EB] shadow-sm'
-                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  {statusLabels[s]}
-                </button>
-              ))}
-            </div>
+                {statusLabels[s]}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -759,8 +781,17 @@ export const AdminOrders = () => {
               </div>
               <div className="text-right">
                 <div className="text-xs text-gray-500 dark:text-gray-400">{t('common.total')}</div>
+                <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                  {deliveryTotals.grossTotal.toLocaleString('ru-RU')} {t('common.sum')}
+                </div>
+
+                <div className="text-xs text-red-600 dark:text-red-400 mt-0.5">
+                  {t('returns.title')}: {deliveryTotals.returnedTotal.toLocaleString('ru-RU')} {t('common.sum')}
+                </div>
+
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">{t('admin.orders.netTotal')}</div>
                 <div className="text-lg font-bold text-[#217346] dark:text-green-400">
-                  {filtered.reduce((sum, o) => sum + (o.total || 0), 0).toLocaleString('ru-RU')} {t('common.sum')}
+                  {deliveryTotals.netTotal.toLocaleString('ru-RU')} {t('common.sum')}
                 </div>
               </div>
             </div>
@@ -776,7 +807,7 @@ export const AdminOrders = () => {
                       {t('common.orders')}
                     </th>
                     <th className="text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-5 py-3">
-                      {t('common.total')}
+                      {t('admin.orders.netTotal')}
                     </th>
                   </tr>
                 </thead>

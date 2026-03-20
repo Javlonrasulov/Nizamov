@@ -91,6 +91,7 @@ type TranslationKeys = {
 
   // Admin orders
   'admin.orders.deliveredDebt': string;
+  'admin.orders.netTotal': string;
 
   // Admin clients
   'admin.clients.debtorsOnly': string;
@@ -552,6 +553,7 @@ const uz_lat: TranslationKeys = {
   'payments.paid': "To'langan",
 
   'admin.orders.deliveredDebt': 'Yetkazilgan (qarz)',
+  'admin.orders.netTotal': 'Umumiy',
   'admin.clients.debtorsOnly': 'Qarzdorlar',
 
   'clients.title': 'Klientlar',
@@ -989,6 +991,7 @@ const uz_kir: TranslationKeys = {
   'payments.paid': 'Тўланган',
 
   'admin.orders.deliveredDebt': 'Етказилган (қарз)',
+  'admin.orders.netTotal': 'Умумий',
   'admin.clients.debtorsOnly': 'Қарздорлар',
 
   'clients.title': 'Клиентлар',
@@ -1427,6 +1430,7 @@ const ru: TranslationKeys = {
   'payments.paid': 'Оплачено',
 
   'admin.orders.deliveredDebt': 'Доставлено (долг)',
+  'admin.orders.netTotal': 'Итого (нетто)',
   'admin.clients.debtorsOnly': 'Должники',
 
   'clients.title': 'Клиенты',
