@@ -269,11 +269,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   const updateOrderStatus = async (id: string, status: Order['status']) => {
+    // Optimistic update: UI status badge/filters darhol to'g'ri ko'rinsin.
+    setOrdersList(p => p.map(o => o.id === id ? { ...o, status } : o));
     try {
       const updated = await apiUpdateOrder(id, { status });
       setOrdersList(p => p.map(o => o.id === id ? updated : o));
     } catch {
-      setOrdersList(p => p.map(o => o.id === id ? { ...o, status } : o));
+      // Catch'da optimistic update o'zi yetarli.
     }
   };
   const updateOrder = async (id: string, updates: Partial<Order>) => {

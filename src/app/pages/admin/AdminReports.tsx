@@ -509,10 +509,21 @@ export const AdminReports = () => {
   const [form, setForm] = useState({ date: today, amount: '', categoryId: defaultCatId, comment: '' });
   const amountRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (expenseCategories.length === 0) return;
+    const hasSelectedCategory = expenseCategories.some(cat => cat.id === form.categoryId);
+    if (!hasSelectedCategory) {
+      setForm(prev => ({ ...prev, categoryId: expenseCategories[0].id }));
+    }
+  }, [expenseCategories, form.categoryId]);
+
   const handleAddExpense = () => {
     if (!form.amount || !form.comment.trim()) return;
-    addExpense({ date: form.date, amount: parseInt(form.amount), categoryId: form.categoryId, comment: form.comment.trim() });
-    setForm(p => ({ ...p, amount: '', comment: '' }));
+    const categoryId = expenseCategories.some(cat => cat.id === form.categoryId)
+      ? form.categoryId
+      : defaultCatId;
+    addExpense({ date: form.date, amount: parseInt(form.amount), categoryId, comment: form.comment.trim() });
+    setForm(p => ({ ...p, amount: '', categoryId, comment: '' }));
     setSaved(true);
     setTimeout(() => setSaved(false), 1800);
     amountRef.current?.focus();

@@ -138,6 +138,16 @@ export class ReturnsService {
             data: { stock: { increment: it.quantity } },
           });
         }
+
+        // Delivery "vozvrat" (qabul qilingan) qilganda buyurtma statusini "Yetkazildi"ga o'tkazamiz.
+        // Shunda admin/delivery ro'yxatlarida qaytarilgan buyurtmalar "Yuborilgan Faol"da qolib ketmaydi.
+        // To'liq/qisman qaytarilganlik esa returns bo'yicha hisoblanadigan badge/label orqali ko'rsatiladi.
+        if (order.status !== 'delivered') {
+          await tx.order.update({
+            where: { id: dto.orderId },
+            data: { status: 'delivered' },
+          });
+        }
       }
 
       return ret;

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Warehouse, TrendingUp, Package, ArrowUpRight } from 'lucide-react';
+import { Search, Warehouse, Package, ArrowUpRight } from 'lucide-react';
 import { AdminLayout } from '../../components/AdminLayout';
 import { useApp } from '../../context/AppContext';
 import { useAdminVisibleOrders } from '../../components/AdminDateFilter';
@@ -47,7 +47,6 @@ export const AdminWarehouse = () => {
   );
 
   const totalValue = items.reduce((s, i) => s + i.costPrice * (i.totalIn - i.totalSold), 0);
-  const totalProfit = items.reduce((s, i) => s + (i.salePrice - i.costPrice) * i.totalSold, 0);
   const totalRemaining = items.reduce((s, i) => s + (i.totalIn - i.totalSold), 0);
 
   const getStockLevel = (item: WarehouseItem) => {
@@ -68,7 +67,7 @@ export const AdminWarehouse = () => {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs text-gray-500 dark:text-gray-400">{t('admin.warehouse.totalIn')}</span>
@@ -77,15 +76,6 @@ export const AdminWarehouse = () => {
               </div>
             </div>
             <div className="text-lg font-bold text-gray-900 dark:text-white">{formatSum(totalValue)}</div>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs text-gray-500 dark:text-gray-400">{t('admin.warehouse.profit')}</span>
-              <div className="w-8 h-8 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                <TrendingUp size={14} className="text-green-600 dark:text-green-400" />
-              </div>
-            </div>
-            <div className="text-lg font-bold text-green-600 dark:text-green-400">{formatSum(totalProfit)}</div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-5">
             <div className="flex items-center justify-between mb-3">
