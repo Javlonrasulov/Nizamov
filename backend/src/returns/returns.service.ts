@@ -175,7 +175,14 @@ export class ReturnsService {
     return this.prisma.$transaction(async (tx) => {
       const ret = await tx.return.findUnique({
         where: { id },
-        include: { items: true },
+        include: {
+          items: true,
+          order: {
+            include: {
+              items: true,
+            },
+          },
+        },
       });
       if (!ret) throw new BadRequestException('Vozvrat topilmadi');
       if (ret.status === 'accepted') throw new BadRequestException('Allaqachon qabul qilingan');
@@ -185,7 +192,7 @@ export class ReturnsService {
           data: { stock: { increment: it.quantity } },
         });
       }
-      return tx.return.update({
+      const acceptedReturn = await tx.return.update({
         where: { id },
         data: {
           status: 'accepted',
@@ -199,6 +206,36 @@ export class ReturnsService {
           acceptedBy: { select: { id: true, name: true, phone: true, role: true } },
         },
       });
+
+      const acceptedAgg = await tx.returnItem.groupBy({
+        by: ['productId'],
+        where: {
+          return: {
+            orderId: ret.orderId,
+            status: 'accepted',
+          },
+        },
+        _sum: { quantity: true },
+      });
+
+      const acceptedQtyByProduct = new Map<string, number>(
+        acceptedAgg.map((row) => [row.productId, Number(row._sum.quantity || 0)]),
+      );
+
+      const isFullyReturned = (ret.order?.items || []).length > 0 && (ret.order?.items || []).every((item) => {
+        const orderedQty = Number(item.quantity || 0);
+        const acceptedQty = acceptedQtyByProduct.get(item.productId) || 0;
+        return acceptedQty >= orderedQty;
+      });
+
+      if (isFullyReturned && ret.order?.status !== 'cancelled') {
+        await tx.order.update({
+          where: { id: ret.orderId },
+          data: { status: 'cancelled' },
+        });
+      }
+
+      return acceptedReturn;
     });
   }
 }

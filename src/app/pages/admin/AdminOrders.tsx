@@ -337,6 +337,7 @@ export const AdminOrders = () => {
     }
     return debtByOrderId[orderId] ?? 0;
   };
+  const isFullyReturnedOrder = (orderId: string) => !!returnsDetailByOrderId[orderId]?.isFull;
 
   // Kutilayotgan vozvratlarni yuklash (Qabul qilindi uchun)
   useEffect(() => {
@@ -376,11 +377,12 @@ export const AdminOrders = () => {
       (o.orderNumber != null && String(o.orderNumber).includes(search)) ||
       o.clientName.toLowerCase().includes(search.toLowerCase()) ||
       o.agentName.toLowerCase().includes(search.toLowerCase());
+    const isFullyReturned = isFullyReturnedOrder(o.id);
     const matchStatus = statusFilter === 'all'
-      || o.status === statusFilter
-      || (statusFilter === 'tayyorlanmagan' && o.status === 'sent')
-      || (statusFilter === 'delivered_debt' && o.status === 'delivered' && getEffectiveDebt(o.id) > 0)
-      || (statusFilter === 'cancelled' && returnedByOrderId[o.id]);
+      || (statusFilter === 'cancelled' && (o.status === 'cancelled' || returnedByOrderId[o.id]))
+      || (!isFullyReturned && o.status === statusFilter)
+      || (!isFullyReturned && statusFilter === 'tayyorlanmagan' && o.status === 'sent')
+      || (!isFullyReturned && statusFilter === 'delivered_debt' && o.status === 'delivered' && getEffectiveDebt(o.id) > 0);
     const orderDeliveryId = (o as any).deliveryId as string | undefined;
     const matchDelivery = !deliveryFilterId || orderDeliveryId === deliveryFilterId;
     return matchSearch && matchStatus && matchDelivery;
@@ -890,12 +892,16 @@ export const AdminOrders = () => {
                       <td className="px-5 py-4 text-right text-sm font-bold text-gray-900 dark:text-white">{order.total.toLocaleString()} so'm</td>
                       <td className="px-5 py-4">
                         <div className="space-y-1">
-                          {!(returnedByOrderId[order.id] && order.status === 'delivered') && (
+                          {!isFullyReturnedOrder(order.id) && !(returnedByOrderId[order.id] && order.status === 'delivered') && (
                             <StatusBadge status={order.status} />
                           )}
                           {returnedByOrderId[order.id] && (
                             <div className="text-[11px] leading-4 space-y-1">
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-200 border border-amber-100 dark:border-amber-800">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border ${
+                                isFullyReturnedOrder(order.id)
+                                  ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-200 border-red-100 dark:border-red-800'
+                                  : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-200 border-amber-100 dark:border-amber-800'
+                              }`}>
                                 {t('returns.title')}
                               </span>
                               {returnsLoading && (
@@ -957,7 +963,7 @@ export const AdminOrders = () => {
                       <td className="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">{order.date}</td>
                       <td className="px-5 py-4" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-2">
-                          {needsYuklash(order.status) && !(statusFilter === 'cancelled' && returnedByOrderId[order.id]) && (
+                          {needsYuklash(order.status) && !isFullyReturnedOrder(order.id) && !(statusFilter === 'cancelled' && returnedByOrderId[order.id]) && (
                             <button
                               onClick={() => handlePrint(order)}
                               className="flex items-center gap-1 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-[#2563EB] dark:hover:text-blue-400 px-2 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -974,7 +980,7 @@ export const AdminOrders = () => {
                             <Eye size={14} />
                             {expandedOrderId === order.id ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                           </button>
-                          {needsYuklash(order.status) && (
+                          {needsYuklash(order.status) && !isFullyReturnedOrder(order.id) && (
                             <button
                               onClick={() => setYuklashOrder({ id: order.id })}
                               className="flex items-center gap-1 text-xs font-medium text-[#2563EB] dark:text-blue-400 hover:text-blue-800 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 px-3 py-1.5 rounded-lg transition-colors"
@@ -983,7 +989,7 @@ export const AdminOrders = () => {
                               Yuklash
                             </button>
                           )}
-                          {nextStatus[order.status] && !needsYuklash(order.status) && (
+                          {nextStatus[order.status] && !needsYuklash(order.status) && !isFullyReturnedOrder(order.id) && (
                             <button
                               onClick={() => updateOrderStatus(order.id, nextStatus[order.status]!)}
                               className="text-xs font-medium text-[#2563EB] dark:text-blue-400 hover:text-blue-800 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 px-3 py-1.5 rounded-lg transition-colors"
