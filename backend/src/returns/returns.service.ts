@@ -228,10 +228,17 @@ export class ReturnsService {
         return acceptedQty >= orderedQty;
       });
 
-      if (isFullyReturned && ret.order?.status !== 'cancelled') {
+      if (isFullyReturned) {
+        if (ret.order?.status !== 'cancelled') {
+          await tx.order.update({
+            where: { id: ret.orderId },
+            data: { status: 'cancelled' },
+          });
+        }
+      } else if (ret.order?.status !== 'delivered') {
         await tx.order.update({
           where: { id: ret.orderId },
-          data: { status: 'cancelled' },
+          data: { status: 'delivered' },
         });
       }
 
