@@ -201,14 +201,6 @@ export const DeliveryPaymentIn = () => {
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
                         <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{c.name}</p>
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); setEditingClientId(c.id); }}
-                          className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 flex items-center justify-center text-[#2563EB] dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
-                          title={t('clients.edit.title')}
-                        >
-                          <Edit2 size={14} />
-                        </button>
                       </div>
                       <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                         balancesLoading[c.id]
@@ -271,16 +263,11 @@ export const DeliveryPaymentIn = () => {
 
                     <div className="mt-3 flex items-start gap-2">
                       <MapPin size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                      <button
-                        type="button"
-                        onClick={() => setShowMapPicker(true)}
-                        disabled={savingLocation}
-                        className="text-left flex-1 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-60"
-                      >
+                      <p className="flex-1 text-xs text-gray-600 dark:text-gray-300 px-3 py-2">
                         {selectedClient.lat != null && selectedClient.lng != null
-                          ? t('clients.add.locationSelectedEdit')
-                          : t('clients.add.locationSelect')}
-                      </button>
+                          ? `📍 ${selectedClient.lat.toFixed(5)}, ${selectedClient.lng.toFixed(5)}`
+                          : '—'}
+                      </p>
                     </div>
                   </div>
                   <button

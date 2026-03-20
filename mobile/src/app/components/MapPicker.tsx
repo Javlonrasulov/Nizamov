@@ -66,6 +66,17 @@ export const MapPicker = ({ initialLat, initialLng, onConfirm, onClose }: MapPic
   }, [initialLat, initialLng, placeMarker]);
 
   useEffect(() => {
+    const isLeafletReady = (L: any) => {
+      // Leaflet async yuklanayotganda `window.L` mavjud bo‘lib, ichki constructorlar hali tayyor bo‘lmasligi mumkin.
+      // Shuning uchun `map`/`tileLayer`/`marker` borligini tekshiramiz.
+      return (
+        !!L &&
+        typeof L.map === 'function' &&
+        typeof L.tileLayer === 'function' &&
+        typeof L.marker === 'function'
+      );
+    };
+
     const loadLeaflet = () => {
       if (!document.getElementById('leaflet-css')) {
         const link = document.createElement('link');
@@ -75,15 +86,21 @@ export const MapPicker = ({ initialLat, initialLng, onConfirm, onClose }: MapPic
         document.head.appendChild(link);
       }
       const win = window as any;
-      if (win.L) { initMap(); return; }
+      if (isLeafletReady(win.L)) { initMap(); return; }
       if (document.getElementById('leaflet-js')) {
-        const timer = setInterval(() => { if ((window as any).L) { clearInterval(timer); initMap(); } }, 80);
+        const timer = setInterval(() => {
+          const L = (window as any).L;
+          if (isLeafletReady(L)) { clearInterval(timer); initMap(); }
+        }, 80);
         return;
       }
       const script = document.createElement('script');
       script.id = 'leaflet-js';
       script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-      script.onload = () => initMap();
+      script.onload = () => {
+        const L = (window as any).L;
+        if (isLeafletReady(L)) initMap();
+      };
       document.head.appendChild(script);
     };
     const t = setTimeout(loadLeaflet, 80);

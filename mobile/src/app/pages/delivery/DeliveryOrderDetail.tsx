@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Phone, MapPin, Package, Map, CheckCircle, XCircle, CreditCard, X, RotateCcw } from 'lucide-react';
+import { Phone, MapPin, Package, Map as MapIcon, CheckCircle, XCircle, CreditCard, X, RotateCcw } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { MobileShell, MobileHeader, MobileContent } from '../../components/MobileShell';
 import { MobileNav } from '../../components/MobileNav';
@@ -111,7 +111,7 @@ export const DeliveryOrderDetail = () => {
   const formattedAmount = amount ? parseInt(amount, 10).toLocaleString('ru-RU') : '';
 
   const priceByProductId = useMemo(
-    () => new Map(order.items.map(it => [it.productId, it.price ?? 0] as const)),
+    () => new globalThis.Map(order.items.map(it => [it.productId, it.price ?? 0] as const)),
     [order.items],
   );
 
@@ -155,8 +155,7 @@ export const DeliveryOrderDetail = () => {
   const isPartialReturned = returnedAmountAllFromReturns > 0 && !isAllReturned;
 
   const returnStatusLabel = (s: 'pending' | 'accepted') => {
-    if (lang === 'ru') return s === 'pending' ? 'Ожидает' : 'Принят';
-    return s === 'pending' ? 'Kutilayotgan' : 'Qabul qilingan';
+    return s === 'pending' ? t('returns.status.pending') : t('returns.status.accepted');
   };
 
   return (
@@ -222,9 +221,7 @@ export const DeliveryOrderDetail = () => {
                       : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300'
                   }`}
                 >
-                  {isAllReturned
-                    ? (lang === 'ru' ? 'Все возвращено' : 'Hammasi qaytarildi')
-                    : (lang === 'ru' ? 'Частичный возврат' : 'Qisman qaytarildi')}
+                  {isAllReturned ? t('returns.summary.allReturned') : t('returns.summary.partialReturned')}
                 </span>
               ) : (
                 <span className="text-[11px] text-gray-400 dark:text-gray-500">—</span>
@@ -232,26 +229,26 @@ export const DeliveryOrderDetail = () => {
             </div>
 
             {orderReturnsLoading || clientBalanceLoading ? (
-              <p className="text-xs text-gray-500 dark:text-gray-400">{lang === 'ru' ? 'Загрузка...' : 'Yuklanmoqda...'}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('returns.loading')}</p>
             ) : orderReturns.length === 0 ? (
-              <p className="text-xs text-gray-500 dark:text-gray-400">{lang === 'ru' ? 'Нет возвратов' : "Hozircha vozvrat yo‘q"}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('returns.none')}</p>
             ) : (
               <>
                 <div className="bg-gray-50 dark:bg-gray-800/40 rounded-xl p-3 border border-gray-100 dark:border-gray-700">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{lang === 'ru' ? 'Возвращено' : 'Qaytarildi'}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('returns.item.returned')}</p>
                     <p className="text-sm font-bold text-gray-900 dark:text-white">
                       {returnedAmountAllFromReturns.toLocaleString('ru-RU')} {t('common.sum')}
                     </p>
                   </div>
                   <div className="mt-2 flex items-center justify-between gap-3">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{lang === 'ru' ? 'Получено' : 'Pul oldim'}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('returns.item.received')}</p>
                     <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
                       {paidForOrder.toLocaleString('ru-RU')} {t('common.sum')}
                     </p>
                   </div>
                   <div className="mt-1 flex items-center justify-between gap-3">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{lang === 'ru' ? 'Осталось' : 'Qolgan'}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('returns.item.remaining')}</p>
                     <p className="text-sm font-bold text-red-600 dark:text-red-300">
                       {debtForOrder.toLocaleString('ru-RU')} {t('common.sum')}
                     </p>
@@ -261,7 +258,7 @@ export const DeliveryOrderDetail = () => {
                 <div className="space-y-2">
                   <div>
                     <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">
-                      {lang === 'ru' ? 'Ожидает' : 'Kutilayotgan'}
+                      {t('returns.status.pending')}
                     </p>
                     {pendingReturns.length === 0 ? (
                       <p className="text-xs text-gray-500 dark:text-gray-400 py-1">—</p>
@@ -301,7 +298,7 @@ export const DeliveryOrderDetail = () => {
 
                   <div>
                     <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">
-                      {lang === 'ru' ? 'Принят' : 'Qabul qilingan'}
+                      {t('returns.status.accepted')}
                     </p>
                     {acceptedReturns.length === 0 ? (
                       <p className="text-xs text-gray-500 dark:text-gray-400 py-1">—</p>
@@ -347,7 +344,7 @@ export const DeliveryOrderDetail = () => {
             onClick={() => navigate(`/delivery/${order.id}/map`)}
             className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl border-2 border-[#2563EB] text-[#2563EB] dark:text-blue-400 dark:border-blue-500 font-semibold text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
           >
-            <Map size={18} />
+            <MapIcon size={18} />
             {t('delivery.mapView')}
           </button>
 

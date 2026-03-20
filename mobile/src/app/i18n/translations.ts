@@ -241,6 +241,9 @@ type TranslationKeys = {
   'delivery.stat.active': string;
   'delivery.stat.pending': string;
   'delivery.stat.todayTotal': string;
+  'delivery.stat.selectedTotal': string;
+  'delivery.stat.totalDeliveredAmount': string;
+  'delivery.stat.totalDebtAmount': string;
   'delivery.stat.info': string;
   'delivery.stat.noOrders': string;
   'delivery.stat.waitOrders': string;
@@ -254,6 +257,20 @@ type TranslationKeys = {
   'returns.returnAll': string;
   'returns.save': string;
   'returns.error.noItems': string;
+  'returns.status.pending': string;
+  'returns.status.accepted': string;
+  'returns.summary.allReturned': string;
+  'returns.summary.partialReturned': string;
+  'returns.loading': string;
+  'returns.loadingReturns': string;
+  'returns.none': string;
+  'returns.item.returned': string;
+  'returns.item.received': string;
+  'returns.item.remaining': string;
+  'returns.label.return': string;
+  'returns.label.remainingToReceive': string;
+  'returns.item.short.returned': string;
+  'returns.item.short.remaining': string;
 
   // Admin
   'admin.dashboard': string;
@@ -596,6 +613,9 @@ const uz_lat: TranslationKeys = {
   'delivery.stat.active': 'Faol',
   'delivery.stat.pending': 'Kutilmoqda',
   'delivery.stat.todayTotal': 'Bugun jami',
+  'delivery.stat.selectedTotal': 'Tanlangan jami',
+  'delivery.stat.totalDeliveredAmount': 'Yetkazilgan summa',
+  'delivery.stat.totalDebtAmount': 'Qarzga berildi',
   'delivery.stat.info': "Ma'lumotlar",
   'delivery.stat.noOrders': "Bugun zakaz yo'q",
   'delivery.stat.waitOrders': 'Yangi zakazlar tayinlanishini kuting',
@@ -608,6 +628,20 @@ const uz_lat: TranslationKeys = {
   'returns.returnAll': 'Hammasini qaytarish',
   'returns.save': 'Saqlash',
   'returns.error.noItems': 'Mahsulot tanlanmadi',
+  'returns.status.pending': 'Kutilayotgan',
+  'returns.status.accepted': 'Qabul qilingan',
+  'returns.summary.allReturned': 'Hammasi qaytarildi',
+  'returns.summary.partialReturned': 'Qisman qaytarildi',
+  'returns.loading': 'Yuklanmoqda...',
+  'returns.loadingReturns': 'Vozvratlar yuklanmoqda...',
+  'returns.none': "Hozircha vozvrat yo‘q",
+  'returns.item.returned': 'Qaytarildi',
+  'returns.item.received': 'Pul oldim',
+  'returns.item.remaining': 'Qolgan',
+  'returns.label.return': 'Qaytarildi',
+  'returns.label.remainingToReceive': 'Qolgan',
+  'returns.item.short.returned': 'Qayt.',
+  'returns.item.short.remaining': 'Qold.',
 
   'admin.dashboard': 'Dashboard',
   'admin.todayOrders': 'Bugungi zakazlar',
@@ -949,6 +983,9 @@ const uz_kir: TranslationKeys = {
   'delivery.stat.active': 'Фаол',
   'delivery.stat.pending': 'Кутилмоқда',
   'delivery.stat.todayTotal': 'Бугун жами',
+  'delivery.stat.selectedTotal': 'Танланган жами',
+  'delivery.stat.totalDeliveredAmount': 'Етказилган сумма',
+  'delivery.stat.totalDebtAmount': 'Қарзга берилди',
   'delivery.stat.info': 'Маълумотлар',
   'delivery.stat.noOrders': 'Бугун заказ йўқ',
   'delivery.stat.waitOrders': 'Янги заказлар тайинланишини кутинг',
@@ -961,6 +998,20 @@ const uz_kir: TranslationKeys = {
   'returns.returnAll': 'Ҳаммасини қайтариш',
   'returns.save': 'Сақлаш',
   'returns.error.noItems': 'Маҳсулот танланмади',
+  'returns.status.pending': 'Кутилмоқда',
+  'returns.status.accepted': 'Қабул қилинган',
+  'returns.summary.allReturned': 'Ҳаммаси қайтарилди',
+  'returns.summary.partialReturned': 'Қисман қайтарилди',
+  'returns.loading': 'Юкланмоқда...',
+  'returns.loadingReturns': 'Возвратлар юкланмоқда...',
+  'returns.none': 'Ҳозирча возврат йўқ',
+  'returns.item.returned': 'Қайтарилди',
+  'returns.item.received': 'Пул олдим',
+  'returns.item.remaining': 'Қолган',
+  'returns.label.return': 'Қайтарилди',
+  'returns.label.remainingToReceive': 'Қолган',
+  'returns.item.short.returned': 'Қайт.',
+  'returns.item.short.remaining': 'Қолд.',
 
   'admin.dashboard': 'Дашборд',
   'admin.todayOrders': 'Бугунги заказлар',
@@ -1302,6 +1353,9 @@ const ru: TranslationKeys = {
   'delivery.stat.active': 'Активные',
   'delivery.stat.pending': 'Ожидание',
   'delivery.stat.todayTotal': 'Сегодня итого',
+  'delivery.stat.selectedTotal': 'Итого по выбранным',
+  'delivery.stat.totalDeliveredAmount': 'Сумма доставлено',
+  'delivery.stat.totalDebtAmount': 'В долг',
   'delivery.stat.info': 'Информация',
   'delivery.stat.noOrders': 'Сегодня заказов нет',
   'delivery.stat.waitOrders': 'Ожидайте назначения новых заказов',
@@ -1314,6 +1368,20 @@ const ru: TranslationKeys = {
   'returns.returnAll': 'Вернуть всё',
   'returns.save': 'Сохранить',
   'returns.error.noItems': 'Товары не выбраны',
+  'returns.status.pending': 'Ожидает',
+  'returns.status.accepted': 'Принят',
+  'returns.summary.allReturned': 'Все возвращено',
+  'returns.summary.partialReturned': 'Частичный возврат',
+  'returns.loading': 'Загрузка...',
+  'returns.loadingReturns': 'Загрузка возвратов...',
+  'returns.none': 'Нет возвратов',
+  'returns.item.returned': 'Возвращено',
+  'returns.item.received': 'Получено',
+  'returns.item.remaining': 'Осталось',
+  'returns.label.return': 'Возврат',
+  'returns.label.remainingToReceive': 'К получению',
+  'returns.item.short.returned': 'Верн.',
+  'returns.item.short.remaining': 'Ост.',
 
   'admin.dashboard': 'Главная',
   'admin.todayOrders': 'Сегодняшние заказы',

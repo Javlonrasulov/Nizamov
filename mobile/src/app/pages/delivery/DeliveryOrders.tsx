@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
-  MapPin, Phone, ChevronRight, Package, Calendar,
+  MapPin, Phone, ChevronRight, Package, Calendar, Search, Edit2,
   X, ChevronLeft, ChevronDown, Truck
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { MobileShell, MobileHeader, MobileContent } from '../../components/MobileShell';
 import { MobileNav } from '../../components/MobileNav';
 import { StatusBadge } from '../../components/StatusBadge';
+import { MapPicker } from '../../components/MapPicker';
 import { apiGetClientBalance, type ClientBalance } from '../../api/payments';
 import { apiGetReturns, type ReturnRecord } from '../../api/returns';
 
@@ -60,6 +61,7 @@ export const DeliveryOrders = () => {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [rangeStart, setRangeStart] = useState<string | null>(null);
   const [debtorsOnly, setDebtorsOnly] = useState(false);
+  const [clientSearch, setClientSearch] = useState('');
 
   const cells = buildCalendar(viewYear, viewMonth);
 
@@ -72,6 +74,7 @@ export const DeliveryOrders = () => {
 
   const [clientModalOpen, setClientModalOpen] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [editingClientId, setEditingClientId] = useState<string | null>(null);
   const [balances, setBalances] = useState<Record<string, ClientBalance>>({});
   const [balancesLoading, setBalancesLoading] = useState<Record<string, boolean>>({});
   const balancesRef = useRef(balances);
@@ -98,8 +101,8 @@ export const DeliveryOrders = () => {
     .sort((a, b) => b.date.localeCompare(a.date));
 
   const visibleClientIds = useMemo(
-    () => Array.from(new Set(sortedFiltered.map(o => o.clientId).filter(Boolean))),
-    [sortedFiltered],
+    () => Array.from(new Set(filtered.map(o => o.clientId).filter(Boolean))),
+    [filtered],
   );
   const visibleClientIdsKey = useMemo(() => {
     const ids = Array.from(new Set(visibleClientIds)).filter(Boolean).sort();
@@ -136,12 +139,18 @@ export const DeliveryOrders = () => {
     };
   }, [visibleClientIdsKey, selectedClientId]);
 
+  const selectedDatesKey = useMemo(
+    () => Array.from(selectedDates).filter(Boolean).sort().join('|'),
+    [selectedDates],
+  );
+
   const modalDeliveredOrders = useMemo(() => {
     if (!clientModalOpen || !selectedClientId || !currentUser?.id) return [];
     return orders
       .filter(o => o.clientId === selectedClientId && o.deliveryId === currentUser.id && o.status === 'delivered')
+      .filter(o => selectedDates.has(o.date))
       .sort((a, b) => b.date.localeCompare(a.date));
-  }, [clientModalOpen, selectedClientId, currentUser?.id, orders]);
+  }, [clientModalOpen, selectedClientId, currentUser?.id, orders, selectedDatesKey]);
 
   const modalDeliveredOrderIdsKey = useMemo(
     () => modalDeliveredOrders.map(o => o.id).sort().join('|'),
@@ -182,12 +191,48 @@ export const DeliveryOrders = () => {
     return () => { cancelled = true; };
   }, [clientModalOpen, selectedClientId, currentUser?.id, modalDeliveredOrderIdsKey]);
 
-  /* Statistika */
-  const todayAll = myOrders.filter(o => o.date === todayStr);
-  const todayDelivered = todayAll.filter(o => o.status === 'delivered').length;
-  const todayActive = todayAll.filter(
+  /* Statistika (tanlangan kunlar bo'yicha) */
+  const selectedAll = filtered;
+  const selectedDelivered = selectedAll.filter(o => o.status === 'delivered').length;
+  const selectedActive = selectedAll.filter(
     o => o.status === 'yuborilgan' || o.status === 'delivering' || o.status === 'accepted'
   ).length;
+  const selectedTotalCount = selectedAll.length;
+
+  const selectedDatesIsToday = selectedDates.size === 1 && selectedDates.has(todayStr);
+  const totalCountLabel = selectedDatesIsToday ? t('delivery.stat.todayTotal') : t('delivery.stat.selectedTotal');
+
+  const deliveredOrdersInSelection = selectedAll.filter(o => o.status === 'delivered');
+  const deliveredClientIds = Array.from(new Set(deliveredOrdersInSelection.map(o => o.clientId).filter(Boolean)));
+  const deliveredMoneyLoading =
+    deliveredClientIds.length > 0 && deliveredClientIds.some(id => balancesLoading[id] || balances[id] == null);
+
+  const { totalDeliveredAmount, totalDebtAmount } = useMemo(() => {
+    if (deliveredMoneyLoading) return { totalDeliveredAmount: 0, totalDebtAmount: 0 };
+    return deliveredOrdersInSelection.reduce(
+      (acc, order) => {
+        const perOrder = balances[order.clientId]?.perOrder?.find(r => r.orderId === order.id);
+        const total = perOrder?.total ?? order.total;
+        const paid = perOrder?.paid ?? 0;
+        const debt = perOrder?.debt ?? Math.max(0, total - paid);
+        acc.totalDeliveredAmount += total;
+        acc.totalDebtAmount += debt;
+        return acc;
+      },
+      { totalDeliveredAmount: 0, totalDebtAmount: 0 },
+    );
+  }, [deliveredMoneyLoading, deliveredOrdersInSelection, balances, balancesLoading]);
+
+  const ordersToDisplay = useMemo(() => {
+    const q = clientSearch.trim().toLowerCase();
+    if (!q) return sortedFiltered;
+    return sortedFiltered.filter(o => {
+      const name = (o.clientName ?? '').toLowerCase();
+      const phone = (o.clientPhone ?? '').replace(/\s/g, '');
+      const addr = (o.clientAddress ?? '').toLowerCase();
+      return name.includes(q) || phone.includes(q.replace(/\s/g, '')) || addr.includes(q);
+    });
+  }, [clientSearch, sortedFiltered]);
 
   /* ── Range kalendar logikasi ── */
   const toggleDate = (dateStr: string) => {
@@ -260,18 +305,35 @@ export const DeliveryOrders = () => {
           <p className="font-bold text-base mt-0.5">{currentUser?.name}</p>
           <div className="flex items-center gap-5 mt-3">
             <div className="text-center">
-              <p className="text-2xl font-bold">{todayActive}</p>
+              <p className="text-2xl font-bold">{selectedActive}</p>
               <p className="text-purple-200 text-xs">{t('delivery.stat.active')}</p>
             </div>
             <div className="w-px h-8 bg-purple-400/50" />
             <div className="text-center">
-              <p className="text-2xl font-bold">{todayDelivered}</p>
+              <p className="text-2xl font-bold">{selectedDelivered}</p>
               <p className="text-purple-200 text-xs">{t('delivery.delivered')}</p>
             </div>
             <div className="w-px h-8 bg-purple-400/50" />
             <div className="text-center">
-              <p className="text-2xl font-bold">{todayAll.length}</p>
-              <p className="text-purple-200 text-xs">{t('delivery.stat.todayTotal')}</p>
+              <p className="text-2xl font-bold">{selectedTotalCount}</p>
+              <p className="text-purple-200 text-xs">{totalCountLabel}</p>
+            </div>
+          </div>
+
+          <div className="mt-3 bg-white/10 rounded-2xl px-3 py-2.5 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] text-purple-100/90 uppercase tracking-wide">{t('delivery.stat.totalDeliveredAmount')}</p>
+              <p className="text-sm font-bold text-white truncate">
+                {deliveredMoneyLoading ? '...' : formatCurrency(totalDeliveredAmount)}
+              </p>
+            </div>
+            <div className="min-w-0 text-right">
+              <p className="text-[10px] text-purple-100/90 uppercase tracking-wide">
+                {t('delivery.stat.totalDebtAmount')}
+              </p>
+              <p className="text-sm font-bold text-white truncate">
+                {deliveredMoneyLoading ? '...' : formatCurrency(totalDebtAmount)}
+              </p>
             </div>
           </div>
         </div>
@@ -305,7 +367,7 @@ export const DeliveryOrders = () => {
                 className={`text-purple-500 transition-transform ${calendarOpen ? 'rotate-180' : ''}`}
               />
             </button>
-            <span className="text-xs text-gray-400 dark:text-gray-500">{sortedFiltered.length} {t('orders.ordersCountSuffix')}</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">{ordersToDisplay.length} {t('orders.ordersCountSuffix')}</span>
           </div>
 
           {/* Kalendar paneli */}
@@ -424,13 +486,36 @@ export const DeliveryOrders = () => {
           </button>
         </div>
 
+        {/* ── Klient izlash ───────────────────────────────────── */}
+        <div className="px-4 pb-2 pt-1">
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              value={clientSearch}
+              onChange={e => setClientSearch(e.target.value)}
+              placeholder={t('clients.search')}
+              className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-50 transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500"
+            />
+            {clientSearch.trim() && (
+              <button
+                type="button"
+                onClick={() => setClientSearch('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-500"
+                title={t('common.clear')}
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* ── Zakazlar ro'yxati ── */}
         <div
           className="p-4 space-y-3"
           onClick={() => { if (calendarOpen) setCalendarOpen(false); }}
         >
-          {sortedFiltered.length > 0 ? (
-            sortedFiltered.map(order => (
+          {ordersToDisplay.length > 0 ? (
+            ordersToDisplay.map(order => (
               <div
                 key={order.id}
                 className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden"
@@ -565,13 +650,23 @@ export const DeliveryOrders = () => {
                     {orders.find(o => o.clientId === selectedClientId)?.clientPhone || ''}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
-                  onClick={() => setClientModalOpen(false)}
-                >
-                  <X size={18} className="text-gray-500" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="w-9 h-9 flex items-center justify-center rounded-full bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                    onClick={() => setEditingClientId(selectedClientId)}
+                    title={t('clients.edit.title')}
+                  >
+                    <Edit2 size={18} className="text-[#2563EB]" />
+                  </button>
+                  <button
+                    type="button"
+                    className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+                    onClick={() => setClientModalOpen(false)}
+                  >
+                    <X size={18} className="text-gray-500" />
+                  </button>
+                </div>
               </div>
 
               <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
@@ -594,10 +689,7 @@ export const DeliveryOrders = () => {
                     {t('orders.items')}
                   </p>
                   <div className="space-y-2">
-                    {orders
-                      .filter(o => o.clientId === selectedClientId && o.deliveryId === currentUser?.id && o.status === 'delivered')
-                      .sort((a, b) => b.date.localeCompare(a.date))
-                      .map(o => (
+                    {modalDeliveredOrders.map(o => (
                         <div key={o.id} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-3">
                           <div className="flex items-center justify-between mb-2">
                             <div className="min-w-0">
@@ -622,10 +714,10 @@ export const DeliveryOrders = () => {
                                     </p>
                                   )}
                                   <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
-                                    {lang === 'ru' ? 'Оплачено' : 'To\'landi'}: {paid.toLocaleString('ru-RU')} {t('common.sum')}
+                                    {t('payments.badge.paid')}: {paid.toLocaleString('ru-RU')} {t('common.sum')}
                                   </p>
                                   <p className={`text-[10px] mt-0.5 ${debt > 0 ? 'text-red-600 dark:text-red-300' : 'text-green-600 dark:text-green-300'}`}>
-                                    {lang === 'ru' ? 'Долг' : 'Qarz'}: {debt.toLocaleString('ru-RU')} {t('common.sum')}
+                                    {t('payments.badge.debt')}: {debt.toLocaleString('ru-RU')} {t('common.sum')}
                                   </p>
                                 </div>
                               );
@@ -661,16 +753,16 @@ export const DeliveryOrders = () => {
                             return (
                               <>
                                 {returnsLoadingByOrderId[o.id] ? (
-                                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{lang === 'ru' ? 'Загрузка возвратов...' : 'Vozvratlar yuklanmoqda...'}</p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{t('returns.loadingReturns')}</p>
                                 ) : returnedQtyTotal > 0 ? (
                                   <div className="mb-2 text-xs text-gray-600 dark:text-gray-300 space-y-0.5">
                                     <p>
-                                      {lang === 'ru' ? 'Возврат' : 'Qaytarildi'}: <span className="font-semibold text-amber-700 dark:text-amber-300">{returnedAmountTotal.toLocaleString('ru-RU')} {t('common.sum')}</span>
+                                      {t('returns.label.return')}: <span className="font-semibold text-amber-700 dark:text-amber-300">{returnedAmountTotal.toLocaleString('ru-RU')} {t('common.sum')}</span>
                                       {' · '}
                                       <span className="font-semibold">{returnedQtyTotal} {t('common.pcs')}</span>
                                     </p>
                                     <p>
-                                      {lang === 'ru' ? 'К получению' : 'Qolgan'}: <span className="font-semibold text-red-600 dark:text-red-300">{adjustedTotal.toLocaleString('ru-RU')} {t('common.sum')}</span>
+                                      {t('returns.label.remainingToReceive')}: <span className="font-semibold text-red-600 dark:text-red-300">{adjustedTotal.toLocaleString('ru-RU')} {t('common.sum')}</span>
                                     </p>
                                   </div>
                                 ) : null}
@@ -690,11 +782,11 @@ export const DeliveryOrders = () => {
                                           </div>
                                           {returnedQty > 0 && (
                                             <div className="text-[10px] text-amber-700 dark:text-amber-300 mt-0.5">
-                                              {lang === 'ru' ? 'Верн.' : 'Qayt.'}: {returnedQty} {t('common.pcs')}
+                                              {t('returns.item.short.returned')}: {returnedQty} {t('common.pcs')}
                                             </div>
                                           )}
                                           <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
-                                            {lang === 'ru' ? 'Ост.' : 'Qold.'}: {leftQty} {t('common.pcs')}
+                                            {t('returns.item.short.remaining')}: {leftQty} {t('common.pcs')}
                                           </div>
                                         </div>
                                       </div>
@@ -744,8 +836,207 @@ export const DeliveryOrders = () => {
             </div>
           </div>
         )}
+
+        {editingClientId && (
+          <DeliveryClientEditModal
+            clientId={editingClientId}
+            onClose={() => setEditingClientId(null)}
+          />
+        )}
       </MobileContent>
       <MobileNav role="delivery" />
     </MobileShell>
   );
 };
+
+// ── Delivery Client Edit Modal ─────────────────────────────────────────
+function DeliveryClientEditModal({
+  clientId,
+  onClose,
+}: {
+  clientId: string;
+  onClose: () => void;
+}) {
+  const { clients, updateClient, t } = useApp();
+  const client = clients.find(c => c.id === clientId);
+
+  const [form, setForm] = useState({
+    name: '',
+    phone: '',
+    address: '',
+    lat: undefined as number | undefined,
+    lng: undefined as number | undefined,
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showMapPicker, setShowMapPicker] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!client) return;
+    setForm({
+      name: client.name ?? '',
+      phone: client.phone ?? '',
+      address: client.address ?? '',
+      lat: client.lat,
+      lng: client.lng,
+    });
+    setErrors({});
+  }, [clientId]);
+
+  if (!client) return null;
+
+  const normalizePhone = (s: string) => (s || '').replace(/\D/g, '');
+  const phoneNorm = normalizePhone(form.phone);
+
+  const validate = () => {
+    const errs: Record<string, string> = {};
+    if (!form.name.trim()) errs.name = t('clients.validation.nameRequired');
+    if (!form.phone.trim()) errs.phone = t('clients.validation.phoneRequired');
+    if (!form.address.trim()) errs.address = t('clients.validation.addressRequired');
+    if (form.lat == null || form.lng == null) errs.location = t('clients.validation.locationRequired');
+
+    if (!errs.phone) {
+      const dup = clients.some(
+        c => c.id !== client.id && normalizePhone(c.phone) === phoneNorm,
+      );
+      if (dup) errs.phone = t('clients.validation.phoneDuplicate');
+    }
+
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const handleSave = () => {
+    if (saving) return;
+    if (!validate()) return;
+    setSaving(true);
+    updateClient(client.id, {
+      name: form.name,
+      phone: form.phone,
+      address: form.address,
+      lat: form.lat,
+      lng: form.lng,
+    });
+    setSaving(false);
+    onClose();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[9500] bg-black/50 flex items-end justify-center"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-[430px] bg-white rounded-t-3xl overflow-hidden border-t border-gray-100 flex flex-col"
+        style={{ height: '85vh' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 shrink-0">
+          <div className="flex items-center gap-2">
+            <Edit2 size={18} className="text-[#2563EB]" />
+            <p className="text-sm font-bold text-gray-900">{t('clients.edit.title')}</p>
+          </div>
+          <button
+            type="button"
+            className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors"
+            onClick={onClose}
+          >
+            <X size={18} className="text-gray-500" />
+          </button>
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">{t('clients.form.name')}</label>
+            <input
+              value={form.name}
+              onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
+              className="w-full py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-900 focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-50"
+            />
+            {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">{t('clients.form.phone')}</label>
+            <input
+              value={form.phone}
+              onChange={e => setForm(prev => ({ ...prev, phone: e.target.value }))}
+              className="w-full py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-900 focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-50"
+            />
+            {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">{t('clients.form.address')}</label>
+            <textarea
+              value={form.address}
+              onChange={e => setForm(prev => ({ ...prev, address: e.target.value }))}
+              rows={2}
+              className="w-full py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-900 resize-none focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-50"
+            />
+            {errors.address && <p className="text-red-500 text-xs mt-1">{errors.address}</p>}
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">{t('clients.form.location')}</label>
+            <button
+              type="button"
+              onClick={() => setShowMapPicker(true)}
+              className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed transition-all text-sm font-medium ${
+                form.lat != null && form.lng != null
+                  ? 'border-green-300 bg-green-50 text-green-700'
+                  : 'border-gray-300 bg-gray-50 text-gray-600 hover:border-[#2563EB] hover:text-[#2563EB]'
+              }`}
+            >
+              <MapPin size={16} />
+              {form.lat != null && form.lng != null
+                ? t('clients.add.locationSelectedEdit')
+                : t('clients.add.locationSelect')}
+            </button>
+            {errors.location && <p className="text-red-500 text-xs mt-1">{errors.location}</p>}
+          </div>
+
+          <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+            <p className="text-xs text-gray-500">
+              {form.lat != null && form.lng != null
+                ? `📍 ${form.lat.toFixed(5)}, ${form.lng.toFixed(5)}`
+                : '—'}
+            </p>
+          </div>
+
+          {showMapPicker && (
+            <MapPicker
+              initialLat={form.lat}
+              initialLng={form.lng}
+              onConfirm={(lat, lng) => {
+                setForm(prev => ({ ...prev, lat, lng }));
+                setShowMapPicker(false);
+              }}
+              onClose={() => setShowMapPicker(false)}
+            />
+          )}
+        </div>
+
+        <div className="px-4 py-3 border-t border-gray-100 shrink-0">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-semibold"
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="flex-1 py-3 rounded-xl bg-[#2563EB] text-white font-semibold disabled:opacity-60"
+            >
+              {saving ? t('common.loading') : t('common.save')}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
