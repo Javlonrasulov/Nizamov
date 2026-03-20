@@ -2,12 +2,18 @@ import { useApp } from '../../context/AppContext';
 import { AdminLayout } from '../../components/AdminLayout';
 import { TrendingUp, ShoppingBag, Package, CalendarDays } from 'lucide-react';
 import { SimpleVBarChart } from '../../components/SimpleCharts';
-import { useFilteredOrders } from '../../components/AdminDateFilter';
+import { getMonthKey, normalizeDateValue, useFilteredOrders } from '../../components/AdminDateFilter';
 
 export const AgentStats = () => {
-  const { t, adminDateFrom, adminDateTo } = useApp();
+  const { t, adminDateFrom, adminDateTo, orders } = useApp();
   const filteredOrders = useFilteredOrders();
-  const hasFilter = adminDateFrom || adminDateTo;
+  const hasFilter = Boolean(adminDateFrom || adminDateTo);
+  const today = normalizeDateValue(new Date().toISOString());
+  const referenceMonth = getMonthKey(adminDateTo || adminDateFrom || today, today);
+  const primaryOrders = hasFilter
+    ? filteredOrders
+    : orders.filter(o => normalizeDateValue(o.date) === today);
+  const monthlyOrders = orders.filter(o => getMonthKey(o.date, today) === referenceMonth);
 
   // Build stats from live orders (includes "new" too)
   const byAgent = new Map<string, {
@@ -21,6 +27,31 @@ export const AgentStats = () => {
     weeklySales: any[];
   }>();
 
+  const getAgentRow = (order: typeof orders[number]) => byAgent.get(order.agentId) || {
+    id: order.agentId,
+    name: order.agentName || order.agentId,
+    todaySales: 0,
+    monthlySales: 0,
+    ordersCount: 0,
+    itemsSold: 0,
+    dailySales: [],
+    weeklySales: [],
+  };
+
+  primaryOrders.forEach(o => {
+    const current = getAgentRow(o);
+    current.todaySales += o.total || 0;
+    current.ordersCount += 1;
+    current.itemsSold += (o.items || []).reduce((s, i) => s + i.quantity, 0);
+    byAgent.set(o.agentId, current);
+  });
+
+  monthlyOrders.forEach(o => {
+    const current = getAgentRow(o);
+    current.monthlySales += o.total || 0;
+    byAgent.set(o.agentId, current);
+  });
+
   filteredOrders.forEach(o => {
     const current = byAgent.get(o.agentId) || {
       id: o.agentId,
@@ -32,10 +63,6 @@ export const AgentStats = () => {
       dailySales: [],
       weeklySales: [],
     };
-    current.todaySales += o.total || 0;
-    current.monthlySales += o.total || 0;
-    current.ordersCount += 1;
-    current.itemsSold += (o.items || []).reduce((s, i) => s + i.quantity, 0);
     byAgent.set(o.agentId, current);
   });
 
@@ -94,7 +121,7 @@ export const AgentStats = () => {
                       <TrendingUp size={14} className="text-blue-600 dark:text-blue-400" />
                     </div>
                     <p className="text-sm font-bold text-gray-900 dark:text-white">{agent.todaySales.toLocaleString()} so'm</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{hasFilter ? 'Davr' : t('admin.todaySales')}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{hasFilter ? t('admin.agentStats.periodSalesByAgent') : t('admin.todaySales')}</p>
                   </div>
                   <div className="text-center">
                     <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-900/30 flex items-center justify-center mx-auto mb-1.5">
@@ -113,7 +140,7 @@ export const AgentStats = () => {
                 </div>
                 <div className="px-4 pb-4">
                   <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3 flex items-center justify-between">
-                    <span className="text-xs text-gray-500 dark:text-gray-400">{hasFilter ? 'Jami savdo' : t('admin.monthlySales')}</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">{t('admin.monthlySales')}</span>
                     <span className="text-sm font-bold text-gray-900 dark:text-white">{agent.monthlySales.toLocaleString()} so'm</span>
                   </div>
                 </div>
@@ -161,10 +188,10 @@ export const AgentStats = () => {
                 <tr className="border-b border-gray-50 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-700/50">
                   <th className="text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-6 py-3">{t('admin.agentName')}</th>
                   <th className="text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-6 py-3">
-                    {hasFilter ? 'Davr savdosi' : t('admin.todaySales')}
+                    {hasFilter ? t('admin.agentStats.periodSalesByAgent') : t('admin.todaySales')}
                   </th>
                   <th className="text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-6 py-3">
-                    {hasFilter ? 'Jami savdo' : t('admin.monthlySales')}
+                    {t('admin.monthlySales')}
                   </th>
                   <th className="text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-6 py-3">{t('admin.ordersCount')}</th>
                   <th className="text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-6 py-3">{t('admin.itemsSold')}</th>

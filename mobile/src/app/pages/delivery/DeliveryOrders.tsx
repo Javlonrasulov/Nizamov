@@ -58,6 +58,7 @@ export const DeliveryOrders = () => {
   const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set([todayStr]));
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [rangeStart, setRangeStart] = useState<string | null>(null);
+  const [debtorsOnly, setDebtorsOnly] = useState(false);
 
   const cells = buildCalendar(viewYear, viewMonth);
 
@@ -67,7 +68,6 @@ export const DeliveryOrders = () => {
 
   /* Tanlangan kunlar bo'yicha filtrlash */
   const filtered = myOrders.filter(o => selectedDates.has(o.date));
-  const sortedFiltered = [...filtered].sort((a, b) => b.date.localeCompare(a.date));
 
   const [clientModalOpen, setClientModalOpen] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
@@ -83,6 +83,15 @@ export const DeliveryOrders = () => {
   useEffect(() => {
     balancesLoadingRef.current = balancesLoading;
   }, [balancesLoading]);
+
+  const sortedFiltered = [...filtered]
+    .filter(o => {
+      if (!debtorsOnly) return true;
+      // balances hali yuklanmagan bo'lsa — filter qarz yo'q deb noto'g'ri chiqarib yubormasligi uchun ko'rsatib turamiz
+      if (balances[o.clientId] == null || balancesLoading[o.clientId]) return true;
+      return (balances[o.clientId]?.debt ?? 0) > 0;
+    })
+    .sort((a, b) => b.date.localeCompare(a.date));
 
   const visibleClientIds = useMemo(
     () => Array.from(new Set(sortedFiltered.map(o => o.clientId).filter(Boolean))),
@@ -342,6 +351,27 @@ export const DeliveryOrders = () => {
               </div>
             </>
           )}
+        </div>
+
+        {/* ── Qarzdorlar filtri ─────────────────────────────── */}
+        <div className="px-4 pb-2 pt-1">
+          <button
+            type="button"
+            onClick={() => setDebtorsOnly(v => !v)}
+            className={`w-full flex items-center justify-between rounded-xl px-3 py-2 border transition-colors ${
+              debtorsOnly
+                ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
+                : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
+            }`}
+          >
+            <span className="flex items-center gap-2 text-sm font-medium">
+              <span className={`w-2 h-2 rounded-full ${debtorsOnly ? 'bg-red-500' : 'bg-gray-300'}`} />
+              Faqat qarzdorlar
+            </span>
+            <span className={`text-xs font-semibold ${debtorsOnly ? 'text-red-600 dark:text-red-300' : 'text-gray-500 dark:text-gray-400'}`}>
+              {debtorsOnly ? 'ON' : 'OFF'}
+            </span>
+          </button>
         </div>
 
         {/* ── Zakazlar ro'yxati ── */}

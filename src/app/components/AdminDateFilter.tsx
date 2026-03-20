@@ -18,6 +18,24 @@ function dateToIso(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+export function normalizeDateValue(value?: string | null) {
+  if (!value) return '';
+  return String(value).slice(0, 10);
+}
+
+export function getMonthKey(value?: string | null, fallback = dateToIso(new Date())) {
+  const normalized = normalizeDateValue(value) || fallback;
+  return normalized.slice(0, 7);
+}
+
+export function isDateInRange(value: string, from?: string, to?: string) {
+  const normalized = normalizeDateValue(value);
+  if (!from && !to) return true;
+  const rangeFrom = normalizeDateValue(from) || '0000-00-00';
+  const rangeTo = normalizeDateValue(to) || '9999-99-99';
+  return normalized >= rangeFrom && normalized <= rangeTo;
+}
+
 function formatDisplay(iso: string) {
   if (!iso) return '';
   const [y, m, d] = iso.split('-');
@@ -381,9 +399,7 @@ export function useFilteredOrders() {
   const { orders, adminDateFrom, adminDateTo } = useApp();
   return useMemo(() => {
     if (!adminDateFrom && !adminDateTo) return orders;
-    const from = adminDateFrom || '0000-00-00';
-    const to = adminDateTo || '9999-99-99';
-    return orders.filter(o => o.date >= from && o.date <= to);
+    return orders.filter(o => isDateInRange(o.date, adminDateFrom, adminDateTo));
   }, [orders, adminDateFrom, adminDateTo]);
 }
 

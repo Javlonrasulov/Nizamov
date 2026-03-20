@@ -1,23 +1,36 @@
 import { ShoppingBag, TrendingUp, DollarSign, BarChart2, CalendarDays } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { AdminLayout } from '../../components/AdminLayout';
-import { productSalesData } from '../../data/mockData';
 import { StatusBadge } from '../../components/StatusBadge';
 import { SimpleLineChart, SimpleHBarChart } from '../../components/SimpleCharts';
-import { useAdminVisibleOrders } from '../../components/AdminDateFilter';
+import { getMonthKey, normalizeDateValue, useAdminVisibleOrders } from '../../components/AdminDateFilter';
 
 export const AdminDashboard = () => {
-  const { t, adminDateFrom, adminDateTo, lang } = useApp();
+  const { t, adminDateFrom, adminDateTo, lang, orders, products } = useApp();
   const filteredOrders = useAdminVisibleOrders();
+  const visibleOrders = orders.filter(o => o.status !== 'new');
+  const hasFilter = Boolean(adminDateFrom || adminDateTo);
+  const today = normalizeDateValue(new Date().toISOString());
+  const referenceMonth = getMonthKey(adminDateTo || adminDateFrom || today, today);
+  const todayOrders = visibleOrders.filter(o => normalizeDateValue(o.date) === today);
+  const monthOrders = visibleOrders.filter(o => getMonthKey(o.date, today) === referenceMonth);
+
+  const productCostById: Record<string, number> = {};
+  products.forEach(product => {
+    productCostById[product.id] = product.cost ?? 0;
+  });
 
   const totalSales = filteredOrders.reduce((sum, o) => sum + o.total, 0);
-  const profit = totalSales * 0.22;
-
-  const hasFilter = adminDateFrom || adminDateTo;
+  const profit = filteredOrders.reduce((sum, order) => (
+    sum + order.items.reduce((itemSum, item) => {
+      const cost = productCostById[item.productId] ?? 0;
+      return itemSum + (item.price - cost) * item.quantity;
+    }, 0)
+  ), 0);
 
   const stats = [
-    { label: t('admin.todayOrders'), value: filteredOrders.length, icon: ShoppingBag, color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-400', trend: '+12%' },
-    { label: t('admin.monthOrders'), value: filteredOrders.length, icon: BarChart2, color: 'text-purple-600 bg-purple-50 dark:bg-purple-900/30 dark:text-purple-400', trend: '+8%' },
+    { label: hasFilter ? t('admin.dashboard.filteredOrders') : t('admin.todayOrders'), value: hasFilter ? filteredOrders.length : todayOrders.length, icon: ShoppingBag, color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-400', trend: '+12%' },
+    { label: t('admin.monthOrders'), value: monthOrders.length, icon: BarChart2, color: 'text-purple-600 bg-purple-50 dark:bg-purple-900/30 dark:text-purple-400', trend: '+8%' },
     { label: t('admin.totalSales'), value: `${totalSales.toLocaleString()} so'm`, icon: TrendingUp, color: 'text-green-600 bg-green-50 dark:bg-green-900/30 dark:text-green-400', trend: '+15%' },
     { label: t('admin.profit'), value: `${Math.round(profit).toLocaleString()} so'm`, icon: DollarSign, color: 'text-orange-600 bg-orange-50 dark:bg-orange-900/30 dark:text-orange-400', trend: '+10%' },
   ];
@@ -27,7 +40,8 @@ export const AdminDashboard = () => {
   // Build daily data from filtered orders
   const dateMap: Record<string, number> = {};
   filteredOrders.forEach(o => {
-    dateMap[o.date] = (dateMap[o.date] || 0) + o.total;
+    const orderDate = normalizeDateValue(o.date);
+    dateMap[orderDate] = (dateMap[orderDate] || 0) + o.total;
   });
   const lineData = Object.entries(dateMap)
     .sort(([a], [b]) => a.localeCompare(b))

@@ -3,7 +3,7 @@ import { Plus, Phone, TrendingUp, CalendarDays, Edit2, Truck, Trash2 } from 'luc
 import { useApp } from '../../context/AppContext';
 import { AdminLayout } from '../../components/AdminLayout';
 import { users } from '../../data/mockData';
-import { useFilteredOrders } from '../../components/AdminDateFilter';
+import { getMonthKey, isDateInRange, normalizeDateValue } from '../../components/AdminDateFilter';
 import { apiGetUsers, apiCreateUser, apiUpdateUser, apiDeleteUser } from '../../api/users';
 import type { User } from '../../data/mockData';
 
@@ -38,8 +38,7 @@ const loadVehicles = (): string[] => {
 };
 
 export const AdminAgents = () => {
-  const { t, adminDateFrom, adminDateTo } = useApp();
-  const filteredOrders = useFilteredOrders();
+  const { t, adminDateFrom, adminDateTo, orders } = useApp();
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [form, setForm] = useState({ name: '', phone: '', password: '', role: 'agent' as 'agent' | 'delivery' | 'sklad', vehicleName: '', vehicleOther: '' });
@@ -51,7 +50,9 @@ export const AdminAgents = () => {
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
   const [actionError, setActionError] = useState('');
 
-  const hasFilter = adminDateFrom || adminDateTo;
+  const hasFilter = Boolean(adminDateFrom || adminDateTo);
+  const today = normalizeDateValue(new Date().toISOString());
+  const referenceMonth = getMonthKey(adminDateTo || adminDateFrom || today, today);
 
   const loadStaff = async () => {
     try {
@@ -99,13 +100,18 @@ export const AdminAgents = () => {
   };
 
   const getStats = (userId: string, role: 'agent' | 'delivery') => {
-    const orders = role === 'agent'
-      ? filteredOrders.filter(o => o.agentId === userId)
-      : filteredOrders.filter(o => o.deliveryId === userId && o.status === 'delivered');
-    if (orders.length === 0) return null;
-    const todaySales = orders.reduce((sum, o) => sum + o.total, 0);
-    const itemsSold = orders.reduce((sum, o) => sum + o.items.reduce((s, i) => s + i.quantity, 0), 0);
-    return { id: userId, todaySales, monthlySales: todaySales, ordersCount: orders.length, itemsSold };
+    const userOrders = role === 'agent'
+      ? orders.filter(o => o.agentId === userId)
+      : orders.filter(o => o.deliveryId === userId && o.status === 'delivered');
+    const primaryOrders = hasFilter
+      ? userOrders.filter(o => isDateInRange(o.date, adminDateFrom, adminDateTo))
+      : userOrders.filter(o => normalizeDateValue(o.date) === today);
+    const monthlyOrders = userOrders.filter(o => getMonthKey(o.date, today) === referenceMonth);
+    if (primaryOrders.length === 0 && monthlyOrders.length === 0) return null;
+    const todaySales = primaryOrders.reduce((sum, o) => sum + o.total, 0);
+    const itemsSold = primaryOrders.reduce((sum, o) => sum + o.items.reduce((s, i) => s + i.quantity, 0), 0);
+    const monthlySales = monthlyOrders.reduce((sum, o) => sum + o.total, 0);
+    return { id: userId, todaySales, monthlySales, ordersCount: primaryOrders.length, itemsSold };
   };
 
   const colors = ['from-blue-500 to-blue-600', 'from-purple-500 to-purple-600', 'from-green-500 to-green-600', 'from-orange-500 to-orange-600', 'from-teal-500 to-teal-600'];
@@ -423,9 +429,7 @@ export const AdminAgents = () => {
                         </div>
                         <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
                           <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">
-                            {user.role === 'delivery'
-                              ? t('admin.staff.card.monthSales')
-                              : (hasFilter ? t('admin.totalSales') : t('admin.staff.card.monthSales'))}
+                            {t('admin.staff.card.monthSales')}
                           </p>
                           <p className="text-sm font-bold text-gray-900 dark:text-white">{stats.monthlySales.toLocaleString()} so'm</p>
                         </div>

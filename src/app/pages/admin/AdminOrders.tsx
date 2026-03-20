@@ -9,6 +9,7 @@ import { apiGetUsers } from '../../api/users';
 import { apiGetClientBalance, type Payment } from '../../api/payments';
 import { apiAcceptReturn, apiCreateReturn, apiGetReturns } from '../../api/returns';
 import type { User } from '../../data/mockData';
+import { translations } from '../../i18n/translations';
 
 const formatOrderId = (order: { id: string; orderNumber?: number }) =>
   order.orderNumber != null ? `#${order.orderNumber}` : `#${order.id.slice(-6).toUpperCase()}`;
@@ -392,16 +393,19 @@ export const AdminOrders = () => {
 
   const handlePrint = (order: any) => {
     const debt = debtByOrderId[order.id] ?? 0;
-    const title = `${t('admin.ordersPage')} ${formatOrderId(order)}`;
-    const debtLabel = debt > 0 ? `${t('payments.badge.debt')}: ${debt.toLocaleString('ru-RU')} ${t('common.sum')}` : '';
+    // Chop etish tili har doim o'zbek (kirill) bo'lishi uchun alohida tarjima funksiyasi ishlatamiz.
+    const tPrint = (key: keyof typeof translations['uz_lat']) => translations.uz_kir[key] || String(key);
+
+    const title = `${tPrint('admin.ordersPage')} ${formatOrderId(order)}`;
+    const debtLabel = `${tPrint('payments.badge.debt')}: ${debt.toLocaleString('ru-RU')} ${tPrint('common.sum')}`;
 
     const rows = (order.items ?? []).map((it: any, idx: number) => `
       <tr>
         <td style="width:38px;text-align:center;">${idx + 1}</td>
         <td>${escapeHtml(String(it.productName ?? ''))}</td>
-        <td style="width:80px;text-align:right;">${Number(it.quantity || 0)} ${escapeHtml(t('common.pcs'))}</td>
-        <td style="width:110px;text-align:right;">${Number(it.price || 0).toLocaleString('ru-RU')} ${escapeHtml(t('common.sum'))}</td>
-        <td style="width:120px;text-align:right;font-weight:700;">${Number((it.quantity || 0) * (it.price || 0)).toLocaleString('ru-RU')} ${escapeHtml(t('common.sum'))}</td>
+        <td style="width:80px;text-align:right;">${Number(it.quantity || 0)} ${escapeHtml(tPrint('common.pcs'))}</td>
+        <td style="width:110px;text-align:right;">${Number(it.price || 0).toLocaleString('ru-RU')} ${escapeHtml(tPrint('common.sum'))}</td>
+        <td style="width:120px;text-align:right;font-weight:700;">${Number((it.quantity || 0) * (it.price || 0)).toLocaleString('ru-RU')} ${escapeHtml(tPrint('common.sum'))}</td>
       </tr>
     `).join('');
 
@@ -437,33 +441,33 @@ export const AdminOrders = () => {
         <h1>${escapeHtml(title)}</h1>
         <div class="muted" style="font-size:12px;">${escapeHtml(order.date ?? '')}</div>
       </div>
-      ${debt > 0 ? `<div class="badge debt">${escapeHtml(debtLabel)}</div>` : ``}
+      <div class="badge ${debt > 0 ? 'debt' : ''}">${escapeHtml(debtLabel)}</div>
     </div>
 
     <div class="grid">
-      <div class="kv"><span class="k">${escapeHtml(t('orders.client'))}</span> ${escapeHtml(order.clientName ?? '')}</div>
-      <div class="kv"><span class="k">${escapeHtml(t('common.phone'))}</span> ${escapeHtml(order.clientPhone ?? '')}</div>
-      <div class="kv"><span class="k">${escapeHtml(t('orders.agent'))}</span> ${escapeHtml(order.agentName ?? '')}</div>
-      <div class="kv"><span class="k">${escapeHtml(t('common.address'))}</span> ${escapeHtml(order.clientAddress ?? '')}</div>
+      <div class="kv"><span class="k">${escapeHtml(tPrint('orders.client'))}</span> ${escapeHtml(order.clientName ?? '')}</div>
+      <div class="kv"><span class="k">${escapeHtml(tPrint('common.phone'))}</span> ${escapeHtml(order.clientPhone ?? '')}</div>
+      <div class="kv"><span class="k">${escapeHtml(tPrint('orders.agent'))}</span> ${escapeHtml(order.agentName ?? '')}</div>
+      <div class="kv"><span class="k">${escapeHtml(tPrint('common.address'))}</span> ${escapeHtml(order.clientAddress ?? '')}</div>
     </div>
 
     <table>
       <thead>
         <tr>
           <th style="width:38px;">#</th>
-          <th>${escapeHtml(t('admin.suppliers.productName'))}</th>
-          <th style="width:80px; text-align:right;">${escapeHtml(t('admin.suppliers.quantity'))}</th>
-          <th style="width:110px; text-align:right;">${escapeHtml(t('admin.suppliers.salePrice'))}</th>
-          <th style="width:120px; text-align:right;">${escapeHtml(t('common.total'))}</th>
+          <th>${escapeHtml(tPrint('admin.suppliers.productName'))}</th>
+          <th style="width:80px; text-align:right;">${escapeHtml(tPrint('admin.suppliers.quantity'))}</th>
+          <th style="width:110px; text-align:right;">${escapeHtml(tPrint('admin.suppliers.salePrice'))}</th>
+          <th style="width:120px; text-align:right;">${escapeHtml(tPrint('common.total'))}</th>
         </tr>
       </thead>
       <tbody>
-        ${rows || `<tr><td colspan="5" class="muted">${escapeHtml(t('orders.items'))}: 0</td></tr>`}
+        ${rows || `<tr><td colspan="5" class="muted">${escapeHtml(tPrint('orders.items'))}: 0</td></tr>`}
       </tbody>
       <tfoot>
         <tr>
-          <td colspan="4" style="text-align:right;">${escapeHtml(t('common.total'))}</td>
-          <td style="text-align:right;">${Number(order.total || 0).toLocaleString('ru-RU')} ${escapeHtml(t('common.sum'))}</td>
+          <td colspan="4" style="text-align:right;">${escapeHtml(tPrint('common.total'))}</td>
+          <td style="text-align:right;">${Number(order.total || 0).toLocaleString('ru-RU')} ${escapeHtml(tPrint('common.sum'))}</td>
         </tr>
       </tfoot>
     </table>
@@ -784,7 +788,7 @@ export const AdminOrders = () => {
                       <td className="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">{order.date}</td>
                       <td className="px-5 py-4" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-2">
-                          {!(statusFilter === 'cancelled' && returnedByOrderId[order.id]) && (
+                          {needsYuklash(order.status) && !(statusFilter === 'cancelled' && returnedByOrderId[order.id]) && (
                             <button
                               onClick={() => handlePrint(order)}
                               className="flex items-center gap-1 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-[#2563EB] dark:hover:text-blue-400 px-2 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"

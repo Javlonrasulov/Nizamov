@@ -14,6 +14,7 @@ export const DeliveryPaymentIn = () => {
 
   const [step, setStep] = useState<1 | 2>(1);
   const [search, setSearch] = useState('');
+  const [debtorsOnly, setDebtorsOnly] = useState(false);
   const [expandClients, setExpandClients] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
 
@@ -42,13 +43,24 @@ export const DeliveryPaymentIn = () => {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return myClients;
-    return myClients.filter(c =>
-      c.name.toLowerCase().includes(q)
-      || c.phone.replace(/\s/g, '').includes(q.replace(/\s/g, ''))
-      || c.address.toLowerCase().includes(q),
-    );
-  }, [myClients, search]);
+    let base = myClients;
+    if (q) {
+      base = myClients.filter(c =>
+        c.name.toLowerCase().includes(q)
+        || c.phone.replace(/\s/g, '').includes(q.replace(/\s/g, ''))
+        || c.address.toLowerCase().includes(q),
+      );
+    }
+
+    if (!debtorsOnly) return base;
+
+    return base.filter(c => {
+      // Balans hali yuklanmagan bo'lsa — filtrda yo'qolib qolmasligi uchun ko'rsatamiz
+      if (balancesLoading[c.id]) return true;
+      if (balances[c.id] == null) return true;
+      return (balances[c.id]?.debt ?? 0) > 0;
+    });
+  }, [myClients, search, debtorsOnly, balances, balancesLoading]);
 
   const visible = expandClients ? filtered : filtered.slice(0, INITIAL_VISIBLE);
   const hasMore = filtered.length > INITIAL_VISIBLE;
@@ -141,6 +153,16 @@ export const DeliveryPaymentIn = () => {
                   </button>
                 )}
               </div>
+
+              <label className="flex items-center gap-2 text-xs font-semibold text-gray-600 dark:text-gray-300 mb-3">
+                <input
+                  type="checkbox"
+                  checked={debtorsOnly}
+                  onChange={e => setDebtorsOnly(e.target.checked)}
+                  className="accent-[#2563EB]"
+                />
+                Faqat qarzdorlar
+              </label>
 
               <div className="relative mb-3">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />

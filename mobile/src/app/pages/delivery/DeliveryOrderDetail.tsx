@@ -1,16 +1,16 @@
 import { useParams, useNavigate } from 'react-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Phone, MapPin, Package, Map, CheckCircle, XCircle, CreditCard, X, RotateCcw } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { MobileShell, MobileHeader, MobileContent } from '../../components/MobileShell';
 import { MobileNav } from '../../components/MobileNav';
 import { StatusBadge } from '../../components/StatusBadge';
-import { apiCreatePayment, PaymentMethod } from '../../api/payments';
-import { apiCreateReturn } from '../../api/returns';
+import { apiCreatePayment, apiGetClientBalance, type ClientBalance, PaymentMethod } from '../../api/payments';
+import { apiCreateReturn, apiGetReturns, type ReturnRecord } from '../../api/returns';
 
 export const DeliveryOrderDetail = () => {
   const { id } = useParams<{ id: string }>();
-  const { t, orders, updateOrderStatus, currentUser } = useApp();
+  const { t, lang, orders, updateOrderStatus, currentUser } = useApp();
   const navigate = useNavigate();
   const [payOpen, setPayOpen] = useState(false);
   const [paidToggle, setPaidToggle] = useState(true);
@@ -22,6 +22,11 @@ export const DeliveryOrderDetail = () => {
   const [returnQtyByProduct, setReturnQtyByProduct] = useState<Record<string, number>>({});
   const [returnSaving, setReturnSaving] = useState(false);
   const [returnError, setReturnError] = useState('');
+
+  const [orderReturns, setOrderReturns] = useState<ReturnRecord[]>([]);
+  const [orderReturnsLoading, setOrderReturnsLoading] = useState(false);
+  const [clientBalance, setClientBalance] = useState<ClientBalance | null>(null);
+  const [clientBalanceLoading, setClientBalanceLoading] = useState(false);
 
   const formatOrderId = (o: { id: string; orderNumber?: number }) =>
     o.orderNumber != null ? `#${o.orderNumber}` : `#${o.id.slice(-6).toUpperCase()}`;
@@ -44,6 +49,30 @@ export const DeliveryOrderDetail = () => {
   }
 
   const canChangeStatus = order.status === 'yuborilgan' || order.status === 'delivering' || order.status === 'accepted';
+
+  const reloadReturnsAndBalance = async () => {
+    setOrderReturnsLoading(true);
+    setClientBalanceLoading(true);
+    try {
+      const [rets, bal] = await Promise.all([
+        apiGetReturns({ orderId: order.id }),
+        apiGetClientBalance(order.clientId),
+      ]);
+      setOrderReturns(rets);
+      setClientBalance(bal);
+    } catch {
+      // API ulanmagan bo'lishi mumkin — UI baribir ishlasin
+    } finally {
+      setOrderReturnsLoading(false);
+      setClientBalanceLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // Montaj/parameter o'zgarishi paytida order uchun vozvratlarni va balansni yuklaymiz
+    reloadReturnsAndBalance();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order.id, order.clientId]);
 
   const openPayModal = (initialAmount?: number) => {
     const baseAmount = Math.max(0, Number(initialAmount ?? order.total ?? 0) || 0);
@@ -80,6 +109,55 @@ export const DeliveryOrderDetail = () => {
 
   const amountOk = !paidToggle || parseInt(amount || '0', 10) > 0;
   const formattedAmount = amount ? parseInt(amount, 10).toLocaleString('ru-RU') : '';
+
+  const priceByProductId = useMemo(
+    () => new Map(order.items.map(it => [it.productId, it.price ?? 0] as const)),
+    [order.items],
+  );
+
+  const pendingReturns = orderReturns.filter(r => r.status === 'pending');
+  const acceptedReturns = orderReturns.filter(r => r.status === 'accepted');
+
+  const returnedAmountAllFromReturns = useMemo(() => {
+    return orderReturns.reduce((sum, r) => {
+      return sum + (r.items || []).reduce((s, it) => {
+        const price = priceByProductId.get(it.productId) ?? 0;
+        return s + (it.quantity || 0) * price;
+      }, 0);
+    }, 0);
+  }, [orderReturns, priceByProductId]);
+
+  const returnedAmountPending = useMemo(() => {
+    return pendingReturns.reduce((sum, r) => {
+      return sum + (r.items || []).reduce((s, it) => {
+        const price = priceByProductId.get(it.productId) ?? 0;
+        return s + (it.quantity || 0) * price;
+      }, 0);
+    }, 0);
+  }, [pendingReturns, priceByProductId]);
+
+  const returnedAmountAccepted = useMemo(() => {
+    return acceptedReturns.reduce((sum, r) => {
+      return sum + (r.items || []).reduce((s, it) => {
+        const price = priceByProductId.get(it.productId) ?? 0;
+        return s + (it.quantity || 0) * price;
+      }, 0);
+    }, 0);
+  }, [acceptedReturns, priceByProductId]);
+
+  const remainingMoneyFromReturns = Math.max(0, (order.total ?? 0) - returnedAmountAllFromReturns);
+
+  const perOrderRow = clientBalance?.perOrder?.find(r => r.orderId === order.id) ?? null;
+  const paidForOrder = perOrderRow?.paid ?? 0;
+  const debtForOrder = perOrderRow?.debt ?? Math.max(0, remainingMoneyFromReturns - paidForOrder);
+
+  const isAllReturned = remainingMoneyFromReturns <= 0.00001 && returnedAmountAllFromReturns > 0;
+  const isPartialReturned = returnedAmountAllFromReturns > 0 && !isAllReturned;
+
+  const returnStatusLabel = (s: 'pending' | 'accepted') => {
+    if (lang === 'ru') return s === 'pending' ? 'Ожидает' : 'Принят';
+    return s === 'pending' ? 'Kutilayotgan' : 'Qabul qilingan';
+  };
 
   return (
     <MobileShell>
@@ -130,6 +208,139 @@ export const DeliveryOrderDetail = () => {
               <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t('orders.totalAmount')}</p>
               <p className="text-base font-bold text-[#2563EB] dark:text-blue-400">{order.total.toLocaleString('ru-RU')} {t('common.sum')}</p>
             </div>
+          </div>
+
+          {/* Vozvratlar summary (agent va dostavkachi ko'rishi uchun) */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t('returns.title')}</p>
+              {orderReturns.length > 0 ? (
+                <span
+                  className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                    isAllReturned
+                      ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'
+                      : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300'
+                  }`}
+                >
+                  {isAllReturned
+                    ? (lang === 'ru' ? 'Все возвращено' : 'Hammasi qaytarildi')
+                    : (lang === 'ru' ? 'Частичный возврат' : 'Qisman qaytarildi')}
+                </span>
+              ) : (
+                <span className="text-[11px] text-gray-400 dark:text-gray-500">—</span>
+              )}
+            </div>
+
+            {orderReturnsLoading || clientBalanceLoading ? (
+              <p className="text-xs text-gray-500 dark:text-gray-400">{lang === 'ru' ? 'Загрузка...' : 'Yuklanmoqda...'}</p>
+            ) : orderReturns.length === 0 ? (
+              <p className="text-xs text-gray-500 dark:text-gray-400">{lang === 'ru' ? 'Нет возвратов' : "Hozircha vozvrat yo‘q"}</p>
+            ) : (
+              <>
+                <div className="bg-gray-50 dark:bg-gray-800/40 rounded-xl p-3 border border-gray-100 dark:border-gray-700">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{lang === 'ru' ? 'Возвращено' : 'Qaytarildi'}</p>
+                    <p className="text-sm font-bold text-gray-900 dark:text-white">
+                      {returnedAmountAllFromReturns.toLocaleString('ru-RU')} {t('common.sum')}
+                    </p>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between gap-3">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{lang === 'ru' ? 'Получено' : 'Pul oldim'}</p>
+                    <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                      {paidForOrder.toLocaleString('ru-RU')} {t('common.sum')}
+                    </p>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between gap-3">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{lang === 'ru' ? 'Осталось' : 'Qolgan'}</p>
+                    <p className="text-sm font-bold text-red-600 dark:text-red-300">
+                      {debtForOrder.toLocaleString('ru-RU')} {t('common.sum')}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div>
+                    <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">
+                      {lang === 'ru' ? 'Ожидает' : 'Kutilayotgan'}
+                    </p>
+                    {pendingReturns.length === 0 ? (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 py-1">—</p>
+                    ) : (
+                      pendingReturns.map(r => (
+                        <div
+                          key={r.id}
+                          className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 p-3 mb-2 last:mb-0"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs font-semibold text-gray-900 dark:text-white">{r.date}</p>
+                            <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 font-semibold">
+                              {returnStatusLabel('pending')}
+                            </span>
+                          </div>
+                          <div className="space-y-1">
+                            {r.items.map(it => {
+                              const price = priceByProductId.get(it.productId) ?? 0;
+                              const lineAmount = (it.quantity || 0) * price;
+                              return (
+                                <div
+                                  key={it.productId}
+                                  className="flex items-center justify-between gap-3 text-xs text-gray-700 dark:text-gray-200"
+                                >
+                                  <span className="truncate">{it.productName ?? it.productId}</span>
+                                  <span className="shrink-0 font-medium">
+                                    {it.quantity} {t('common.pcs')} · {lineAmount.toLocaleString('ru-RU')} {t('common.sum')}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">
+                      {lang === 'ru' ? 'Принят' : 'Qabul qilingan'}
+                    </p>
+                    {acceptedReturns.length === 0 ? (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 py-1">—</p>
+                    ) : (
+                      acceptedReturns.map(r => (
+                        <div
+                          key={r.id}
+                          className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 p-3 mb-2 last:mb-0"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs font-semibold text-gray-900 dark:text-white">{r.date}</p>
+                            <span className="text-[11px] px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 font-semibold">
+                              {returnStatusLabel('accepted')}
+                            </span>
+                          </div>
+                          <div className="space-y-1">
+                            {r.items.map(it => {
+                              const price = priceByProductId.get(it.productId) ?? 0;
+                              const lineAmount = (it.quantity || 0) * price;
+                              return (
+                                <div
+                                  key={it.productId}
+                                  className="flex items-center justify-between gap-3 text-xs text-gray-700 dark:text-gray-200"
+                                >
+                                  <span className="truncate">{it.productName ?? it.productId}</span>
+                                  <span className="shrink-0 font-medium">
+                                    {it.quantity} {t('common.pcs')} · {lineAmount.toLocaleString('ru-RU')} {t('common.sum')}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           <button
@@ -366,12 +577,23 @@ export const DeliveryOrderDetail = () => {
                     return;
                   }
 
-                  // Qaytarilgan miqdor qiymati bo‘yicha qolganini hisoblaymiz.
-                  const returnedAmount = order.items.reduce((sum, it) => {
+                  // Qisman vozvratda "qolganini" to'g'ri hisoblash uchun
+                  // oldingi `accepted` vozvratlar qiymatini ham ayiramiz.
+                  const selectedReturnedAmount = order.items.reduce((sum, it) => {
                     const qty = returnQtyByProduct[it.productId] ?? 0;
                     return sum + qty * (it.price ?? 0);
                   }, 0);
-                  const remainingAmount = Math.max(0, (order.total ?? 0) - returnedAmount);
+
+                  const acceptedReturnedAmount = orderReturns
+                    .filter(r => r.status === 'accepted')
+                    .reduce((sum, r) => {
+                      return sum + (r.items || []).reduce((s, it) => {
+                        const price = priceByProductId.get(it.productId) ?? 0;
+                        return s + (it.quantity || 0) * price;
+                      }, 0);
+                    }, 0);
+
+                  const remainingAmount = Math.max(0, (order.total ?? 0) - acceptedReturnedAmount - selectedReturnedAmount);
 
                   setReturnSaving(true);
                   setReturnError('');
@@ -385,6 +607,15 @@ export const DeliveryOrderDetail = () => {
                       status: 'pending',
                       items,
                     });
+
+                    // Panel yangilanishi uchun orderdagi vozvratlarni qayta yuklaymiz
+                    try {
+                      const rets = await apiGetReturns({ orderId: order.id });
+                      setOrderReturns(rets);
+                    } catch {
+                      // ignore
+                    }
+
                     setReturnOpen(false);
                     // Qisman vozvratdan keyin avtomatik pul kiritish oynasini ochamiz.
                     openPayModal(remainingAmount);
