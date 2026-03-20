@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { ChevronLeft, ChevronRight, ShoppingBag, X, Calendar, Package } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { MobileShell, MobileHeader, MobileContent } from '../../components/MobileShell';
 import { MobileNav } from '../../components/MobileNav';
 import { StatusBadge } from '../../components/StatusBadge';
+import { apiGetReturns, type ReturnRecord } from '../../api/returns';
 
 const dayShortKeys = [
   'days.monday.short',
@@ -80,7 +81,73 @@ export const AgentSalesByDate = () => {
 
   const filtered = myOrders.filter(o => selectedDates.has(o.date));
   const sortedFiltered = [...filtered].sort((a, b) => b.date.localeCompare(a.date));
-  const totalSum = sortedFiltered.reduce((s, o) => s + o.total, 0);
+  const orderIdsKey = useMemo(
+    () => sortedFiltered.map(o => o.id).sort().join('|'),
+    [sortedFiltered],
+  );
+
+  const [returnsByOrderId, setReturnsByOrderId] = useState<Record<string, ReturnRecord[]>>({});
+  const [returnsLoading, setReturnsLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (sortedFiltered.length === 0) {
+      setReturnsByOrderId({});
+      return;
+    }
+
+    (async () => {
+      setReturnsLoading(true);
+      try {
+        const results = await Promise.all(
+          sortedFiltered.map(async order => {
+            const rets = await apiGetReturns({ orderId: order.id });
+            return [order.id, rets] as const;
+          }),
+        );
+        if (cancelled) return;
+        setReturnsByOrderId(() => {
+          const next: Record<string, ReturnRecord[]> = {};
+          results.forEach(([id, rets]) => { next[id] = rets; });
+          return next;
+        });
+      } catch {
+        // API ulanmagan bo'lishi mumkin — fallback sifatida order.total ishlayveramiz
+      } finally {
+        if (!cancelled) setReturnsLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [orderIdsKey]); // sortedFiltered o'zgarishi uchun key yetarli
+
+  const getReturnedAmount = (order: { id: string; items: Array<{ productId: string; price: number }> }) => {
+    const rets = returnsByOrderId[order.id];
+    if (!rets) return 0;
+
+    const priceByProductId = new Map(
+      (order.items || []).map(it => [it.productId, it.price ?? 0] as const),
+    );
+
+    // Net savdo uchun faqat "qabul qilingan" (accepted) vozvratlarni hisoblaymiz.
+    const acceptedReturns = rets.filter(r => r.status === 'accepted');
+
+    return acceptedReturns.reduce((sum, r) => {
+      return sum + (r.items || []).reduce((s, it) => {
+        const price = priceByProductId.get(it.productId) ?? 0;
+        return s + (it.quantity || 0) * price;
+      }, 0);
+    }, 0);
+  };
+
+  const getAdjustedTotal = (order: { id: string; total: number; items: Array<{ productId: string; price: number }> }) => {
+    const returnedAmount = getReturnedAmount(order);
+    return Math.max(0, order.total - returnedAmount);
+  };
+
+  const totalGrossSum = sortedFiltered.reduce((s, o) => s + o.total, 0);
+  const totalReturnedAmount = sortedFiltered.reduce((s, o) => s + getReturnedAmount(o as any), 0);
+  const totalSum = sortedFiltered.reduce((s, o) => s + getAdjustedTotal(o as any), 0);
 
   const prevMonth = () => {
     if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11); }
@@ -234,8 +301,22 @@ export const AgentSalesByDate = () => {
         {sortedFiltered.length > 0 && (
           <div className="px-4 py-3 bg-green-50 dark:bg-green-900/20 border-b border-green-100 dark:border-green-800">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t('agent.sales.totalForPeriod')}</span>
+              <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t('agent.sales.netTotal')}</span>
               <span className="text-lg font-bold text-green-600 dark:text-green-400">{formatCurrency(totalSum)}</span>
+            </div>
+
+            <div className="mt-2 flex items-center justify-between">
+              <span className="text-xs text-gray-600 dark:text-gray-300">{t('agent.sales.grossTotal')}</span>
+              <span
+                className={`text-sm font-semibold ${totalReturnedAmount > 0 ? 'text-gray-400 line-through' : 'text-gray-700'} dark:${totalReturnedAmount > 0 ? 'text-gray-500' : 'text-gray-200'}`}
+              >
+                {formatCurrency(totalGrossSum)}
+              </span>
+            </div>
+
+            <div className="mt-1 flex items-center justify-between">
+              <span className="text-xs text-gray-600 dark:text-gray-300">{t('agent.sales.returnedTotal')}</span>
+              <span className="text-sm font-semibold text-red-600 dark:text-red-400">{formatCurrency(totalReturnedAmount)}</span>
             </div>
           </div>
         )}
@@ -290,9 +371,41 @@ export const AgentSalesByDate = () => {
                   ))}
                 </div>
 
-                <div className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-100 dark:border-gray-700 mt-1">
-                  <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">{t('orders.totalAmount')}</p>
-                  <p className="text-sm font-bold text-gray-900 dark:text-white">{formatCurrency(order.total)}</p>
+                <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-100 dark:border-gray-700 mt-1">
+                  {(() => {
+                    const gross = order.total;
+                    const returnedAmount = getReturnedAmount(order as any);
+                    const net = getAdjustedTotal(order as any);
+
+                    return (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">
+                            {t('agent.sales.netTotal')}
+                          </p>
+                          <p className="text-sm font-bold text-gray-900 dark:text-white">
+                            {formatCurrency(net)}
+                          </p>
+                        </div>
+                        <div className="mt-1 flex items-center justify-between">
+                          <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">
+                            {t('agent.sales.grossTotal')}
+                          </p>
+                          <p className={`text-sm font-semibold ${returnedAmount > 0 ? 'text-gray-400 line-through' : 'text-gray-900'} dark:${returnedAmount > 0 ? 'text-gray-500' : 'text-white'}`}>
+                            {formatCurrency(gross)}
+                          </p>
+                        </div>
+                        <div className="mt-1 flex items-center justify-between">
+                          <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">
+                            {t('agent.sales.returnedTotal')}
+                          </p>
+                          <p className="text-sm font-semibold text-red-600 dark:text-red-400">
+                            {formatCurrency(returnedAmount)}
+                          </p>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             ))

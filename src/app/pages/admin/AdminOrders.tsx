@@ -45,6 +45,7 @@ export const AdminOrders = () => {
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [yuklashOrder, setYuklashOrder] = useState<{ id: string } | null>(null);
   const [deliveryUsers, setDeliveryUsers] = useState<User[]>([]);
+  const [deliveryFilterId, setDeliveryFilterId] = useState<string>('');
   const [selectedDeliveryId, setSelectedDeliveryId] = useState('');
   const [vehicleName, setVehicleName] = useState('');
   const [vehiclesList, setVehiclesList] = useState<string[]>(loadVehicles);
@@ -159,6 +160,23 @@ export const AdminOrders = () => {
   useEffect(() => {
     refetchData?.();
   }, [refetchData]);
+
+  // Delivery users list for dropdown filter (Zakazlar sahifasi)
+  useEffect(() => {
+    let cancelled = false;
+    apiGetUsers('delivery')
+      .then((data) => {
+        if (cancelled) return;
+        setDeliveryUsers(data || []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setDeliveryUsers([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (yuklashOrder) {
@@ -363,8 +381,41 @@ export const AdminOrders = () => {
       || (statusFilter === 'tayyorlanmagan' && o.status === 'sent')
       || (statusFilter === 'delivered_debt' && o.status === 'delivered' && getEffectiveDebt(o.id) > 0)
       || (statusFilter === 'cancelled' && returnedByOrderId[o.id]);
-    return matchSearch && matchStatus;
+    const orderDeliveryId = (o as any).deliveryId as string | undefined;
+    const matchDelivery = !deliveryFilterId || orderDeliveryId === deliveryFilterId;
+    return matchSearch && matchStatus && matchDelivery;
   });
+
+  const deliveryFilterUser = useMemo(
+    () => deliveryUsers.find(u => u.id === deliveryFilterId) || null,
+    [deliveryUsers, deliveryFilterId],
+  );
+
+  const deliveryClientStats = useMemo(() => {
+    if (!deliveryFilterId) return [];
+    const map = new Map<string, { clientId?: string; clientName: string; clientPhone?: string; ordersCount: number; totalSum: number }>();
+
+    for (const o of filtered) {
+      const cId = (o as any).clientId as string | undefined;
+      const key = cId || `${o.clientName}__${o.clientPhone || ''}`;
+      const cur = map.get(key);
+      const totalSum = (o.total || 0) as number;
+      if (!cur) {
+        map.set(key, {
+          clientId: cId,
+          clientName: o.clientName || '-',
+          clientPhone: o.clientPhone || undefined,
+          ordersCount: 1,
+          totalSum,
+        });
+      } else {
+        cur.ordersCount += 1;
+        cur.totalSum += totalSum;
+      }
+    }
+
+    return Array.from(map.values()).sort((a, b) => b.totalSum - a.totalSum);
+  }, [deliveryFilterId, filtered]);
 
   const statuses: Array<OrderStatus | 'all' | 'delivered_debt'> = ['all', 'tayyorlanmagan', 'yuborilgan', 'delivered', 'delivered_debt', 'cancelled'];
 
@@ -577,20 +628,43 @@ export const AdminOrders = () => {
               className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-50 transition-all dark:placeholder:text-gray-500"
             />
           </div>
-          <div className="flex gap-1.5 overflow-x-auto">
-            {statuses.map(s => (
-              <button
-                key={s}
-                onClick={() => setStatusFilter(s)}
-                className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-medium transition-all border ${
-                  statusFilter === s
-                    ? 'bg-[#2563EB] text-white border-[#2563EB] shadow-sm'
-                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                }`}
+            <div className="flex flex-col lg:flex-row lg:items-center gap-2 w-full lg:w-auto">
+              <div className="flex items-start lg:items-center gap-2">
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                  {t('orders.delivery')}
+                </label>
+              <select
+                value={deliveryFilterId}
+                onChange={e => {
+                  setDeliveryFilterId(e.target.value);
+                  setExpandedOrderId(null);
+                }}
+                  className="crm-select px-3 py-2.5 min-w-[220px]"
               >
-                {statusLabels[s]}
-              </button>
-            ))}
+                <option value="">{t('common.all')}</option>
+                {deliveryUsers.map(u => (
+                  <option key={u.id} value={u.id}>
+                    {u.name} ({u.phone})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex gap-1.5 overflow-x-auto">
+              {statuses.map(s => (
+                <button
+                  key={s}
+                  onClick={() => setStatusFilter(s)}
+                  className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-medium transition-all border ${
+                    statusFilter === s
+                      ? 'bg-[#2563EB] text-white border-[#2563EB] shadow-sm'
+                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  {statusLabels[s]}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -666,6 +740,70 @@ export const AdminOrders = () => {
                       </td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {deliveryFilterId && (
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                  {t('orders.delivery')}: {deliveryFilterUser?.name || '-'}
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  {filtered.length} {t('common.orders')} • {deliveryClientStats.length} {t('common.clients')}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-xs text-gray-500 dark:text-gray-400">{t('common.total')}</div>
+                <div className="text-lg font-bold text-[#217346] dark:text-green-400">
+                  {filtered.reduce((sum, o) => sum + (o.total || 0), 0).toLocaleString('ru-RU')} {t('common.sum')}
+                </div>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-gray-50/50 dark:bg-gray-700/30">
+                    <th className="text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-5 py-3">
+                      {t('common.clients')}
+                    </th>
+                    <th className="text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-5 py-3">
+                      {t('common.orders')}
+                    </th>
+                    <th className="text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-5 py-3">
+                      {t('common.total')}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {deliveryClientStats.length > 0 ? (
+                    deliveryClientStats.slice(0, 20).map(s => (
+                      <tr
+                        key={s.clientId || `${s.clientName}__${s.clientPhone || ''}`}
+                        className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50/50 dark:hover:bg-gray-700/30"
+                      >
+                        <td className="px-5 py-3">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">{s.clientName}</div>
+                          {s.clientPhone && <div className="text-xs text-gray-500 dark:text-gray-400">{s.clientPhone}</div>}
+                        </td>
+                        <td className="px-5 py-3 text-sm text-gray-700 dark:text-gray-300">{s.ordersCount}</td>
+                        <td className="px-5 py-3 text-right text-sm font-semibold text-[#217346] dark:text-green-400">
+                          {s.totalSum.toLocaleString('ru-RU')} {t('common.sum')}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td className="px-5 py-6 text-center text-sm text-gray-500 dark:text-gray-400" colSpan={3}>
+                        {t('orders.empty')}
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

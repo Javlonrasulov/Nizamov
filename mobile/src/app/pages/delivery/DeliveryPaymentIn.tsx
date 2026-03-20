@@ -71,6 +71,7 @@ export const DeliveryPaymentIn = () => {
   const hasMore = filtered.length > INITIAL_VISIBLE;
   const selectedClient = selectedClientId ? myClients.find(c => c.id === selectedClientId) : null;
   const selectedDebt = selectedClient ? (balances[selectedClient.id]?.debt ?? 0) : 0;
+  const selectedBalanceLoaded = selectedClient ? balances[selectedClient.id] != null : false;
 
   // balances ni dependency qilmaslik — har yuklashda effekt bekor bo‘lib qarzlar yuklanmasligi mumkin.
   useEffect(() => {
@@ -203,13 +204,13 @@ export const DeliveryPaymentIn = () => {
                         <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{c.name}</p>
                       </div>
                       <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                        balancesLoading[c.id]
+                        balancesLoading[c.id] || balances[c.id] == null
                           ? 'bg-gray-100 text-gray-500'
                           : (balances[c.id]?.debt ?? 0) > 0
                           ? 'bg-red-100 text-red-600'
                           : 'bg-green-100 text-green-600'
                       }`}>
-                        {balancesLoading[c.id]
+                        {balancesLoading[c.id] || balances[c.id] == null
                           ? '...'
                           : (balances[c.id]?.debt ?? 0) > 0
                           ? `${t('payments.badge.debt')}: ${(balances[c.id]?.debt ?? 0).toLocaleString('ru-RU')} ${t('common.sum')}`
@@ -250,13 +251,13 @@ export const DeliveryPaymentIn = () => {
                     <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{selectedClient.name}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{selectedClient.phone}</p>
                     <p className={`text-xs mt-1 ${
-                      balancesLoading[selectedClient.id]
+                      balancesLoading[selectedClient.id] || !selectedBalanceLoaded
                         ? 'text-gray-400 dark:text-gray-500'
                         : selectedDebt > 0
                         ? 'text-red-600 dark:text-red-400'
                         : 'text-green-600 dark:text-green-400'
                     }`}>
-                      {balancesLoading[selectedClient.id]
+                      {balancesLoading[selectedClient.id] || !selectedBalanceLoaded
                         ? '...'
                         : `${t('payments.clientDebt')}: ${selectedDebt.toLocaleString('ru-RU')} ${t('common.sum')}`}
                     </p>

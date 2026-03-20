@@ -72,6 +72,9 @@ type TranslationKeys = {
   'agent.dashboard.greeting': string;
   'agent.sales.title': string;
   'agent.sales.totalForPeriod': string;
+  'agent.sales.grossTotal': string;
+  'agent.sales.returnedTotal': string;
+  'agent.sales.netTotal': string;
   'agent.sales.noSalesForPeriod': string;
   'agent.sales.daysSuffix': string;
 
@@ -455,6 +458,9 @@ const uz_lat: TranslationKeys = {
   'agent.dashboard.greeting': 'Xush kelibsiz',
   'agent.sales.title': 'Savdo',
   'agent.sales.totalForPeriod': 'Jami tanlangan muddat',
+  'agent.sales.grossTotal': 'Brutto (jami)',
+  'agent.sales.returnedTotal': 'Vozvrat',
+  'agent.sales.netTotal': 'Net (yakuniy)',
   'agent.sales.noSalesForPeriod': "Tanlangan oraliqda savdo yo'q",
   'agent.sales.daysSuffix': 'kun',
 
@@ -825,6 +831,9 @@ const uz_kir: TranslationKeys = {
   'agent.dashboard.greeting': 'Хуш келибсиз',
   'agent.sales.title': 'Савдо',
   'agent.sales.totalForPeriod': 'Жами танланган муддат',
+  'agent.sales.grossTotal': 'Брутто (умумий)',
+  'agent.sales.returnedTotal': 'Возврат',
+  'agent.sales.netTotal': 'Нет (якуний)',
   'agent.sales.noSalesForPeriod': "Танланган оралиқда савдо йўқ",
   'agent.sales.daysSuffix': 'кун',
 
@@ -1195,6 +1204,9 @@ const ru: TranslationKeys = {
   'agent.dashboard.greeting': 'Добро пожаловать',
   'agent.sales.title': 'Продажи',
   'agent.sales.totalForPeriod': 'Итого за период',
+  'agent.sales.grossTotal': 'Брутто (всего)',
+  'agent.sales.returnedTotal': 'Возврат',
+  'agent.sales.netTotal': 'Нетто (итог)',
   'agent.sales.noSalesForPeriod': 'Нет продаж за выбранный период',
   'agent.sales.daysSuffix': 'дн.',
 
