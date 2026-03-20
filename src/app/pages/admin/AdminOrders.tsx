@@ -855,6 +855,7 @@ export const AdminOrders = () => {
                   <th className="text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-5 py-3">{t('common.status')}</th>
                   <th className="text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-5 py-3">{t('common.date')}</th>
                   <th className="text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-5 py-3">{t('common.actions')}</th>
+                  <th className="text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-5 py-3">{t('orders.comment')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -999,10 +1000,15 @@ export const AdminOrders = () => {
                           )}
                         </div>
                       </td>
+                      <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-300 max-w-xs">
+                        <div className="whitespace-pre-wrap break-words">
+                          {order.comment?.trim() || '-'}
+                        </div>
+                      </td>
                     </tr>
                     {expandedOrderId === order.id && (
                       <tr key={`${order.id}-expand`} className="bg-gray-50/80 dark:bg-gray-800/80">
-                        <td colSpan={8} className="px-5 py-4">
+                        <td colSpan={9} className="px-5 py-4">
                           <div className="flex items-center gap-2 mb-3">
                             <Package size={16} className="text-[#2563EB] dark:text-blue-400" />
                             <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('orders.items')}</span>

@@ -143,6 +143,8 @@ type TranslationKeys = {
   'orders.step3': string;
   'orders.quantity': string;
   'orders.totalAmount': string;
+  'orders.comment': string;
+  'orders.commentPlaceholder': string;
   'orders.success': string;
   'orders.empty': string;
   'orders.history': string;
@@ -600,6 +602,8 @@ const uz_lat: TranslationKeys = {
   'orders.step3': 'Tasdiqlash',
   'orders.quantity': 'Miqdor',
   'orders.totalAmount': 'Jami summa',
+  'orders.comment': 'Izoh',
+  'orders.commentPlaceholder': "Zakaz uchun izoh yozing",
   'orders.success': 'Zakaz muvaffaqiyatli yaratildi!',
   'orders.empty': 'Zakazlar topilmadi',
   'orders.history': 'Zakazlar tarixi',
@@ -1040,6 +1044,8 @@ const uz_kir: TranslationKeys = {
   'orders.step3': 'Тасдиқлаш',
   'orders.quantity': 'Миқдор',
   'orders.totalAmount': 'Жами сумма',
+  'orders.comment': 'Изоҳ',
+  'orders.commentPlaceholder': 'Заказ учун изоҳ ёзинг',
   'orders.success': 'Заказ муваффақиятли яратилди!',
   'orders.empty': 'Заказлар топилмади',
   'orders.history': 'Заказлар тарихи',
@@ -1481,6 +1487,8 @@ const ru: TranslationKeys = {
   'orders.step3': 'Подтверждение',
   'orders.quantity': 'Количество',
   'orders.totalAmount': 'Общая сумма',
+  'orders.comment': 'Комментарий',
+  'orders.commentPlaceholder': 'Введите комментарий к заказу',
   'orders.success': 'Заказ успешно создан!',
   'orders.empty': 'Заказы не найдены',
   'orders.history': 'История заказов',
