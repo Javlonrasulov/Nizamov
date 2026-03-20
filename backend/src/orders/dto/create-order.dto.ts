@@ -43,6 +43,10 @@ export class CreateOrderDto {
   @IsString()
   deliveryName?: string;
 
+  @IsOptional()
+  @IsString()
+  comment?: string;
+
   @IsArray()
   items: CreateOrderItemDto[];
 }
