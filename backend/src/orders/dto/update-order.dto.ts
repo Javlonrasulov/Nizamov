@@ -23,10 +23,6 @@ export class UpdateOrderDto {
   vehicleName?: string;
 
   @IsOptional()
-  @IsString()
-  comment?: string;
-
-  @IsOptional()
   @IsInt()
   @Min(0)
   @Type(() => Number)
