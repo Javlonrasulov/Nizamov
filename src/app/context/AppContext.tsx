@@ -1,4 +1,4 @@
-import { useState, useContext, ReactNode, useEffect, useCallback } from 'react';
+import { useState, useContext, ReactNode, useEffect, useCallback, useMemo } from 'react';
 import { Language, translations } from '../i18n/translations';
 import {
   User, users, Client, clients as initialClients,
@@ -108,12 +108,20 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     try { const s = localStorage.getItem('crm_user'); if (s) return JSON.parse(s); } catch {}
     return users.find(u => u.id === 'agent1') ?? null;
   });
+
+  const getTodayIso = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
   const [clientsList, setClientsList]   = useState<Client[]>(initialClients);
   const [ordersList, setOrdersList]     = useState<Order[]>(initialOrders);
   const [productsList, setProductsList] = useState<Product[]>(initialProducts);
   const [theme, setTheme]               = useState<Theme>(() => (localStorage.getItem('crm_theme') as Theme) || 'light');
-  const [adminDateFrom, setAdminDateFrom] = useState('');
-  const [adminDateTo,   setAdminDateTo]   = useState('');
+  // Adminda default bo'yicha "Bugun" ko'rsatilsin (aks holda empty qiymatlar sabab hamma vaqt filtrlanmay qoladi)
+  const todayIso = useMemo(() => getTodayIso(), []);
+  const [adminDateFrom, setAdminDateFrom] = useState(todayIso);
+  const [adminDateTo,   setAdminDateTo]   = useState(todayIso);
 
   const [expenses, setExpenses] = useState<Expense[]>(() => {
     try { const s = localStorage.getItem('crm_expenses'); if (s) return JSON.parse(s); } catch {}

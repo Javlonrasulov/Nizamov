@@ -251,6 +251,8 @@ type TranslationKeys = {
   'admin.reports.totalExpense': string;
   'admin.reports.netProfit': string;
   'admin.reports.avgOrder': string;
+  'admin.reports.totalDebt': string;
+  'admin.reports.totalReturns': string;
   'admin.reports.expenses': string;
   'admin.reports.records': string;
   'admin.reports.addExpense': string;
@@ -701,6 +703,8 @@ const uz_lat: TranslationKeys = {
   'admin.reports.totalExpense': 'Jami chiqim',
   'admin.reports.netProfit': 'Sof foyda',
   'admin.reports.avgOrder': "O'rtacha zakaz",
+  'admin.reports.totalDebt': 'Qarz summasi',
+  'admin.reports.totalReturns': 'Vozvrat summasi',
   'admin.reports.expenses': 'Chiqimlar',
   'admin.reports.records': 'ta yozuv',
   'admin.reports.addExpense': 'Chiqim kiritish',
@@ -1139,6 +1143,8 @@ const uz_kir: TranslationKeys = {
   'admin.reports.totalExpense': 'Жами чиқим',
   'admin.reports.netProfit': 'Соф фойда',
   'admin.reports.avgOrder': 'Ўртача заказ',
+  'admin.reports.totalDebt': 'Қарз суммаси',
+  'admin.reports.totalReturns': 'Возврат суммаси',
   'admin.reports.expenses': 'Чиқимлар',
   'admin.reports.records': 'та ёзув',
   'admin.reports.addExpense': 'Чиқим киритиш',
@@ -1577,6 +1583,8 @@ const ru: TranslationKeys = {
   'admin.reports.totalExpense': 'Общие расходы',
   'admin.reports.netProfit': 'Чистая прибыль',
   'admin.reports.avgOrder': 'Средний заказ',
+  'admin.reports.totalDebt': 'Сумма долга',
+  'admin.reports.totalReturns': 'Сумма возврата',
   'admin.reports.expenses': 'Расходы',
   'admin.reports.records': 'записей',
   'admin.reports.addExpense': 'Добавить расход',

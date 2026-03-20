@@ -1,14 +1,16 @@
-import { useState, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as LucideIcons from 'lucide-react';
 import {
   Check, X, Trash2, Pencil, Plus, CalendarDays,
-  Download, TrendingUp, TrendingDown, Wallet, SlidersHorizontal, ChevronDown, Table2,
+  Download, TrendingUp, TrendingDown, Wallet, SlidersHorizontal, ChevronDown, Table2, Banknote, RotateCcw,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useApp, AVAILABLE_ICONS, CATEGORY_COLORS, COLOR_MAP, ExpenseCategoryDef } from '../../context/AppContext';
 import { AdminLayout } from '../../components/AdminLayout';
 import { SimpleLineChart, SimpleGroupedBar, SimpleVBarChart } from '../../components/SimpleCharts';
 import { useAdminVisibleOrders } from '../../components/AdminDateFilter';
+import { apiGetClientBalance } from '../../api/payments';
+import { apiGetReturns } from '../../api/returns';
 
 /* ── Dynamic Lucide icon renderer ── */
 function CatIcon({ name, size = 15, className = '', style }: { name: string; size?: number; className?: string; style?: React.CSSProperties }) {
@@ -337,6 +339,16 @@ export const AdminReports = () => {
   const { t, adminDateFrom, adminDateTo, expenses, addExpense, deleteExpense, expenseCategories, products } = useApp();
   const filteredOrders = useAdminVisibleOrders();
   const hasDateFilter = adminDateFrom || adminDateTo;
+  const deliveredOrders = useMemo(
+    () => filteredOrders.filter(o => o.status === 'delivered'),
+    [filteredOrders],
+  );
+  const [paidByOrderId, setPaidByOrderId] = useState<Record<string, number>>({});
+  const [returnsDetailByOrderId, setReturnsDetailByOrderId] = useState<Record<string, {
+    returnedAmount: number;
+    deliveredAmount: number;
+    returnedQtyByProductId: Record<string, number>;
+  }>>({});
 
   /* Filtered expenses */
   const filteredExpenses = expenses.filter(e => {
@@ -346,21 +358,146 @@ export const AdminReports = () => {
     return e.date >= from && e.date <= to;
   });
 
-  const totalSales   = filteredOrders.reduce((s, o) => s + o.total, 0);
-  const totalOrders  = filteredOrders.length;
   const totalExpense = filteredExpenses.reduce((s, e) => s + e.amount, 0);
 
   const productCostById: Record<string, number> = {};
   products.forEach(p => { productCostById[p.id] = p.cost ?? 0; });
 
-  const orderGrossProfit = (o: typeof filteredOrders[number]) =>
-    (o.items || []).reduce((sum, it) => {
-      const cost = productCostById[it.productId] ?? 0;
-      return sum + (it.price - cost) * it.quantity;
-    }, 0);
+  useEffect(() => {
+    const clientIds = Array.from(new Set(deliveredOrders.map(o => o.clientId).filter(Boolean)));
+    let cancelled = false;
 
-  const totalGrossProfit = filteredOrders.reduce((s, o) => s + orderGrossProfit(o), 0);
-  const netProfit    = totalGrossProfit - totalExpense;
+    if (clientIds.length === 0) {
+      setPaidByOrderId({});
+      return;
+    }
+
+    (async () => {
+      const balances = await Promise.all(
+        clientIds.map(async clientId => {
+          try {
+            return await apiGetClientBalance(clientId);
+          } catch {
+            return null;
+          }
+        }),
+      );
+      if (cancelled) return;
+
+      const nextPaid: Record<string, number> = {};
+      for (const balance of balances) {
+        for (const row of balance?.perOrder ?? []) {
+          nextPaid[row.orderId] = row.paid ?? 0;
+        }
+      }
+      setPaidByOrderId(nextPaid);
+    })();
+
+    return () => { cancelled = true; };
+  }, [deliveredOrders]);
+
+  useEffect(() => {
+    const orderMap = new Map(deliveredOrders.map(order => [order.id, order] as const));
+    let cancelled = false;
+
+    if (orderMap.size === 0) {
+      setReturnsDetailByOrderId({});
+      return;
+    }
+
+    (async () => {
+      try {
+        const rows = await apiGetReturns();
+        if (cancelled) return;
+
+        const returnedQtyByOrder = new Map<string, Record<string, number>>();
+        for (const row of rows || []) {
+          if (!orderMap.has(row.orderId)) continue;
+          const byProduct = returnedQtyByOrder.get(row.orderId) || {};
+          for (const item of row.items || []) {
+            byProduct[item.productId] = (byProduct[item.productId] || 0) + (item.quantity || 0);
+          }
+          returnedQtyByOrder.set(row.orderId, byProduct);
+        }
+
+        const nextDetail: Record<string, {
+          returnedAmount: number;
+          deliveredAmount: number;
+          returnedQtyByProductId: Record<string, number>;
+        }> = {};
+
+        for (const [orderId, order] of orderMap.entries()) {
+          const returnedQtyByProductId = returnedQtyByOrder.get(orderId) || {};
+          let returnedAmount = 0;
+          let deliveredAmount = 0;
+
+          for (const item of order.items || []) {
+            const orderedQty = Number(item.quantity || 0);
+            const returnedQty = Math.min(orderedQty, returnedQtyByProductId[item.productId] || 0);
+            const deliveredQty = Math.max(0, orderedQty - returnedQty);
+            const price = Number(item.price || 0);
+            returnedAmount += returnedQty * price;
+            deliveredAmount += deliveredQty * price;
+          }
+
+          nextDetail[orderId] = {
+            returnedAmount,
+            deliveredAmount,
+            returnedQtyByProductId,
+          };
+        }
+
+        setReturnsDetailByOrderId(nextDetail);
+      } catch {
+        if (!cancelled) setReturnsDetailByOrderId({});
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [deliveredOrders]);
+
+  const financialOrders = useMemo(() => {
+    return deliveredOrders.map(order => {
+      const returnDetail = returnsDetailByOrderId[order.id];
+      const paid = Math.max(0, paidByOrderId[order.id] ?? 0);
+      const adjustedRevenue = returnDetail?.deliveredAmount ?? order.total;
+      const returnedAmount = returnDetail?.returnedAmount ?? 0;
+      const collected = Math.min(adjustedRevenue, paid);
+      const debt = Math.max(0, adjustedRevenue - collected);
+
+      const adjustedGrossProfit = (order.items || []).reduce((sum, item) => {
+        const returnedQty = Math.min(
+          Number(item.quantity || 0),
+          returnDetail?.returnedQtyByProductId[item.productId] || 0,
+        );
+        const deliveredQty = Math.max(0, Number(item.quantity || 0) - returnedQty);
+        const cost = productCostById[item.productId] ?? 0;
+        return sum + deliveredQty * ((item.price || 0) - cost);
+      }, 0);
+
+      const collectionRatio = adjustedRevenue > 0
+        ? Math.min(1, collected / adjustedRevenue)
+        : 0;
+      const realizedGrossProfit = adjustedGrossProfit * collectionRatio;
+
+      return {
+        ...order,
+        adjustedRevenue,
+        returnedAmount,
+        collected,
+        debt,
+        adjustedGrossProfit,
+        realizedGrossProfit,
+      };
+    });
+  }, [deliveredOrders, paidByOrderId, productCostById, returnsDetailByOrderId]);
+
+  const totalSales = financialOrders.reduce((sum, order) => sum + order.collected, 0);
+  const totalOrders = financialOrders.length;
+  const totalReturns = financialOrders.reduce((sum, order) => sum + order.returnedAmount, 0);
+  const totalDebt = financialOrders.reduce((sum, order) => sum + order.debt, 0);
+  const totalGrossProfit = financialOrders.reduce((sum, order) => sum + order.realizedGrossProfit, 0);
+  const netProfit = totalGrossProfit - totalExpense;
 
   /* Form state */
   const today = new Date().toISOString().split('T')[0];
@@ -402,21 +539,27 @@ export const AdminReports = () => {
   const dateMap: Record<string, number> = {};
   const profitMap: Record<string, number> = {};
   const ordersCountMap: Record<string, number> = {};
-  filteredOrders.forEach(o => {
-    dateMap[o.date] = (dateMap[o.date] || 0) + o.total;
-    profitMap[o.date] = (profitMap[o.date] || 0) + orderGrossProfit(o);
+  const returnsMap: Record<string, number> = {};
+  const debtMap: Record<string, number> = {};
+  financialOrders.forEach(o => {
+    dateMap[o.date] = (dateMap[o.date] || 0) + o.collected;
+    profitMap[o.date] = (profitMap[o.date] || 0) + o.realizedGrossProfit;
     ordersCountMap[o.date] = (ordersCountMap[o.date] || 0) + 1;
+    returnsMap[o.date] = (returnsMap[o.date] || 0) + o.returnedAmount;
+    debtMap[o.date] = (debtMap[o.date] || 0) + o.debt;
   });
   const lineData = Object.entries(dateMap).sort(([a], [b]) => a.localeCompare(b)).map(([d, v]) => ({ label: d.slice(5), value: v }));
 
   const agentMap: Record<string, number> = {};
-  filteredOrders.forEach(o => { agentMap[o.agentName] = (agentMap[o.agentName] || 0) + o.total; });
+  financialOrders.forEach(o => { agentMap[o.agentName] = (agentMap[o.agentName] || 0) + o.collected; });
   const agentBarData = Object.entries(agentMap).sort(([, a], [, b]) => b - a).map(([name, value]) => ({ label: name.split(' ')[0], value }));
 
   const dailyRows = Object.entries(dateMap).sort(([a], [b]) => a.localeCompare(b)).map(([date, sales]) => ({
     date,
     orders: ordersCountMap[date] || 0,
     sales,
+    returns: returnsMap[date] || 0,
+    debt: debtMap[date] || 0,
     profit: profitMap[date] || 0,
   }));
 
@@ -434,8 +577,8 @@ export const AdminReports = () => {
   }));
 
   const handleExport = () => {
-    const h1 = ['Sana', 'Zakazlar', 'Savdo', 'Foyda'];
-    const r1 = dailyRows.map(r => [r.date, r.orders, r.sales, Math.round(r.profit)]);
+    const h1 = ['Sana', 'Zakazlar', 'Savdo', 'Vozvrat', 'Qarz', 'Foyda'];
+    const r1 = dailyRows.map(r => [r.date, r.orders, r.sales, r.returns, r.debt, Math.round(r.profit)]);
     const h2 = ['Sana', 'Kategoriya', 'Summa', 'Izoh'];
     const r2 = filteredExpenses.map(e => [
       e.date,
@@ -480,12 +623,13 @@ export const AdminReports = () => {
         </div>
 
         {/* ─ Summary cards ─ */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 xl:grid-cols-5 gap-3">
           {[
             { label: t('admin.reports.totalSales'),   value: `${totalSales.toLocaleString()} ${t('common.sum')}`,   Icon: TrendingUp,   bg: 'bg-blue-50 dark:bg-blue-900/20',   ic: 'text-blue-600 dark:text-blue-400',   val: 'text-blue-700 dark:text-blue-300' },
             { label: t('admin.reports.totalExpense'),  value: `${totalExpense.toLocaleString()} ${t('common.sum')}`,  Icon: TrendingDown, bg: 'bg-red-50 dark:bg-red-900/20',     ic: 'text-red-500 dark:text-red-400',     val: 'text-red-600 dark:text-red-300' },
             { label: t('admin.reports.netProfit'),    value: `${netProfit.toLocaleString()} ${t('common.sum')}`,     Icon: Wallet,       bg: netProfit >= 0 ? 'bg-green-50 dark:bg-green-900/20' : 'bg-orange-50 dark:bg-orange-900/20', ic: netProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-orange-500 dark:text-orange-400', val: netProfit >= 0 ? 'text-green-700 dark:text-green-300' : 'text-orange-600 dark:text-orange-300' },
-            { label: t('admin.reports.avgOrder'), value: totalOrders > 0 ? `${Math.round(totalSales / totalOrders).toLocaleString()} ${t('common.sum')}` : '—', Icon: CalendarDays, bg: 'bg-purple-50 dark:bg-purple-900/20', ic: 'text-purple-600 dark:text-purple-400', val: 'text-purple-700 dark:text-purple-300' },
+            { label: t('admin.reports.totalDebt'), value: `${totalDebt.toLocaleString()} ${t('common.sum')}`, Icon: Banknote, bg: 'bg-amber-50 dark:bg-amber-900/20', ic: 'text-amber-600 dark:text-amber-400', val: 'text-amber-700 dark:text-amber-300' },
+            { label: t('admin.reports.totalReturns'), value: `${totalReturns.toLocaleString()} ${t('common.sum')}`, Icon: RotateCcw, bg: 'bg-purple-50 dark:bg-purple-900/20', ic: 'text-purple-600 dark:text-purple-400', val: 'text-purple-700 dark:text-purple-300' },
           ].map((s, i) => (
             <div key={i} className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-100 dark:border-gray-700 shadow-sm">
               <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 ${s.bg}`}>
@@ -766,7 +910,7 @@ export const AdminReports = () => {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-700/30">
-                      {[t('common.date'), t('common.orders'), t('admin.reports.sales'), t('admin.reports.profit22')].map((h, i) => (
+                      {[t('common.date'), t('common.orders'), t('admin.reports.sales'), t('admin.reports.totalReturns'), t('admin.reports.totalDebt'), t('admin.reports.profit22')].map((h, i) => (
                         <th key={h} className={`text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide px-6 py-3 ${i === 0 ? 'text-left' : 'text-right'}`}>{h}</th>
                       ))}
                     </tr>
@@ -777,6 +921,8 @@ export const AdminReports = () => {
                         <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">{row.date}</td>
                         <td className="px-6 py-4 text-right text-sm text-gray-600 dark:text-gray-300">{row.orders}</td>
                         <td className="px-6 py-4 text-right text-sm font-semibold text-gray-900 dark:text-white">{row.sales.toLocaleString()} {t('common.sum')}</td>
+                        <td className="px-6 py-4 text-right text-sm font-semibold text-purple-600 dark:text-purple-400">{row.returns.toLocaleString()} {t('common.sum')}</td>
+                        <td className="px-6 py-4 text-right text-sm font-semibold text-amber-600 dark:text-amber-400">{row.debt.toLocaleString()} {t('common.sum')}</td>
                         <td className="px-6 py-4 text-right text-sm font-semibold text-green-600 dark:text-green-400">{Math.round(row.profit).toLocaleString()} {t('common.sum')}</td>
                       </tr>
                     ))}
@@ -784,6 +930,8 @@ export const AdminReports = () => {
                       <td className="px-6 py-3 text-sm font-bold text-gray-900 dark:text-white">{t('common.total')}</td>
                       <td className="px-6 py-3 text-right text-sm font-bold text-gray-900 dark:text-white">{totalOrders}</td>
                       <td className="px-6 py-3 text-right text-sm font-bold text-[#2563EB] dark:text-blue-400">{totalSales.toLocaleString()} {t('common.sum')}</td>
+                      <td className="px-6 py-3 text-right text-sm font-bold text-purple-600 dark:text-purple-400">{totalReturns.toLocaleString()} {t('common.sum')}</td>
+                      <td className="px-6 py-3 text-right text-sm font-bold text-amber-600 dark:text-amber-400">{totalDebt.toLocaleString()} {t('common.sum')}</td>
                       <td className="px-6 py-3 text-right text-sm font-bold text-green-600 dark:text-green-400">{Math.round(totalGrossProfit).toLocaleString()} {t('common.sum')}</td>
                     </tr>
                   </tbody>
