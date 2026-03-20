@@ -171,6 +171,8 @@ type TranslationKeys = {
   'orders.step3': string;
   'orders.quantity': string;
   'orders.totalAmount': string;
+  'orders.comment': string;
+  'orders.commentPlaceholder': string;
   'orders.success': string;
   'orders.empty': string;
   'orders.history': string;
@@ -262,6 +264,7 @@ type TranslationKeys = {
   'returns.error.noItems': string;
   'returns.status.pending': string;
   'returns.status.accepted': string;
+  'returns.status.acceptedByAdmin': string;
   'returns.summary.allReturned': string;
   'returns.summary.partialReturned': string;
   'returns.loading': string;
@@ -308,6 +311,8 @@ type TranslationKeys = {
   'admin.reports.totalExpense': string;
   'admin.reports.netProfit': string;
   'admin.reports.avgOrder': string;
+  'admin.reports.totalDebt': string;
+  'admin.reports.totalReturns': string;
   'admin.reports.expenses': string;
   'admin.reports.records': string;
   'admin.reports.addExpense': string;
@@ -551,6 +556,8 @@ const uz_lat: TranslationKeys = {
   'orders.step3': 'Tasdiqlash',
   'orders.quantity': 'Miqdor',
   'orders.totalAmount': 'Jami summa',
+  'orders.comment': 'Izoh',
+  'orders.commentPlaceholder': "Zakaz uchun izoh yozing",
   'orders.success': 'Zakaz muvaffaqiyatli yaratildi!',
   'orders.empty': 'Zakazlar topilmadi',
   'orders.history': 'Zakazlar tarixi',
@@ -636,6 +643,7 @@ const uz_lat: TranslationKeys = {
   'returns.error.noItems': 'Mahsulot tanlanmadi',
   'returns.status.pending': 'Kutilayotgan',
   'returns.status.accepted': 'Qabul qilingan',
+  'returns.status.acceptedByAdmin': 'Admin vozvratni qabul qildi',
   'returns.summary.allReturned': 'Hammasi qaytarildi',
   'returns.summary.partialReturned': 'Qisman qaytarildi',
   'returns.loading': 'Yuklanmoqda...',
@@ -681,6 +689,8 @@ const uz_lat: TranslationKeys = {
   'admin.reports.totalExpense': 'Jami chiqim',
   'admin.reports.netProfit': 'Sof foyda',
   'admin.reports.avgOrder': "O'rtacha zakaz",
+  'admin.reports.totalDebt': 'Qarz summasi',
+  'admin.reports.totalReturns': 'Vozvrat summasi',
   'admin.reports.expenses': 'Chiqimlar',
   'admin.reports.records': 'ta yozuv',
   'admin.reports.addExpense': 'Chiqim kiritish',
@@ -924,6 +934,8 @@ const uz_kir: TranslationKeys = {
   'orders.step3': 'Тасдиқлаш',
   'orders.quantity': 'Миқдор',
   'orders.totalAmount': 'Жами сумма',
+  'orders.comment': 'Изоҳ',
+  'orders.commentPlaceholder': 'Заказ учун изоҳ ёзинг',
   'orders.success': 'Заказ муваффақиятли яратилди!',
   'orders.empty': 'Заказлар топилмади',
   'orders.history': 'Заказлар тарихи',
@@ -1009,6 +1021,7 @@ const uz_kir: TranslationKeys = {
   'returns.error.noItems': 'Маҳсулот танланмади',
   'returns.status.pending': 'Кутилмоқда',
   'returns.status.accepted': 'Қабул қилинган',
+  'returns.status.acceptedByAdmin': 'Админ возвратни қабул қилди',
   'returns.summary.allReturned': 'Ҳаммаси қайтарилди',
   'returns.summary.partialReturned': 'Қисман қайтарилди',
   'returns.loading': 'Юкланмоқда...',
@@ -1054,6 +1067,8 @@ const uz_kir: TranslationKeys = {
   'admin.reports.totalExpense': 'Жами чиқим',
   'admin.reports.netProfit': 'Соф фойда',
   'admin.reports.avgOrder': 'Ўртача заказ',
+  'admin.reports.totalDebt': 'Қарз суммаси',
+  'admin.reports.totalReturns': 'Возврат суммаси',
   'admin.reports.expenses': 'Чиқимлар',
   'admin.reports.records': 'та ёзув',
   'admin.reports.addExpense': 'Чиқим киритиш',
@@ -1297,6 +1312,8 @@ const ru: TranslationKeys = {
   'orders.step3': 'Подтверждение',
   'orders.quantity': 'Количество',
   'orders.totalAmount': 'Общая сумма',
+  'orders.comment': 'Комментарий',
+  'orders.commentPlaceholder': 'Введите комментарий к заказу',
   'orders.success': 'Заказ успешно создан!',
   'orders.empty': 'Заказы не найдены',
   'orders.history': 'История заказов',
@@ -1382,6 +1399,7 @@ const ru: TranslationKeys = {
   'returns.error.noItems': 'Товары не выбраны',
   'returns.status.pending': 'Ожидает',
   'returns.status.accepted': 'Принят',
+  'returns.status.acceptedByAdmin': 'Админ принял возврат',
   'returns.summary.allReturned': 'Все возвращено',
   'returns.summary.partialReturned': 'Частичный возврат',
   'returns.loading': 'Загрузка...',
@@ -1427,6 +1445,8 @@ const ru: TranslationKeys = {
   'admin.reports.totalExpense': 'Общие расходы',
   'admin.reports.netProfit': 'Чистая прибыль',
   'admin.reports.avgOrder': 'Средний заказ',
+  'admin.reports.totalDebt': 'Сумма долга',
+  'admin.reports.totalReturns': 'Сумма возврата',
   'admin.reports.expenses': 'Расходы',
   'admin.reports.records': 'записей',
   'admin.reports.addExpense': 'Добавить расход',

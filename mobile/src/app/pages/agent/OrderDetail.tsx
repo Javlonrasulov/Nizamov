@@ -81,19 +81,22 @@ export const OrderDetail = () => {
   const acceptedReturns = orderReturns.filter(r => r.status === 'accepted');
 
   const returnedAmountAllFromReturns = useMemo(() => {
-    return orderReturns.reduce((sum, r) => {
+    return acceptedReturns.reduce((sum, r) => {
       return sum + (r.items || []).reduce((s, it) => {
         const price = priceByProductId.get(it.productId) ?? 0;
         return s + (it.quantity || 0) * price;
       }, 0);
     }, 0);
-  }, [orderReturns, priceByProductId]);
+  }, [acceptedReturns, priceByProductId]);
 
   const remainingMoneyFromReturns = Math.max(0, (order.total ?? 0) - returnedAmountAllFromReturns);
 
   const perOrderRow = clientBalance?.perOrder?.find(r => r.orderId === order.id) ?? null;
   const paidForOrder = perOrderRow?.paid ?? 0;
+  const receivedForOrder = Math.min(paidForOrder, remainingMoneyFromReturns);
   const debtForOrder = perOrderRow?.debt ?? Math.max(0, remainingMoneyFromReturns - paidForOrder);
+  const isAllReturned = remainingMoneyFromReturns <= 0.00001 && returnedAmountAllFromReturns > 0;
+  const isPartialReturned = returnedAmountAllFromReturns > 0 && !isAllReturned;
 
   const returnStatusLabel = (s: 'pending' | 'accepted') => {
     if (lang === 'ru') return s === 'pending' ? 'Ожидает' : 'Принят';
@@ -189,7 +192,14 @@ export const OrderDetail = () => {
                 <p className="font-semibold text-gray-900 dark:text-white">{order.clientName}</p>
                 <p className="text-xs font-mono text-gray-500 dark:text-gray-400 mt-0.5">{formatOrderId(order)}</p>
               </div>
-              <StatusBadge status={order.status} />
+              {isAllReturned ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                  {t('returns.summary.allReturned')}
+                </span>
+              ) : (
+                <StatusBadge status={order.status} />
+              )}
             </div>
             <div className="space-y-1.5">
               <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
@@ -340,14 +350,14 @@ export const OrderDetail = () => {
               {orderReturns.length > 0 ? (
                 <span
                   className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
-                    remainingMoneyFromReturns <= 0.00001
+                    isAllReturned
                       ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'
                       : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300'
                   }`}
                 >
-                  {remainingMoneyFromReturns <= 0.00001
+                  {isAllReturned
                     ? (lang === 'ru' ? 'Все возвращено' : 'Hammasi qaytarildi')
-                    : (lang === 'ru' ? 'Частичный возврат' : 'Qisman qaytarildi')}
+                    : (isPartialReturned ? (lang === 'ru' ? 'Частичный возврат' : 'Qisman qaytarildi') : '—')}
                 </span>
               ) : (
                 <span className="text-[11px] text-gray-400 dark:text-gray-500">—</span>
@@ -370,7 +380,7 @@ export const OrderDetail = () => {
                   <div className="mt-2 flex items-center justify-between gap-3">
                     <p className="text-xs text-gray-500 dark:text-gray-400">{lang === 'ru' ? 'Получено' : 'Pul oldim'}</p>
                     <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
-                      {paidForOrder.toLocaleString('ru-RU')} {t('common.sum')}
+                      {receivedForOrder.toLocaleString('ru-RU')} {t('common.sum')}
                     </p>
                   </div>
                   <div className="mt-1 flex items-center justify-between gap-3">
@@ -418,7 +428,7 @@ export const OrderDetail = () => {
 
                   <div>
                     <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">
-                      {lang === 'ru' ? 'Принят' : 'Qabul qilingan'}
+                      {t('returns.status.acceptedByAdmin')}
                     </p>
                     {acceptedReturns.length === 0 ? (
                       <p className="text-xs text-gray-500 dark:text-gray-400 py-1">—</p>
@@ -428,7 +438,7 @@ export const OrderDetail = () => {
                           <div className="flex items-center justify-between mb-2">
                             <p className="text-xs font-semibold text-gray-900 dark:text-white">{r.date}</p>
                             <span className="text-[11px] px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 font-semibold">
-                              {returnStatusLabel('accepted')}
+                              {t('returns.status.acceptedByAdmin')}
                             </span>
                           </div>
                           <div className="space-y-1">

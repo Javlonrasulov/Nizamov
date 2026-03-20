@@ -82,6 +82,7 @@ export const DeliveryOrders = () => {
 
   const [returnsByOrderId, setReturnsByOrderId] = useState<Record<string, ReturnRecord[]>>({});
   const [returnsLoadingByOrderId, setReturnsLoadingByOrderId] = useState<Record<string, boolean>>({});
+  const [acceptedReturnStateByOrderId, setAcceptedReturnStateByOrderId] = useState<Record<string, { isFull: boolean }>>({});
 
   useEffect(() => {
     balancesRef.current = balances;
@@ -144,6 +145,45 @@ export const DeliveryOrders = () => {
     [selectedDates],
   );
 
+  const filteredOrderIdsKey = useMemo(
+    () => filtered.map(o => o.id).sort().join('|'),
+    [filtered],
+  );
+
+  useEffect(() => {
+    if (filtered.length === 0) {
+      setAcceptedReturnStateByOrderId({});
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      const results = await Promise.all(
+        filtered.map(async order => {
+          try {
+            const acceptedReturns = await apiGetReturns({ orderId: order.id, status: 'accepted' });
+            const returnedByProduct = new Map<string, number>();
+            for (const ret of acceptedReturns || []) {
+              for (const item of ret.items || []) {
+                returnedByProduct.set(item.productId, (returnedByProduct.get(item.productId) || 0) + (item.quantity || 0));
+              }
+            }
+            const isFull = order.items.length > 0 && order.items.every(item => (
+              (returnedByProduct.get(item.productId) || 0) >= (item.quantity || 0)
+            ));
+            return [order.id, { isFull }] as const;
+          } catch {
+            return [order.id, { isFull: false }] as const;
+          }
+        }),
+      );
+      if (cancelled) return;
+      setAcceptedReturnStateByOrderId(Object.fromEntries(results));
+    })();
+
+    return () => { cancelled = true; };
+  }, [filteredOrderIdsKey]);
+
   const modalDeliveredOrders = useMemo(() => {
     if (!clientModalOpen || !selectedClientId || !currentUser?.id) return [];
     return orders
@@ -195,7 +235,7 @@ export const DeliveryOrders = () => {
   const selectedAll = filtered;
   const selectedDelivered = selectedAll.filter(o => o.status === 'delivered').length;
   const selectedActive = selectedAll.filter(
-    o => o.status === 'yuborilgan' || o.status === 'delivering' || o.status === 'accepted'
+    o => (o.status === 'yuborilgan' || o.status === 'delivering' || o.status === 'accepted') && !acceptedReturnStateByOrderId[o.id]?.isFull
   ).length;
   const selectedTotalCount = selectedAll.length;
 
@@ -561,7 +601,14 @@ export const DeliveryOrders = () => {
                       <span className="text-xs text-gray-400 dark:text-gray-500">{order.date}</span>
                     </div>
                   </div>
-                  <StatusBadge status={order.status} />
+                  {acceptedReturnStateByOrderId[order.id]?.isFull ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300">
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                      {t('returns.summary.allReturned')}
+                    </span>
+                  ) : (
+                    <StatusBadge status={order.status} />
+                  )}
                 </div>
 
                 {/* Manzil va telefon */}

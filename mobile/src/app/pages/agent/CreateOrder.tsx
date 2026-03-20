@@ -49,6 +49,7 @@ export const CreateOrder = () => {
   const [clientSearch, setClientSearch] = useState('');
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
   const [productSearch, setProductSearch] = useState('');
+  const [comment, setComment] = useState('');
   const [success, setSuccess] = useState(false);
   const [dayDropdownOpen, setDayDropdownOpen] = useState(false);
   const [stockWarn, setStockWarn] = useState<Record<string, boolean>>({});
@@ -138,6 +139,7 @@ export const CreateOrder = () => {
       total: totalAmount,
       status: 'new',
       date: new Date().toISOString().split('T')[0],
+      comment: comment.trim() || undefined,
     });
     setSuccess(true);
     setTimeout(() => navigate('/agent/orders'), 1800);
@@ -435,6 +437,17 @@ export const CreateOrder = () => {
                   <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t('orders.totalAmount')}</p>
                   <p className="text-base font-bold text-[#2563EB] dark:text-blue-400">{formatCurrency(totalAmount)}</p>
                 </div>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">{t('orders.comment')}</p>
+                <textarea
+                  value={comment}
+                  onChange={e => setComment(e.target.value)}
+                  rows={3}
+                  placeholder={t('orders.commentPlaceholder')}
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-sm text-gray-900 dark:text-white resize-none focus:outline-none focus:border-[#2563EB]"
+                />
               </div>
 
               <div className="flex gap-2">

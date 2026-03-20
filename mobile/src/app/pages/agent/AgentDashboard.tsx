@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { ShoppingBag, TrendingUp, Plus, UserPlus, ArrowRight, RefreshCw, Check, ChevronDown } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { MobileShell, MobileHeader, MobileContent } from '../../components/MobileShell';
 import { MobileNav } from '../../components/MobileNav';
 import { StatusBadge } from '../../components/StatusBadge';
+import { apiGetReturns, type ReturnRecord } from '../../api/returns';
 
 export const AgentDashboard = () => {
   const { t, lang, currentUser, orders, refetchData, apiConnected } = useApp();
@@ -42,6 +43,53 @@ export const AgentDashboard = () => {
   const INITIAL_VISIBLE = 3;
   const recentOrdersVisible = expandOrders ? myOrders : myOrders.slice(0, INITIAL_VISIBLE);
   const hasMoreOrders = myOrders.length > INITIAL_VISIBLE;
+  const [returnsByOrderId, setReturnsByOrderId] = useState<Record<string, ReturnRecord[]>>({});
+
+  const recentOrderIdsKey = useMemo(
+    () => recentOrdersVisible.map(o => o.id).sort().join('|'),
+    [recentOrdersVisible],
+  );
+
+  useEffect(() => {
+    if (recentOrdersVisible.length === 0) {
+      setReturnsByOrderId({});
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const results = await Promise.all(
+          recentOrdersVisible.map(async order => {
+            const rets = await apiGetReturns({ orderId: order.id, status: 'accepted' });
+            return [order.id, rets || []] as const;
+          }),
+        );
+        if (cancelled) return;
+        setReturnsByOrderId(Object.fromEntries(results));
+      } catch {
+        if (!cancelled) setReturnsByOrderId({});
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [recentOrderIdsKey]);
+
+  const getReturnState = (order: typeof recentOrdersVisible[number]) => {
+    const rets = returnsByOrderId[order.id] ?? [];
+    if (rets.length === 0) return null;
+
+    const returnedAmount = rets.reduce((sum, r) => (
+      sum + (r.items || []).reduce((s, it) => {
+        const price = order.items.find(x => x.productId === it.productId)?.price ?? 0;
+        return s + (it.quantity || 0) * price;
+      }, 0)
+    ), 0);
+
+    const isAllReturned = returnedAmount >= order.total - 0.00001;
+    return {
+      isAllReturned,
+      isPartialReturned: !isAllReturned && returnedAmount > 0,
+    };
+  };
 
   const formatCurrency = (amount: number) => amount.toLocaleString('ru-RU') + ` ${t('common.sum')}`;
   const formatOrderId = (o: { id: string; orderNumber?: number }) =>
@@ -158,7 +206,21 @@ export const AgentDashboard = () => {
                 <div key={order.id} className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-sm font-semibold text-gray-900 dark:text-white">{order.clientName}</span>
-                    <StatusBadge status={order.status} />
+                    {getReturnState(order)?.isAllReturned ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                        {t('returns.summary.allReturned')}
+                      </span>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <StatusBadge status={getReturnState(order)?.isPartialReturned ? 'delivered' : order.status} />
+                        {getReturnState(order)?.isPartialReturned ? (
+                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300">
+                            {t('returns.summary.partialReturned')}
+                          </span>
+                        ) : null}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-500 dark:text-gray-400">{formatOrderId(order)}</span>

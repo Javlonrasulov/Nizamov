@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
   Truck, CheckCircle2, Clock, Package,
@@ -8,6 +8,7 @@ import { useApp } from '../../context/AppContext';
 import { MobileShell, MobileHeader, MobileContent } from '../../components/MobileShell';
 import { MobileNav } from '../../components/MobileNav';
 import { StatusBadge } from '../../components/StatusBadge';
+import { apiGetReturns, type ReturnRecord } from '../../api/returns';
 
 export const DeliveryDashboard = () => {
   const { t, currentUser, orders, refetchData } = useApp();
@@ -44,9 +45,68 @@ export const DeliveryDashboard = () => {
   const myOrders = orders.filter(o => o.deliveryId === currentUser?.id);
   const todayOrders = myOrders.filter(o => o.date === today);
 
-  const active = todayOrders.filter(
-    o => o.status === 'yuborilgan' || o.status === 'delivering' || o.status === 'accepted'
-  );
+  const [returnsByOrderId, setReturnsByOrderId] = useState<Record<string, ReturnRecord[]>>({});
+  const [returnsLoadingByOrderId, setReturnsLoadingByOrderId] = useState<Record<string, boolean>>({});
+
+  const todayOrderIds = useMemo(() => todayOrders.map(o => o.id), [todayOrders]);
+  useEffect(() => {
+    if (todayOrderIds.length === 0) {
+      setReturnsByOrderId({});
+      setReturnsLoadingByOrderId({});
+      return;
+    }
+    let cancelled = false;
+
+    const load = async () => {
+      const nextLoading: Record<string, boolean> = {};
+      todayOrderIds.forEach(id => { nextLoading[id] = true; });
+      setReturnsLoadingByOrderId(nextLoading);
+
+      try {
+        const results = await Promise.all(
+          todayOrderIds.map(async orderId => {
+            const rets = await apiGetReturns({ orderId, status: 'accepted' });
+            return [orderId, rets || []] as const;
+          }),
+        );
+        if (cancelled) return;
+        setReturnsByOrderId(Object.fromEntries(results));
+      } catch {
+        if (cancelled) return;
+        setReturnsByOrderId({});
+      } finally {
+        if (cancelled) return;
+        setReturnsLoadingByOrderId({});
+      }
+    };
+
+    load();
+    return () => { cancelled = true; };
+  }, [todayOrderIds.join('|')]);
+
+  const getReturnState = (order: typeof todayOrders[number]) => {
+    const rets = returnsByOrderId[order.id] ?? [];
+    if (rets.length === 0) return null;
+
+    const returnedAmount = rets.reduce((sum, r) => (
+      sum + (r.items || []).reduce((s, it) => {
+        const price = order.items.find(x => x.productId === it.productId)?.price ?? 0;
+        return s + (it.quantity || 0) * price;
+      }, 0)
+    ), 0);
+
+    const isAllReturned = returnedAmount >= order.total - 0.00001;
+    return {
+      isAllReturned,
+      isPartialReturned: !isAllReturned && returnedAmount > 0,
+    };
+  };
+
+  const active = todayOrders.filter(o => {
+    const ret = getReturnState(o);
+    if (ret?.isAllReturned) return false;
+    return o.status === 'yuborilgan' || o.status === 'delivering' || o.status === 'accepted' || ret?.isPartialReturned;
+  });
   const delivered = todayOrders.filter(o => o.status === 'delivered');
   // agent yuborgan (tayyorlanmagan/sent) dostavkachiga berilmagan; dostavkachining pending'i yuborilgan
   const pending = todayOrders.filter(o => o.status === 'yuborilgan');
@@ -55,6 +115,31 @@ export const DeliveryDashboard = () => {
   const deliveredSum = delivered.reduce((s, o) => s + o.total, 0);
 
   const formatSum = (n: number) => `${n.toLocaleString('ru-RU')} ${t('common.sum')}`;
+
+  const getReturnLabel = (order: typeof todayOrders[number]) => {
+    const state = getReturnState(order);
+    if (!state) return null;
+    if (state.isAllReturned) return { key: 'all', label: t('returns.summary.allReturned'), tone: 'red' as const };
+    if (state.isPartialReturned) return { key: 'partial', label: t('returns.summary.partialReturned'), tone: 'amber' as const };
+    return null;
+  };
+
+  const renderReturnPill = (order: typeof todayOrders[number]) => {
+    if (returnsLoadingByOrderId[order.id]) return <span className="text-[10px] text-gray-400">{t('common.loading')}</span>;
+    const pill = getReturnLabel(order);
+    if (!pill) return null;
+    return (
+      <span
+        className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+          pill.tone === 'red'
+            ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'
+            : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300'
+        }`}
+      >
+        {pill.label}
+      </span>
+    );
+  };
 
   return (
     <MobileShell>
@@ -184,7 +269,17 @@ export const DeliveryDashboard = () => {
                         <p className="text-[10px] text-gray-400 dark:text-gray-500 font-mono mt-0.5">{formatOrderId(order)}</p>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <StatusBadge status={order.status} />
+                        {getReturnState(order)?.isAllReturned ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                            {t('returns.summary.allReturned')}
+                          </span>
+                        ) : (
+                          <>
+                            <StatusBadge status={getReturnState(order)?.isPartialReturned ? 'delivered' : order.status} />
+                            {renderReturnPill(order)}
+                          </>
+                        )}
                         <ChevronRight size={14} className="text-gray-300 dark:text-gray-500" />
                       </div>
                     </div>
@@ -235,7 +330,17 @@ export const DeliveryDashboard = () => {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <StatusBadge status={order.status} />
+                      {getReturnState(order)?.isAllReturned ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                          {t('returns.summary.allReturned')}
+                        </span>
+                      ) : (
+                        <>
+                          <StatusBadge status={getReturnState(order)?.isPartialReturned ? 'delivered' : order.status} />
+                          {renderReturnPill(order)}
+                        </>
+                      )}
                       <ChevronRight size={14} className="text-gray-300 dark:text-gray-600" />
                     </div>
                   </button>

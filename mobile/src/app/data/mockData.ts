@@ -51,6 +51,7 @@ export interface Order {
   total: number;
   status: OrderStatus;
   date: string;
+  comment?: string;
 }
 
 export const users: User[] = [

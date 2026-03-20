@@ -145,6 +145,23 @@ export const AgentSalesByDate = () => {
     return Math.max(0, order.total - returnedAmount);
   };
 
+  const isFullyReturned = (order: { id: string; items: Array<{ productId: string; quantity: number }> }) => {
+    const rets = returnsByOrderId[order.id] ?? [];
+    if (rets.length === 0) return false;
+
+    const acceptedByProduct = new Map<string, number>();
+    for (const ret of rets) {
+      if (ret.status !== 'accepted') continue;
+      for (const item of ret.items || []) {
+        acceptedByProduct.set(item.productId, (acceptedByProduct.get(item.productId) || 0) + (item.quantity || 0));
+      }
+    }
+
+    return order.items.length > 0 && order.items.every(item => (
+      (acceptedByProduct.get(item.productId) || 0) >= (item.quantity || 0)
+    ));
+  };
+
   const totalGrossSum = sortedFiltered.reduce((s, o) => s + o.total, 0);
   const totalReturnedAmount = sortedFiltered.reduce((s, o) => s + getReturnedAmount(o as any), 0);
   const totalSum = sortedFiltered.reduce((s, o) => s + getAdjustedTotal(o as any), 0);
@@ -347,7 +364,14 @@ export const AgentSalesByDate = () => {
                       <span className="text-xs text-gray-400 dark:text-gray-500">{order.date}</span>
                     </div>
                   </div>
-                  <StatusBadge status={order.status} />
+                  {isFullyReturned(order as any) ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300">
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                      {t('returns.summary.allReturned')}
+                    </span>
+                  ) : (
+                    <StatusBadge status={order.status} />
+                  )}
                 </div>
 
                 <div className="px-4 py-2 space-y-1.5">

@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { Plus, Package, Warehouse, ChevronLeft, ChevronRight, ShoppingBag, X, Calendar, Edit2, ChevronDown } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { MobileShell, MobileHeader, MobileContent } from '../../components/MobileShell';
 import { MobileNav } from '../../components/MobileNav';
 import { StatusBadge } from '../../components/StatusBadge';
+import { apiGetReturns, type ReturnRecord } from '../../api/returns';
 
 const dayShortKeys = [
   'days.monday.short',
@@ -106,6 +107,52 @@ export const OrderHistory = () => {
   const sortedFiltered = [...filtered].sort((a, b) => b.date.localeCompare(a.date));
   const visibleOrders = expandOrders ? sortedFiltered : sortedFiltered.slice(0, INITIAL_VISIBLE);
   const hasMoreOrders = sortedFiltered.length > INITIAL_VISIBLE;
+  const [returnsByOrderId, setReturnsByOrderId] = useState<Record<string, ReturnRecord[]>>({});
+  const visibleOrderIdsKey = useMemo(
+    () => visibleOrders.map(o => o.id).sort().join('|'),
+    [visibleOrders],
+  );
+
+  useEffect(() => {
+    if (visibleOrders.length === 0) {
+      setReturnsByOrderId({});
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const results = await Promise.all(
+          visibleOrders.map(async order => {
+            const rets = await apiGetReturns({ orderId: order.id, status: 'accepted' });
+            return [order.id, rets || []] as const;
+          }),
+        );
+        if (cancelled) return;
+        setReturnsByOrderId(Object.fromEntries(results));
+      } catch {
+        if (!cancelled) setReturnsByOrderId({});
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [visibleOrderIdsKey]);
+
+  const getReturnState = (order: typeof visibleOrders[number]) => {
+    const rets = returnsByOrderId[order.id] ?? [];
+    if (rets.length === 0) return null;
+
+    const returnedAmount = rets.reduce((sum, r) => (
+      sum + (r.items || []).reduce((s, it) => {
+        const price = order.items.find(x => x.productId === it.productId)?.price ?? 0;
+        return s + (it.quantity || 0) * price;
+      }, 0)
+    ), 0);
+
+    const isAllReturned = returnedAmount >= order.total - 0.00001;
+    return {
+      isAllReturned,
+      isPartialReturned: !isAllReturned && returnedAmount > 0,
+    };
+  };
 
   const handleSendToWarehouse = (orderId: string) => {
     updateOrderStatus(orderId, 'sent');
@@ -307,7 +354,21 @@ export const OrderHistory = () => {
                       <span className="text-xs text-gray-400 dark:text-gray-500">{order.date}</span>
                     </div>
                   </div>
-                  <StatusBadge status={order.status} />
+                  {getReturnState(order)?.isAllReturned ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300">
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                      {t('returns.summary.allReturned')}
+                    </span>
+                  ) : (
+                    <div className="flex items-center gap-1.5">
+                      <StatusBadge status={getReturnState(order)?.isPartialReturned ? 'delivered' : order.status} />
+                      {getReturnState(order)?.isPartialReturned ? (
+                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300">
+                          {t('returns.summary.partialReturned')}
+                        </span>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
 
                 <div className="px-4 py-2 space-y-1.5">
