@@ -51,6 +51,8 @@ export const CreateOrder = () => {
   const [productSearch, setProductSearch] = useState('');
   const [comment, setComment] = useState('');
   const [success, setSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const [dayDropdownOpen, setDayDropdownOpen] = useState(false);
   const [stockWarn, setStockWarn] = useState<Record<string, boolean>>({});
   const [expandClients, setExpandClients] = useState(false);
@@ -121,28 +123,36 @@ export const CreateOrder = () => {
 
   const getQty = (productId: string) => selectedItems.find(i => i.product.id === productId)?.quantity || 0;
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!selectedClient || selectedItems.length === 0) return;
-    addOrder({
-      clientId: selectedClient.id,
-      clientName: selectedClient.name,
-      clientPhone: selectedClient.phone,
-      clientAddress: selectedClient.address,
-      agentId: currentUser?.id || '',
-      agentName: currentUser?.name || '',
-      items: selectedItems.map(i => ({
-        productId: i.product.id,
-        productName: i.product.name,
-        quantity: i.quantity,
-        price: i.product.price,
-      })),
-      total: totalAmount,
-      status: 'new',
-      date: new Date().toISOString().split('T')[0],
-      comment: comment.trim() || undefined,
-    });
-    setSuccess(true);
-    setTimeout(() => navigate('/agent/orders'), 1800);
+    setSubmitError('');
+    setIsSubmitting(true);
+    try {
+      await addOrder({
+        clientId: selectedClient.id,
+        clientName: selectedClient.name,
+        clientPhone: selectedClient.phone,
+        clientAddress: selectedClient.address,
+        agentId: currentUser?.id || '',
+        agentName: currentUser?.name || '',
+        items: selectedItems.map(i => ({
+          productId: i.product.id,
+          productName: i.product.name,
+          quantity: i.quantity,
+          price: i.product.price,
+        })),
+        total: totalAmount,
+        status: 'new',
+        date: new Date().toISOString().split('T')[0],
+        comment: comment.trim() || undefined,
+      });
+      setSuccess(true);
+      setTimeout(() => navigate('/agent/orders'), 1800);
+    } catch {
+      setSubmitError(t('orders.submitError'));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const steps = [
@@ -443,12 +453,21 @@ export const CreateOrder = () => {
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">{t('orders.comment')}</p>
                 <textarea
                   value={comment}
-                  onChange={e => setComment(e.target.value)}
+                  onChange={e => {
+                    setComment(e.target.value);
+                    if (submitError) setSubmitError('');
+                  }}
                   rows={3}
                   placeholder={t('orders.commentPlaceholder')}
                   className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-sm text-gray-900 dark:text-white resize-none focus:outline-none focus:border-[#2563EB]"
                 />
               </div>
+
+              {submitError && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
+                  {submitError}
+                </div>
+              )}
 
               <div className="flex gap-2">
                 <button onClick={() => setStep(2)} className="flex-1 py-3 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 font-medium text-sm hover:bg-gray-50 dark:hover:bg-gray-700">
@@ -456,9 +475,10 @@ export const CreateOrder = () => {
                 </button>
                 <button
                   onClick={handleConfirm}
-                  className="flex-1 py-3 rounded-xl bg-green-500 text-white font-semibold text-sm hover:bg-green-600 active:scale-[0.98] flex items-center justify-center gap-1.5 shadow-lg shadow-green-200"
+                  disabled={isSubmitting}
+                  className="flex-1 py-3 rounded-xl bg-green-500 text-white font-semibold text-sm hover:bg-green-600 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 shadow-lg shadow-green-200"
                 >
-                  <Check size={15} /> {t('orders.tayyor')}
+                  <Check size={15} /> {isSubmitting ? t('common.loading') : t('orders.tayyor')}
                 </button>
               </div>
             </div>

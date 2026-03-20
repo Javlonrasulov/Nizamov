@@ -40,7 +40,7 @@ interface AppContextType {
   updateClient: (id: string, updates: Partial<Omit<Client, 'id'>>) => void;
   deleteClient: (id: string) => void;
   orders: Order[];
-  addOrder: (order: Omit<Order, 'id'>) => void;
+  addOrder: (order: Omit<Order, 'id'>) => Promise<void>;
   updateOrderStatus: (orderId: string, status: Order['status']) => void;
   updateOrder: (orderId: string, updates: Partial<Order>) => void;
   products: Product[];
@@ -192,8 +192,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     try {
       const created = await apiCreateOrder(o);
       setOrdersList(p => [created, ...p]);
-    } catch {
-      setOrdersList(p => [{ ...o, id: `ORD-${String(p.length + 1).padStart(3, '0')}` }, ...p]);
+    } catch (error) {
+      if (!apiConnected) {
+        setOrdersList(p => [{ ...o, id: `ORD-${String(p.length + 1).padStart(3, '0')}` }, ...p]);
+        return;
+      }
+      throw error;
     }
   };
   const updateOrderStatus = async (id: string, status: Order['status']) => {

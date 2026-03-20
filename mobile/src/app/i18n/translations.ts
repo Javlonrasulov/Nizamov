@@ -173,6 +173,7 @@ type TranslationKeys = {
   'orders.totalAmount': string;
   'orders.comment': string;
   'orders.commentPlaceholder': string;
+  'orders.submitError': string;
   'orders.success': string;
   'orders.empty': string;
   'orders.history': string;
@@ -558,6 +559,7 @@ const uz_lat: TranslationKeys = {
   'orders.totalAmount': 'Jami summa',
   'orders.comment': 'Izoh',
   'orders.commentPlaceholder': "Zakaz uchun izoh yozing",
+  'orders.submitError': "Zakazni yuborib bo'lmadi. Server bilan ulanishni tekshiring.",
   'orders.success': 'Zakaz muvaffaqiyatli yaratildi!',
   'orders.empty': 'Zakazlar topilmadi',
   'orders.history': 'Zakazlar tarixi',
@@ -936,6 +938,7 @@ const uz_kir: TranslationKeys = {
   'orders.totalAmount': 'Жами сумма',
   'orders.comment': 'Изоҳ',
   'orders.commentPlaceholder': 'Заказ учун изоҳ ёзинг',
+  'orders.submitError': 'Заказни юбориб бўлмади. Сервер билан уланишни текширинг.',
   'orders.success': 'Заказ муваффақиятли яратилди!',
   'orders.empty': 'Заказлар топилмади',
   'orders.history': 'Заказлар тарихи',
@@ -1314,6 +1317,7 @@ const ru: TranslationKeys = {
   'orders.totalAmount': 'Общая сумма',
   'orders.comment': 'Комментарий',
   'orders.commentPlaceholder': 'Введите комментарий к заказу',
+  'orders.submitError': 'Не удалось отправить заказ. Проверьте подключение к серверу.',
   'orders.success': 'Заказ успешно создан!',
   'orders.empty': 'Заказы не найдены',
   'orders.history': 'История заказов',

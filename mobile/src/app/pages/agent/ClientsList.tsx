@@ -55,6 +55,10 @@ function formatDateLabel(ymd: string, locale: string): string {
   return `${d}-${monthStr}`;
 }
 
+function formatOrderId(order: { id: string; orderNumber?: number }): string {
+  return order.orderNumber != null ? `#${order.orderNumber}` : `#${order.id.slice(-6).toUpperCase()}`;
+}
+
 // Ikkita sanani tartiblaydi: [kichik, katta]
 function sortRange(a: string | null, b: string | null): [string | null, string | null] {
   if (!a || !b) return [a, b];
@@ -468,7 +472,7 @@ function ClientOrdersModal({
                   <div key={order.id} className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-3 border border-gray-100 dark:border-gray-700">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">{order.id}</span>
+                        <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">{formatOrderId(order)}</span>
                         <span className="text-[10px] text-gray-400 dark:text-gray-500">{formatDateLabel(order.date, locale)}</span>
                       </div>
                       <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[order.status]}`}>
