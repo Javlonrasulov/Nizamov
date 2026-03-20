@@ -107,6 +107,15 @@ type TranslationKeys = {
   'clients.form.location': string;
   'clients.form.locationBtn': string;
   'clients.form.locationSuccess': string;
+  
+  // MapPicker
+  'mapPicker.title': string;
+  'mapPicker.searchPlaceholder': string;
+  'mapPicker.myLocation': string;
+  'mapPicker.hintPickOnMap': string;
+  'mapPicker.mapLoading': string;
+  'mapPicker.confirmLocation': string;
+  'mapPicker.selectLocation': string;
 
   // Products
   'products.title': string;
@@ -455,7 +464,6 @@ type TranslationKeys = {
   'admin.products.editTitle': string;
   'admin.products.editSubtitle': string;
   'admin.products.nameLabel': string;
-  'common.edit': string;
   'common.view.card': string;
   'common.view.list': string;
 };
@@ -557,6 +565,13 @@ const uz_lat: TranslationKeys = {
   'clients.form.location': 'Lokatsiya',
   'clients.form.locationBtn': 'GPS orqali lokatsiya olish',
   'clients.form.locationSuccess': 'Lokatsiya olindi',
+  'mapPicker.title': 'Xaritadan joy tanlash',
+  'mapPicker.searchPlaceholder': "Qidiruv: ko'cha, mahalla...",
+  'mapPicker.myLocation': 'Mening joylashuvim',
+  'mapPicker.hintPickOnMap': '📍 Xaritaga bosib aniq joyni belgilang',
+  'mapPicker.mapLoading': 'Xarita yuklanmoqda...',
+  'mapPicker.confirmLocation': 'Lokatsiyani tasdiqlash',
+  'mapPicker.selectLocation': 'Xaritadan joy tanlang',
 
   'products.title': 'Mahsulotlar',
   'products.price': 'Narx',
@@ -987,6 +1002,13 @@ const uz_kir: TranslationKeys = {
   'clients.form.location': 'Локация',
   'clients.form.locationBtn': 'GPS орқали локация олиш',
   'clients.form.locationSuccess': 'Локация олинди',
+  'mapPicker.title': 'Харитадан жой танлаш',
+  'mapPicker.searchPlaceholder': 'Қидирув: кўча, маҳалла...',
+  'mapPicker.myLocation': 'Менинг жойлашувим',
+  'mapPicker.hintPickOnMap': '📍 Харитага босиб аниқ жойни белгиланг',
+  'mapPicker.mapLoading': 'Харита юкланмоқда...',
+  'mapPicker.confirmLocation': 'Локацияни тасдиқлаш',
+  'mapPicker.selectLocation': 'Харитадан жой танланг',
 
   'products.title': 'Маҳсулотлар',
   'products.price': 'Нарх',
@@ -1418,6 +1440,13 @@ const ru: TranslationKeys = {
   'clients.form.location': 'Локация',
   'clients.form.locationBtn': 'Получить локацию через GPS',
   'clients.form.locationSuccess': 'Локация получена',
+  'mapPicker.title': 'Выбор местоположения на карте',
+  'mapPicker.searchPlaceholder': 'Поиск: улица, район...',
+  'mapPicker.myLocation': 'Мое местоположение',
+  'mapPicker.hintPickOnMap': '📍 Нажмите на карту, чтобы отметить точное место',
+  'mapPicker.mapLoading': 'Карта загружается...',
+  'mapPicker.confirmLocation': 'Подтвердить локацию',
+  'mapPicker.selectLocation': 'Выберите место на карте',
 
   'products.title': 'Товары',
   'products.price': 'Цена',

@@ -837,14 +837,14 @@ export const AdminOrders = () => {
                               <table className="w-full text-sm border-collapse" style={{ tableLayout: 'fixed', minWidth: 520 }}>
                                 <thead>
                                   <tr className="bg-[#217346] text-white">
-                                    <th className="text-left px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-10">#</th>
-                                    <th className="text-left px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500">{t('admin.suppliers.productName')}</th>
-                                    <th className="text-right px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-16">{t('returns.orderedQty')}</th>
-                                    <th className="text-right px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-16">{t('returns.cancelledQty')}</th>
-                                    <th className="text-right px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-16">{t('returns.deliveredQty')}</th>
-                                    <th className="text-right px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-24">{t('admin.suppliers.salePrice')}</th>
-                                    <th className="text-right px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-24">{t('returns.deliveredAmount')}</th>
-                                    <th className="text-right px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-24">{t('returns.cancelledAmount')}</th>
+                                    <th className="text-left px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-10 whitespace-normal break-words leading-tight">#</th>
+                                    <th className="text-left px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 whitespace-normal break-words leading-tight">{t('admin.suppliers.productName')}</th>
+                                    <th className="text-right px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-16 whitespace-normal break-words leading-tight">{t('returns.orderedQty')}</th>
+                                    <th className="text-right px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-16 whitespace-normal break-words leading-tight">{t('returns.cancelledQty')}</th>
+                                    <th className="text-right px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-16 whitespace-normal break-words leading-tight">{t('returns.deliveredQty')}</th>
+                                    <th className="text-right px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-28 whitespace-normal break-words leading-tight">{t('admin.suppliers.salePrice')}</th>
+                                    <th className="text-right px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-28 whitespace-normal break-words leading-tight">{t('returns.deliveredAmount')}</th>
+                                    <th className="text-right px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-28 whitespace-normal break-words leading-tight">{t('returns.cancelledAmount')}</th>
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -956,7 +956,7 @@ export const AdminOrders = () => {
                                 <table className="w-full text-sm border-collapse" style={{ tableLayout: 'fixed', minWidth: 520 }}>
                                   <thead>
                                     <tr className="bg-[#217346] text-white">
-                                      <th className="text-left px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-24">
+                                      <th className="text-left px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-28">
                                         {t('common.date')}
                                       </th>
                                       <th className="text-left px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-28">
@@ -980,14 +980,20 @@ export const AdminOrders = () => {
                                     ) : (paymentsByOrderId[order.id] || []).length > 0 ? (
                                       paymentsByOrderId[order.id]
                                         .slice()
-                                        .sort((a, b) => b.date.localeCompare(a.date))
+                                        .sort((a, b) => {
+                                          const aDate = (a as any)?.date ?? (a as any)?.createdAt ?? '';
+                                          const bDate = (b as any)?.date ?? (b as any)?.createdAt ?? '';
+                                          return String(bDate).localeCompare(String(aDate));
+                                        })
                                         .map((p, idx) => (
                                           <tr
                                             key={p.id}
                                             className={`border border-gray-300 dark:border-gray-500 ${idx % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50/80 dark:bg-gray-700/50'}`}
                                           >
-                                            <td className="px-3 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-500 truncate">
-                                              {p.date}
+                                            <td className="px-3 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-500 whitespace-normal break-words leading-tight">
+                                              {p.date
+                                                || (p as any)?.createdAt
+                                                || '-'}
                                             </td>
                                             <td className="px-3 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-500 truncate">
                                               {t(`payments.method.${p.method}` as any)}

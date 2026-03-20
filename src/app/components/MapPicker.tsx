@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { MapPin, Check, X, Search, Navigation } from 'lucide-react';
+import { useApp } from '../context/AppContext';
 
 interface MapPickerProps {
   initialLat?: number;
@@ -11,6 +12,7 @@ interface MapPickerProps {
 const DEFAULT_CENTER = { lat: 40.0840, lng: 65.3792 }; // Navoiy
 
 export const MapPicker = ({ initialLat, initialLng, onConfirm, onClose }: MapPickerProps) => {
+  const { t } = useApp();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const leafletMapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
@@ -187,7 +189,7 @@ export const MapPicker = ({ initialLat, initialLng, onConfirm, onClose }: MapPic
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 shrink-0">
           <div className="flex items-center gap-2">
             <MapPin size={18} className="text-[#2563EB]" />
-            <span className="font-semibold text-gray-900">Xaritadan joy tanlash</span>
+            <span className="font-semibold text-gray-900">{t('mapPicker.title')}</span>
           </div>
           <button
             onClick={onClose}
@@ -207,7 +209,7 @@ export const MapPicker = ({ initialLat, initialLng, onConfirm, onClose }: MapPic
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                placeholder="Qidiruv: ko'cha, mahalla..."
+                placeholder={t('mapPicker.searchPlaceholder')}
                 className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-900 focus:outline-none focus:border-[#2563EB] placeholder:text-gray-400"
               />
             </div>
@@ -223,7 +225,7 @@ export const MapPicker = ({ initialLat, initialLng, onConfirm, onClose }: MapPic
             <button
               onClick={handleMyLocation}
               disabled={locating}
-              title="Mening joylashuvim"
+              title={t('mapPicker.myLocation')}
               className="h-10 w-10 rounded-xl border border-gray-200 bg-white flex items-center justify-center hover:bg-blue-50 hover:border-[#2563EB] disabled:opacity-50 transition-colors shrink-0"
             >
               {locating
@@ -235,9 +237,7 @@ export const MapPicker = ({ initialLat, initialLng, onConfirm, onClose }: MapPic
 
         {/* ── Hint (shrink-0) ── */}
         <div className="px-4 py-1.5 bg-blue-50 border-b border-blue-100 shrink-0">
-          <p className="text-xs text-blue-600 text-center">
-            📍 Xaritaga bosib aniq joyni belgilang
-          </p>
+          <p className="text-xs text-blue-600 text-center">{t('mapPicker.hintPickOnMap')}</p>
         </div>
 
         {/* ── MAP — flex-1 + min-h-0 so it fills remaining space ── */}
@@ -253,7 +253,7 @@ export const MapPicker = ({ initialLat, initialLng, onConfirm, onClose }: MapPic
             <div className="absolute inset-0 bg-gray-100 flex items-center justify-center z-[1000]">
               <div className="text-center">
                 <div className="w-10 h-10 border-4 border-[#2563EB] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                <p className="text-sm text-gray-500">Xarita yuklanmoqda...</p>
+                <p className="text-sm text-gray-500">{t('mapPicker.mapLoading')}</p>
               </div>
             </div>
           )}
@@ -274,13 +274,13 @@ export const MapPicker = ({ initialLat, initialLng, onConfirm, onClose }: MapPic
             className="w-full py-3.5 rounded-xl bg-[#2563EB] text-white font-semibold text-sm flex items-center justify-center gap-2 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] transition-all shadow-lg shadow-blue-200 mb-2"
           >
             <Check size={16} />
-            {position ? 'Lokatsiyani tasdiqlash' : 'Xaritadan joy tanlang'}
+            {position ? t('mapPicker.confirmLocation') : t('mapPicker.selectLocation')}
           </button>
           <button
             onClick={onClose}
             className="w-full py-2.5 rounded-xl border border-gray-200 text-gray-600 font-medium text-sm hover:bg-gray-50 transition-colors"
           >
-            Bekor qilish
+            {t('common.cancel')}
           </button>
         </div>
       </div>

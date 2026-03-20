@@ -17,7 +17,7 @@ const DAYS: Array<{ key: WeekDay; labelKey: any }> = [
 ];
 
 export const AddClient = () => {
-  const { t, currentUser, addClient } = useApp();
+  const { t, currentUser, addClient, clients } = useApp();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
@@ -48,12 +48,21 @@ export const AddClient = () => {
     if (!form.name.trim()) errs.name = t('clients.validation.nameRequired');
     if (!form.phone.trim()) errs.phone = t('clients.validation.phoneRequired');
     if (!form.address.trim()) errs.address = t('clients.validation.addressRequired');
+    if (form.lat == null || form.lng == null) errs.location = t('clients.validation.locationRequired');
+    if (visitDays.length === 0) errs.visitDays = t('clients.validation.visitDaysRequired');
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
   const handleSave = () => {
     if (!validate()) return;
+    const normalizePhone = (s: string) => (s || '').replace(/\D/g, '');
+    const phoneNorm = normalizePhone(form.phone);
+    const exists = clients.some(c => normalizePhone(c.phone) === phoneNorm);
+    if (exists) {
+      setErrors(prev => ({ ...prev, phone: t('clients.validation.phoneDuplicate') }));
+      return;
+    }
     addClient({ ...form, visitDays, agentId: currentUser?.id || '' });
     setSaved(true);
     setTimeout(() => navigate('/agent/clients'), 1500);
@@ -163,6 +172,7 @@ export const AddClient = () => {
                 {t('clients.add.selectedDays')}: {visitDays.map(d => t(DAYS.find(dd => dd.key === d)?.labelKey || d)).join(', ')}
               </p>
             )}
+            {errors.visitDays && <p className="text-red-500 text-xs mt-1">{errors.visitDays}</p>}
           </div>
 
           {/* GPS Location */}
@@ -207,6 +217,7 @@ export const AddClient = () => {
                 </div>
               </div>
             )}
+            {errors.location && <p className="text-red-500 text-xs mt-1">{errors.location}</p>}
           </div>
 
           <button

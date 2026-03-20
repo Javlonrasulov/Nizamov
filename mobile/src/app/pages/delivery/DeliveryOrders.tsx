@@ -9,6 +9,7 @@ import { MobileShell, MobileHeader, MobileContent } from '../../components/Mobil
 import { MobileNav } from '../../components/MobileNav';
 import { StatusBadge } from '../../components/StatusBadge';
 import { apiGetClientBalance, type ClientBalance } from '../../api/payments';
+import { apiGetReturns, type ReturnRecord } from '../../api/returns';
 
 /* ─── Kalendar yordamchi funksiyalar ─── */
 const dayShortKeys = [
@@ -76,6 +77,9 @@ export const DeliveryOrders = () => {
   const balancesRef = useRef(balances);
   const balancesLoadingRef = useRef(balancesLoading);
 
+  const [returnsByOrderId, setReturnsByOrderId] = useState<Record<string, ReturnRecord[]>>({});
+  const [returnsLoadingByOrderId, setReturnsLoadingByOrderId] = useState<Record<string, boolean>>({});
+
   useEffect(() => {
     balancesRef.current = balances;
   }, [balances]);
@@ -131,6 +135,52 @@ export const DeliveryOrders = () => {
       cancelled = true;
     };
   }, [visibleClientIdsKey, selectedClientId]);
+
+  const modalDeliveredOrders = useMemo(() => {
+    if (!clientModalOpen || !selectedClientId || !currentUser?.id) return [];
+    return orders
+      .filter(o => o.clientId === selectedClientId && o.deliveryId === currentUser.id && o.status === 'delivered')
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }, [clientModalOpen, selectedClientId, currentUser?.id, orders]);
+
+  const modalDeliveredOrderIdsKey = useMemo(
+    () => modalDeliveredOrders.map(o => o.id).sort().join('|'),
+    [modalDeliveredOrders],
+  );
+
+  useEffect(() => {
+    if (!clientModalOpen || !selectedClientId || !currentUser?.id) return;
+
+    const ids = modalDeliveredOrders.map(o => o.id);
+    setReturnsByOrderId({});
+    setReturnsLoadingByOrderId({});
+    if (ids.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      setReturnsLoadingByOrderId(Object.fromEntries(ids.map(id => [id, true])));
+      try {
+        const results = await Promise.all(
+          ids.map(async orderId => {
+            const rets = await apiGetReturns({ orderId });
+            return [orderId, rets] as const;
+          }),
+        );
+        if (cancelled) return;
+        setReturnsByOrderId(() => {
+          const next: Record<string, ReturnRecord[]> = {};
+          results.forEach(([orderId, rets]) => { next[orderId] = rets; });
+          return next;
+        });
+      } catch {
+        // ignore
+      } finally {
+        if (!cancelled) setReturnsLoadingByOrderId({});
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [clientModalOpen, selectedClientId, currentUser?.id, modalDeliveredOrderIdsKey]);
 
   /* Statistika */
   const todayAll = myOrders.filter(o => o.date === todayStr);
@@ -364,12 +414,12 @@ export const DeliveryOrders = () => {
                 : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
             }`}
           >
-            <span className="flex items-center gap-2 text-sm font-medium">
+              <span className="flex items-center gap-2 text-sm font-medium">
               <span className={`w-2 h-2 rounded-full ${debtorsOnly ? 'bg-red-500' : 'bg-gray-300'}`} />
-              Faqat qarzdorlar
+              {t('delivery.debtorsOnlyFilter')}
             </span>
             <span className={`text-xs font-semibold ${debtorsOnly ? 'text-red-600 dark:text-red-300' : 'text-gray-500 dark:text-gray-400'}`}>
-              {debtorsOnly ? 'ON' : 'OFF'}
+              {debtorsOnly ? t('delivery.debtorsOnlyFilter.on') : t('delivery.debtorsOnlyFilter.off')}
             </span>
           </button>
         </div>
@@ -556,20 +606,104 @@ export const DeliveryOrders = () => {
                               </p>
                               <p className="text-[10px] text-gray-400 dark:text-gray-500">{o.date}</p>
                             </div>
-                            <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 shrink-0">
-                              {o.total.toLocaleString('ru-RU')} {t('common.sum')}
-                            </p>
+                            {(() => {
+                              const perOrder = balances[selectedClientId]?.perOrder?.find(r => r.orderId === o.id);
+                              const adjustedTotal = perOrder?.total ?? o.total;
+                              const paid = perOrder?.paid ?? 0;
+                              const debt = perOrder?.debt ?? 0;
+                              return (
+                                <div className="text-right shrink-0">
+                                  <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                                    {adjustedTotal.toLocaleString('ru-RU')} {t('common.sum')}
+                                  </p>
+                                  {o.total !== adjustedTotal && (
+                                    <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 line-through">
+                                      {o.total.toLocaleString('ru-RU')} {t('common.sum')}
+                                    </p>
+                                  )}
+                                  <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+                                    {lang === 'ru' ? 'Оплачено' : 'To\'landi'}: {paid.toLocaleString('ru-RU')} {t('common.sum')}
+                                  </p>
+                                  <p className={`text-[10px] mt-0.5 ${debt > 0 ? 'text-red-600 dark:text-red-300' : 'text-green-600 dark:text-green-300'}`}>
+                                    {lang === 'ru' ? 'Долг' : 'Qarz'}: {debt.toLocaleString('ru-RU')} {t('common.sum')}
+                                  </p>
+                                </div>
+                              );
+                            })()}
                           </div>
-                          <div className="space-y-1.5">
-                            {o.items.map(it => (
-                              <div key={it.productId} className="flex items-center justify-between gap-2">
-                                <span className="text-xs text-gray-700 dark:text-gray-200 truncate">{it.productName}</span>
-                                <span className="text-[10px] text-gray-500 dark:text-gray-400 shrink-0">
-                                  {it.quantity} {t('common.pcs')}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
+                          {(() => {
+                            const rets = returnsByOrderId[o.id] ?? [];
+                            const pendingByProduct = new Map<string, number>();
+                            const acceptedByProduct = new Map<string, number>();
+                            for (const r of rets) {
+                              for (const it of r.items || []) {
+                                if (r.status === 'pending') {
+                                  pendingByProduct.set(it.productId, (pendingByProduct.get(it.productId) || 0) + (it.quantity || 0));
+                                } else {
+                                  acceptedByProduct.set(it.productId, (acceptedByProduct.get(it.productId) || 0) + (it.quantity || 0));
+                                }
+                              }
+                            }
+
+                            const returnedAmountTotal = rets.reduce((sum, r) => (
+                              sum + (r.items || []).reduce((s, it) => {
+                                const price = o.items.find(x => x.productId === it.productId)?.price ?? 0;
+                                return s + (it.quantity || 0) * price;
+                              }, 0)
+                            ), 0);
+
+                            const returnedQtyTotal = rets.reduce((sum, r) => (
+                              sum + (r.items || []).reduce((s, it) => s + (it.quantity || 0), 0)
+                            ), 0);
+
+                            const adjustedTotal = balances[selectedClientId]?.perOrder?.find(r => r.orderId === o.id)?.total ?? o.total;
+
+                            return (
+                              <>
+                                {returnsLoadingByOrderId[o.id] ? (
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{lang === 'ru' ? 'Загрузка возвратов...' : 'Vozvratlar yuklanmoqda...'}</p>
+                                ) : returnedQtyTotal > 0 ? (
+                                  <div className="mb-2 text-xs text-gray-600 dark:text-gray-300 space-y-0.5">
+                                    <p>
+                                      {lang === 'ru' ? 'Возврат' : 'Qaytarildi'}: <span className="font-semibold text-amber-700 dark:text-amber-300">{returnedAmountTotal.toLocaleString('ru-RU')} {t('common.sum')}</span>
+                                      {' · '}
+                                      <span className="font-semibold">{returnedQtyTotal} {t('common.pcs')}</span>
+                                    </p>
+                                    <p>
+                                      {lang === 'ru' ? 'К получению' : 'Qolgan'}: <span className="font-semibold text-red-600 dark:text-red-300">{adjustedTotal.toLocaleString('ru-RU')} {t('common.sum')}</span>
+                                    </p>
+                                  </div>
+                                ) : null}
+
+                                <div className="space-y-1.5">
+                                  {o.items.map(it => {
+                                    const pendingQty = pendingByProduct.get(it.productId) || 0;
+                                    const acceptedQty = acceptedByProduct.get(it.productId) || 0;
+                                    const returnedQty = pendingQty + acceptedQty;
+                                    const leftQty = Math.max(0, it.quantity - returnedQty);
+                                    return (
+                                      <div key={it.productId} className="flex items-center justify-between gap-2">
+                                        <span className="text-xs text-gray-700 dark:text-gray-200 truncate">{it.productName}</span>
+                                        <div className="text-right">
+                                          <div className="text-[10px] text-gray-500 dark:text-gray-400 shrink-0">
+                                            {it.quantity} {t('common.pcs')}
+                                          </div>
+                                          {returnedQty > 0 && (
+                                            <div className="text-[10px] text-amber-700 dark:text-amber-300 mt-0.5">
+                                              {lang === 'ru' ? 'Верн.' : 'Qayt.'}: {returnedQty} {t('common.pcs')}
+                                            </div>
+                                          )}
+                                          <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+                                            {lang === 'ru' ? 'Ост.' : 'Qold.'}: {leftQty} {t('common.pcs')}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </>
+                            );
+                          })()}
                         </div>
                       ))}
                   </div>

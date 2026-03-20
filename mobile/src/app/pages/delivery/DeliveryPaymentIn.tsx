@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Calendar, Check, ChevronDown, CreditCard, Search, X } from 'lucide-react';
+import { Calendar, Check, ChevronDown, CreditCard, Search, X, MapPin, Edit2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { MobileShell, MobileHeader, MobileContent } from '../../components/MobileShell';
 import { MobileNav } from '../../components/MobileNav';
 import { apiCreatePayment, apiGetClientBalance, ClientBalance, PaymentMethod } from '../../api/payments';
+import { MapPicker } from '../../components/MapPicker';
 
 const INITIAL_VISIBLE = 5;
 
 export const DeliveryPaymentIn = () => {
-  const { t, currentUser, clients, orders, refetchData } = useApp();
+  const { t, lang, currentUser, clients, orders, refetchData, updateClient } = useApp();
   const navigate = useNavigate();
 
   const [step, setStep] = useState<1 | 2>(1);
@@ -23,6 +24,10 @@ export const DeliveryPaymentIn = () => {
   const [amount, setAmount] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [savedOk, setSavedOk] = useState(false);
+
+  const [showMapPicker, setShowMapPicker] = useState(false);
+  const [savingLocation, setSavingLocation] = useState(false);
+  const [editingClientId, setEditingClientId] = useState<string | null>(null);
   const [balances, setBalances] = useState<Record<string, ClientBalance>>({});
   const [balancesLoading, setBalancesLoading] = useState<Record<string, boolean>>({});
 
@@ -130,6 +135,17 @@ export const DeliveryPaymentIn = () => {
     }
   };
 
+  const handleLocationConfirm = async (lat: number, lng: number) => {
+    if (!selectedClient) return;
+    setSavingLocation(true);
+    try {
+      await updateClient(selectedClient.id, { lat, lng });
+    } finally {
+      setSavingLocation(false);
+      setShowMapPicker(false);
+    }
+  };
+
   return (
     <MobileShell>
       <MobileHeader title={t('payments.in.title')} showBack showLang showLogout />
@@ -161,7 +177,7 @@ export const DeliveryPaymentIn = () => {
                   onChange={e => setDebtorsOnly(e.target.checked)}
                   className="accent-[#2563EB]"
                 />
-                Faqat qarzdorlar
+                {t('delivery.debtorsOnlyFilter')}
               </label>
 
               <div className="relative mb-3">
@@ -183,7 +199,17 @@ export const DeliveryPaymentIn = () => {
                     className="w-full text-left bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-200 dark:border-gray-700 hover:border-[#2563EB]/50 dark:hover:border-blue-500/50 transition-colors"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{c.name}</p>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{c.name}</p>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setEditingClientId(c.id); }}
+                          className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 flex items-center justify-center text-[#2563EB] dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                          title={t('clients.edit.title')}
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                      </div>
                       <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                         balancesLoading[c.id]
                           ? 'bg-gray-100 text-gray-500'
@@ -242,6 +268,20 @@ export const DeliveryPaymentIn = () => {
                         ? '...'
                         : `${t('payments.clientDebt')}: ${selectedDebt.toLocaleString('ru-RU')} ${t('common.sum')}`}
                     </p>
+
+                    <div className="mt-3 flex items-start gap-2">
+                      <MapPin size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
+                      <button
+                        type="button"
+                        onClick={() => setShowMapPicker(true)}
+                        disabled={savingLocation}
+                        className="text-left flex-1 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-60"
+                      >
+                        {selectedClient.lat != null && selectedClient.lng != null
+                          ? t('clients.add.locationSelectedEdit')
+                          : t('clients.add.locationSelect')}
+                      </button>
+                    </div>
                   </div>
                   <button
                     type="button"
@@ -316,7 +356,216 @@ export const DeliveryPaymentIn = () => {
         </div>
       </MobileContent>
       <MobileNav role="delivery" />
+
+      {showMapPicker && selectedClient && (
+        <MapPicker
+          initialLat={selectedClient.lat}
+          initialLng={selectedClient.lng}
+          onConfirm={handleLocationConfirm}
+          onClose={() => setShowMapPicker(false)}
+        />
+      )}
+
+      {editingClientId && (
+        <DeliveryClientEditModal
+          clientId={editingClientId}
+          onClose={() => setEditingClientId(null)}
+        />
+      )}
     </MobileShell>
   );
 };
+
+// ── Delivery Client Edit Modal ─────────────────────────────────────────
+function DeliveryClientEditModal({
+  clientId,
+  onClose,
+}: {
+  clientId: string;
+  onClose: () => void;
+}) {
+  const { clients, updateClient, t } = useApp();
+  const client = clients.find(c => c.id === clientId);
+
+  const [form, setForm] = useState({
+    name: '',
+    phone: '',
+    address: '',
+    lat: undefined as number | undefined,
+    lng: undefined as number | undefined,
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showMapPicker, setShowMapPicker] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!client) return;
+    setForm({
+      name: client.name ?? '',
+      phone: client.phone ?? '',
+      address: client.address ?? '',
+      lat: client.lat,
+      lng: client.lng,
+    });
+    setErrors({});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId]);
+
+  if (!client) return null;
+
+  const normalizePhone = (s: string) => (s || '').replace(/\D/g, '');
+  const phoneNorm = normalizePhone(form.phone);
+
+  const validate = () => {
+    const errs: Record<string, string> = {};
+    if (!form.name.trim()) errs.name = t('clients.validation.nameRequired');
+    if (!form.phone.trim()) errs.phone = t('clients.validation.phoneRequired');
+    if (!form.address.trim()) errs.address = t('clients.validation.addressRequired');
+    if (form.lat == null || form.lng == null) errs.location = t('clients.validation.locationRequired');
+
+    if (!errs.phone) {
+      const dup = clients.some(c =>
+        c.id !== client.id && normalizePhone(c.phone) === phoneNorm
+      );
+      if (dup) errs.phone = t('clients.validation.phoneDuplicate');
+    }
+
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const handleSave = () => {
+    if (saving) return;
+    if (!validate()) return;
+    setSaving(true);
+    updateClient(client.id, {
+      name: form.name,
+      phone: form.phone,
+      address: form.address,
+      lat: form.lat,
+      lng: form.lng,
+    });
+    setSaving(false);
+    onClose();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[9000] bg-black/50 flex items-end justify-center"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-[430px] bg-white rounded-t-3xl overflow-hidden border-t border-gray-100 flex flex-col"
+        style={{ height: '85vh' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 shrink-0">
+          <div className="flex items-center gap-2">
+            <Edit2 size={18} className="text-[#2563EB]" />
+            <p className="text-sm font-bold text-gray-900">{t('clients.edit.title')}</p>
+          </div>
+          <button
+            type="button"
+            className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors"
+            onClick={onClose}
+          >
+            <X size={18} className="text-gray-500" />
+          </button>
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">{t('clients.form.name')}</label>
+            <input
+              value={form.name}
+              onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
+              className="w-full py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-900 focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-50"
+            />
+            {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">{t('clients.form.phone')}</label>
+            <input
+              value={form.phone}
+              onChange={e => setForm(prev => ({ ...prev, phone: e.target.value }))}
+              className="w-full py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-900 focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-50"
+            />
+            {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">{t('clients.form.address')}</label>
+            <textarea
+              value={form.address}
+              onChange={e => setForm(prev => ({ ...prev, address: e.target.value }))}
+              rows={2}
+              className="w-full py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-900 resize-none focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-50"
+            />
+            {errors.address && <p className="text-red-500 text-xs mt-1">{errors.address}</p>}
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">{t('clients.form.location')}</label>
+            <button
+              type="button"
+              onClick={() => setShowMapPicker(true)}
+              className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed transition-all text-sm font-medium ${
+                form.lat != null && form.lng != null
+                  ? 'border-green-300 bg-green-50 text-green-700'
+                  : 'border-gray-300 bg-gray-50 text-gray-600 hover:border-[#2563EB] hover:text-[#2563EB]'
+              }`}
+            >
+              <MapPin size={16} />
+              {form.lat != null && form.lng != null
+                ? t('clients.add.locationSelectedEdit')
+                : t('clients.add.locationSelect')}
+            </button>
+            {errors.location && <p className="text-red-500 text-xs mt-1">{errors.location}</p>}
+          </div>
+
+          <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+            <p className="text-xs text-gray-500">
+              {form.lat != null && form.lng != null
+                ? `📍 ${form.lat.toFixed(5)}, ${form.lng.toFixed(5)}`
+                : '—'}
+            </p>
+          </div>
+        </div>
+
+        <div className="px-4 py-3 border-t border-gray-100 shrink-0">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-semibold"
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="flex-1 py-3 rounded-xl bg-[#2563EB] text-white font-semibold disabled:opacity-60"
+            >
+              {saving ? '...' : t('common.save')}
+            </button>
+          </div>
+        </div>
+
+        {showMapPicker && (
+          <MapPicker
+            initialLat={form.lat}
+            initialLng={form.lng}
+            onConfirm={(lat, lng) => {
+              setForm(prev => ({ ...prev, lat, lng }));
+              setShowMapPicker(false);
+            }}
+            onClose={() => setShowMapPicker(false)}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
 

@@ -120,6 +120,19 @@ type TranslationKeys = {
   'clients.validation.nameRequired': string;
   'clients.validation.phoneRequired': string;
   'clients.validation.addressRequired': string;
+  'clients.validation.locationRequired': string;
+  'clients.validation.visitDaysRequired': string;
+  'clients.validation.phoneDuplicate': string;
+  'clients.edit.title': string;
+  
+  // MapPicker
+  'mapPicker.title': string;
+  'mapPicker.searchPlaceholder': string;
+  'mapPicker.myLocation': string;
+  'mapPicker.hintPickOnMap': string;
+  'mapPicker.mapLoading': string;
+  'mapPicker.confirmLocation': string;
+  'mapPicker.selectLocation': string;
   'clients.add': string;
   'clients.empty': string;
   'clients.form.title': string;
@@ -231,6 +244,9 @@ type TranslationKeys = {
   'delivery.stat.info': string;
   'delivery.stat.noOrders': string;
   'delivery.stat.waitOrders': string;
+  'delivery.debtorsOnlyFilter': string;
+  'delivery.debtorsOnlyFilter.on': string;
+  'delivery.debtorsOnlyFilter.off': string;
 
   // Returns (vozvrat)
   'returns.title': string;
@@ -468,6 +484,17 @@ const uz_lat: TranslationKeys = {
   'clients.validation.nameRequired': "Do'kon nomi kiritilishi shart",
   'clients.validation.phoneRequired': 'Telefon kiritilishi shart',
   'clients.validation.addressRequired': 'Manzil kiritilishi shart',
+  'clients.validation.locationRequired': 'Lokatsiya tanlanishi shart',
+  'clients.validation.visitDaysRequired': 'Kamida 1 ta tashrif kuni tanlang',
+  'clients.validation.phoneDuplicate': 'Bunday telefon raqamli klient mavjud',
+  'clients.edit.title': 'Klientni tahrirlash',
+  'mapPicker.title': 'Xaritadan joy tanlash',
+  'mapPicker.searchPlaceholder': "Qidiruv: ko'cha, mahalla...",
+  'mapPicker.myLocation': 'Mening joylashuvim',
+  'mapPicker.hintPickOnMap': '📍 Xaritaga bosib aniq joyni belgilang',
+  'mapPicker.mapLoading': 'Xarita yuklanmoqda...',
+  'mapPicker.confirmLocation': 'Lokatsiyani tasdiqlash',
+  'mapPicker.selectLocation': 'Xaritadan joy tanlang',
   'clients.add': "Klient qo'shish",
   'clients.empty': "Klientlar topilmadi",
   'clients.form.title': "Yangi klient qo'shish",
@@ -572,6 +599,9 @@ const uz_lat: TranslationKeys = {
   'delivery.stat.info': "Ma'lumotlar",
   'delivery.stat.noOrders': "Bugun zakaz yo'q",
   'delivery.stat.waitOrders': 'Yangi zakazlar tayinlanishini kuting',
+  'delivery.debtorsOnlyFilter': 'Faqat qarzdorlar',
+  'delivery.debtorsOnlyFilter.on': 'ON',
+  'delivery.debtorsOnlyFilter.off': 'OFF',
 
   'returns.title': 'Vozvrat',
   'returns.selectItems': 'Mahsulotlarni belgilang',
@@ -807,6 +837,17 @@ const uz_kir: TranslationKeys = {
   'clients.validation.nameRequired': 'Дўкон номи киритилиши шарт',
   'clients.validation.phoneRequired': 'Телефон киритилиши шарт',
   'clients.validation.addressRequired': 'Манзил киритилиши шарт',
+  'clients.validation.locationRequired': 'Локация танланиши шарт',
+  'clients.validation.visitDaysRequired': 'Камида 1 та ташриф куни танланг',
+  'clients.validation.phoneDuplicate': 'Бундай телефон рақамли клиент мавжуд',
+  'clients.edit.title': 'Клиентни тaҳрирлаш',
+  'mapPicker.title': 'Харитадан жой танлаш',
+  'mapPicker.searchPlaceholder': 'Қидирув: кўча, маҳалла...',
+  'mapPicker.myLocation': 'Менинг жойлашувим',
+  'mapPicker.hintPickOnMap': '📍 Харитага босиб аниқ жойни белгиланг',
+  'mapPicker.mapLoading': 'Харита юкланмоқда...',
+  'mapPicker.confirmLocation': 'Локацияни тасдиқлаш',
+  'mapPicker.selectLocation': 'Харитадан жой танланг',
   'clients.add': 'Клиент қўшиш',
   'clients.empty': 'Клиентлар топилмади',
   'clients.form.title': 'Янги клиент қўшиш',
@@ -911,6 +952,9 @@ const uz_kir: TranslationKeys = {
   'delivery.stat.info': 'Маълумотлар',
   'delivery.stat.noOrders': 'Бугун заказ йўқ',
   'delivery.stat.waitOrders': 'Янги заказлар тайинланишини кутинг',
+  'delivery.debtorsOnlyFilter': 'Фақат қарздорлар',
+  'delivery.debtorsOnlyFilter.on': 'ЁҚ',
+  'delivery.debtorsOnlyFilter.off': 'ЎЧ',
 
   'returns.title': 'Возврат',
   'returns.selectItems': 'Маҳсулотларни белгиланг',
@@ -1044,6 +1088,7 @@ const ru: TranslationKeys = {
   'common.search': 'Поиск',
   'common.save': 'Сохранить',
   'common.cancel': 'Отмена',
+  'common.continue': 'Продолжить',
   'common.add': 'Добавить',
   'common.back': 'Назад',
   'common.edit': 'Редактировать',
@@ -1145,6 +1190,17 @@ const ru: TranslationKeys = {
   'clients.validation.nameRequired': 'Название магазина обязательно',
   'clients.validation.phoneRequired': 'Телефон обязателен',
   'clients.validation.addressRequired': 'Адрес обязателен',
+  'clients.validation.locationRequired': 'Локация обязательна',
+  'clients.validation.visitDaysRequired': 'Выберите хотя бы 1 день визита',
+  'clients.validation.phoneDuplicate': 'Клиент с таким телефоном уже есть',
+  'clients.edit.title': 'Редактировать клиента',
+  'mapPicker.title': 'Выбор местоположения на карте',
+  'mapPicker.searchPlaceholder': 'Поиск: улица, район...',
+  'mapPicker.myLocation': 'Мое местоположение',
+  'mapPicker.hintPickOnMap': '📍 Нажмите на карту, чтобы отметить точное место',
+  'mapPicker.mapLoading': 'Карта загружается...',
+  'mapPicker.confirmLocation': 'Подтвердить локацию',
+  'mapPicker.selectLocation': 'Выберите место на карте',
   'clients.add': 'Добавить клиента',
   'clients.empty': 'Клиенты не найдены',
   'clients.form.title': 'Добавить нового клиента',
@@ -1208,6 +1264,7 @@ const ru: TranslationKeys = {
   'orders.selectedCount': 'выбрано',
   'orders.continue': 'Далее',
   'orders.backToOrders': 'Возвращаемся к списку заказов...',
+  'orders.backToList': 'Возвращаемся к списку заказов...',
   'orders.ordersCountSuffix': 'заказ(ов)',
   'orders.today': 'Сегодня',
   'orders.clear': 'Очистить',
@@ -1248,6 +1305,9 @@ const ru: TranslationKeys = {
   'delivery.stat.info': 'Информация',
   'delivery.stat.noOrders': 'Сегодня заказов нет',
   'delivery.stat.waitOrders': 'Ожидайте назначения новых заказов',
+  'delivery.debtorsOnlyFilter': 'Только должники',
+  'delivery.debtorsOnlyFilter.on': 'ON',
+  'delivery.debtorsOnlyFilter.off': 'OFF',
 
   'returns.title': 'Возврат',
   'returns.selectItems': 'Отметьте товары',
