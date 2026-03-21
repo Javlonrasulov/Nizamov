@@ -16,7 +16,6 @@ import { Checkbox } from '../../components/ui/checkbox';
 import { apiGetOrders } from '../../api/orders';
 import { apiGetSuppliers } from '../../api/suppliers';
 import { apiGetUsers } from '../../api/users';
-import { apiGetClientBalance } from '../../api/payments';
 import { apiGetSupplier } from '../../api/suppliers';
 
 const STATUS_UZ: Record<string, string> = {
@@ -159,6 +158,38 @@ function setLastExported(key: string, value: string) {
     obj[key] = value;
     localStorage.setItem(EXCEL_EXPORT_STORAGE_KEY, JSON.stringify(obj));
   } catch { /* ignore */ }
+}
+
+function buildAcceptedReturnsMapByDate(
+  rows: any[],
+  orderById: Map<string, any>,
+  dateFrom?: string,
+  dateTo?: string,
+) {
+  const next: Record<string, number> = {};
+
+  for (const row of rows || []) {
+    const order = orderById.get(row.orderId);
+    if (!order) continue;
+
+    const returnDate = row.date || row.acceptedAt?.slice?.(0, 10);
+    if (!returnDate) continue;
+    if (dateFrom && returnDate < dateFrom) continue;
+    if (dateTo && returnDate > dateTo) continue;
+
+    const priceByProductId = new Map<string, number>();
+    for (const item of order.items || []) {
+      priceByProductId.set(item.productId, Number(item.price || 0));
+    }
+
+    const amount = (row.items || []).reduce((sum: number, item: any) => (
+      sum + Number(item.quantity || 0) * (priceByProductId.get(item.productId) || 0)
+    ), 0);
+
+    next[returnDate] = (next[returnDate] || 0) + amount;
+  }
+
+  return next;
 }
 
 /* ── Color picker ── */
@@ -593,26 +624,40 @@ function ExcelExportModal({
       if (selected.hisobot) {
         const ord = await apiGetOrders({ dateFrom: from, dateTo: to }) as any[];
         const delivered = ord.filter((o: any) => o.status === 'delivered');
+        const visibleOrderById = new Map(
+          orders
+            .filter((o: any) => o.status !== 'new')
+            .map((o: any) => [o.id, o] as const),
+        );
         const productCostById: Record<string, number> = {};
         products.forEach(p => { productCostById[p.id] = p.cost ?? 0; });
 
         let paidByOrderId: Record<string, number> = {};
         let returnsDetailByOrderId: Record<string, { returnedAmount: number; deliveredAmount: number; returnedQtyByProductId: Record<string, number> }> = {};
+        let acceptedReturnsByDate: Record<string, number> = {};
 
-        if (delivered.length > 0) {
+        if (delivered.length > 0 || visibleOrderById.size > 0) {
           const clientIds = Array.from(new Set(delivered.map((o: any) => o.clientId).filter(Boolean)));
-          const [balances, returnsRows] = await Promise.all([
+          const [balances, allReturnsRows, acceptedReturnsRows] = await Promise.all([
             Promise.all(clientIds.map((cid: string) => apiGetClientBalance(cid).catch(() => null))),
             apiGetReturns().catch(() => []),
+            apiGetReturns({ status: 'accepted' }).catch(() => []),
           ]);
           for (const balance of balances) {
             for (const row of balance?.perOrder ?? []) {
               paidByOrderId[row.orderId] = row.paid ?? 0;
             }
           }
+          acceptedReturnsByDate = buildAcceptedReturnsMapByDate(
+            acceptedReturnsRows || [],
+            visibleOrderById,
+            from || undefined,
+            to || undefined,
+          );
+
           const orderMap = new Map(delivered.map((o: any) => [o.id, o]));
           const returnedQtyByOrder = new Map<string, Record<string, number>>();
-          for (const row of returnsRows || []) {
+          for (const row of allReturnsRows || []) {
             if (!orderMap.has(row.orderId)) continue;
             const byProduct = returnedQtyByOrder.get(row.orderId) || {};
             for (const item of row.items || []) {
@@ -635,7 +680,6 @@ function ExcelExportModal({
         const dateMap: Record<string, number> = {};
         const profitMap: Record<string, number> = {};
         const ordersCountMap: Record<string, number> = {};
-        const returnsMap: Record<string, number> = {};
         const debtMap: Record<string, number> = {};
         for (const order of delivered) {
           const rd = returnsDetailByOrderId[order.id];
@@ -657,18 +701,26 @@ function ExcelExportModal({
           dateMap[order.date] = (dateMap[order.date] || 0) + collected;
           profitMap[order.date] = (profitMap[order.date] || 0) + realizedGrossProfit;
           ordersCountMap[order.date] = (ordersCountMap[order.date] || 0) + 1;
-          returnsMap[order.date] = (returnsMap[order.date] || 0) + returnedAmount;
           debtMap[order.date] = (debtMap[order.date] || 0) + debt;
         }
-        const dailyRows = Object.entries(dateMap).sort(([a], [b]) => a.localeCompare(b)).map(([date]) => ({
-          date, orders: ordersCountMap[date] || 0, sales: dateMap[date] || 0,
-          returns: returnsMap[date] || 0, debt: debtMap[date] || 0, profit: profitMap[date] || 0,
-        }));
         const fromStr = from || '0000-00-00', toStr = to || '9999-99-99';
         const expByDate: Record<string, number> = {};
         expenses.filter(e => e.date >= fromStr && e.date <= toStr).forEach(e => {
           expByDate[e.date] = (expByDate[e.date] || 0) + e.amount;
         });
+        const reportDates = Array.from(new Set([
+          ...Object.keys(dateMap),
+          ...Object.keys(acceptedReturnsByDate),
+          ...Object.keys(expByDate),
+        ])).sort();
+        const dailyRows = reportDates.map((date) => ({
+          date,
+          orders: ordersCountMap[date] || 0,
+          sales: dateMap[date] || 0,
+          returns: acceptedReturnsByDate[date] || 0,
+          debt: debtMap[date] || 0,
+          profit: profitMap[date] || 0,
+        }));
         const h1 = ['Sana', 'Zakazlar', 'Savdo', 'Vozvrat', 'Qarz', 'Chiqim', 'Foyda', 'Sof foyda'];
         const r1 = dailyRows.map(r => {
           const chiqim = expByDate[r.date] || 0;
@@ -921,6 +973,10 @@ export const AdminReports = () => {
   const { t, adminDateFrom, adminDateTo, expenses, addExpense, deleteExpense, expenseCategories, products, orders, clients } = useApp();
   const filteredOrders = useAdminVisibleOrders();
   const hasDateFilter = adminDateFrom || adminDateTo;
+  const allAdminVisibleOrders = useMemo(
+    () => orders.filter(o => o.status !== 'new'),
+    [orders],
+  );
   const deliveredOrders = useMemo(
     () => filteredOrders.filter(o => o.status === 'delivered'),
     [filteredOrders],
@@ -931,6 +987,7 @@ export const AdminReports = () => {
     deliveredAmount: number;
     returnedQtyByProductId: Record<string, number>;
   }>>({});
+  const [acceptedReturnsByDate, setAcceptedReturnsByDate] = useState<Record<string, number>>({});
 
   /* Filtered expenses */
   const filteredExpenses = expenses.filter(e => {
@@ -1038,6 +1095,26 @@ export const AdminReports = () => {
     return () => { cancelled = true; };
   }, [deliveredOrders]);
 
+  useEffect(() => {
+    const orderMap = new Map(allAdminVisibleOrders.map(order => [order.id, order] as const));
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const rows = await apiGetReturns({ status: 'accepted' });
+        if (cancelled) return;
+
+        setAcceptedReturnsByDate(
+          buildAcceptedReturnsMapByDate(rows || [], orderMap, adminDateFrom || undefined, adminDateTo || undefined),
+        );
+      } catch {
+        if (!cancelled) setAcceptedReturnsByDate({});
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [allAdminVisibleOrders, adminDateFrom, adminDateTo]);
+
   const financialOrders = useMemo(() => {
     return deliveredOrders.map(order => {
       const returnDetail = returnsDetailByOrderId[order.id];
@@ -1076,7 +1153,7 @@ export const AdminReports = () => {
 
   const totalSales = financialOrders.reduce((sum, order) => sum + order.collected, 0);
   const totalOrders = financialOrders.length;
-  const totalReturns = financialOrders.reduce((sum, order) => sum + order.returnedAmount, 0);
+  const totalReturns = Object.values(acceptedReturnsByDate).reduce((sum, value) => sum + value, 0);
   const totalDebt = financialOrders.reduce((sum, order) => sum + order.debt, 0);
   const totalGrossProfit = financialOrders.reduce((sum, order) => sum + order.realizedGrossProfit, 0);
   const netProfit = totalGrossProfit - totalExpense;
@@ -1133,13 +1210,11 @@ export const AdminReports = () => {
   const dateMap: Record<string, number> = {};
   const profitMap: Record<string, number> = {};
   const ordersCountMap: Record<string, number> = {};
-  const returnsMap: Record<string, number> = {};
   const debtMap: Record<string, number> = {};
   financialOrders.forEach(o => {
     dateMap[o.date] = (dateMap[o.date] || 0) + o.collected;
     profitMap[o.date] = (profitMap[o.date] || 0) + o.realizedGrossProfit;
     ordersCountMap[o.date] = (ordersCountMap[o.date] || 0) + 1;
-    returnsMap[o.date] = (returnsMap[o.date] || 0) + o.returnedAmount;
     debtMap[o.date] = (debtMap[o.date] || 0) + o.debt;
   });
   const lineData = Object.entries(dateMap).sort(([a], [b]) => a.localeCompare(b)).map(([d, v]) => ({ label: d.slice(5), value: v }));
@@ -1148,11 +1223,17 @@ export const AdminReports = () => {
   financialOrders.forEach(o => { agentMap[o.agentName] = (agentMap[o.agentName] || 0) + o.collected; });
   const agentBarData = Object.entries(agentMap).sort(([, a], [, b]) => b - a).map(([name, value]) => ({ label: name.split(' ')[0], value }));
 
-  const dailyRows = Object.entries(dateMap).sort(([a], [b]) => a.localeCompare(b)).map(([date, sales]) => ({
+  const reportDates = Array.from(new Set([
+    ...Object.keys(dateMap),
+    ...Object.keys(acceptedReturnsByDate),
+    ...Object.keys(debtMap),
+    ...Object.keys(profitMap),
+  ])).sort();
+  const dailyRows = reportDates.map((date) => ({
     date,
     orders: ordersCountMap[date] || 0,
-    sales,
-    returns: returnsMap[date] || 0,
+    sales: dateMap[date] || 0,
+    returns: acceptedReturnsByDate[date] || 0,
     debt: debtMap[date] || 0,
     profit: profitMap[date] || 0,
   }));
