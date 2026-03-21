@@ -2,13 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as LucideIcons from 'lucide-react';
 import {
   Check, X, Trash2, Pencil, Plus, CalendarDays,
-  Download, TrendingUp, TrendingDown, Wallet, SlidersHorizontal, ChevronDown, ChevronUp, Table2, Banknote, RotateCcw, Package, Users, Truck, UserCog, Warehouse,
+  Download, TrendingUp, TrendingDown, Wallet, SlidersHorizontal, ChevronDown, ChevronUp, Table2, Banknote, RotateCcw, Package, Users, Truck, UserCog, Warehouse, BarChart2,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useApp, AVAILABLE_ICONS, CATEGORY_COLORS, COLOR_MAP, ExpenseCategoryDef } from '../../context/AppContext';
 import { AdminLayout } from '../../components/AdminLayout';
 import { SimpleLineChart, SimpleGroupedBar, SimpleVBarChart } from '../../components/SimpleCharts';
-import { useAdminVisibleOrders, CalendarPopup, dateToIso, formatDisplay } from '../../components/AdminDateFilter';
+import { useAdminVisibleOrders, CalendarPopup, dateToIso, formatDisplay, getMonthKey, normalizeDateValue } from '../../components/AdminDateFilter';
 import { apiGetClientBalance } from '../../api/payments';
 import { apiGetReturns } from '../../api/returns';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
@@ -384,7 +384,7 @@ function CategoryManager() {
 }
 
 /* ── Excel Export Modal ── */
-type ExportCategory = 'orders' | 'clients' | 'products' | 'suppliers' | 'staff' | 'warehouse' | 'hisobot' | 'chiqimlar';
+type ExportCategory = 'orders' | 'clients' | 'products' | 'suppliers' | 'staff' | 'warehouse' | 'hisobot' | 'chiqimlar' | 'agentstats';
 const EXPORT_CATEGORIES: { key: ExportCategory; labelKey: string; Icon: typeof Package }[] = [
   { key: 'orders', labelKey: 'admin.ordersPage', Icon: Table2 },
   { key: 'clients', labelKey: 'admin.clientsPage', Icon: Users },
@@ -394,6 +394,7 @@ const EXPORT_CATEGORIES: { key: ExportCategory; labelKey: string; Icon: typeof P
   { key: 'warehouse', labelKey: 'admin.warehouse', Icon: Warehouse },
   { key: 'hisobot', labelKey: 'admin.reports.dailyReport', Icon: TrendingUp },
   { key: 'chiqimlar', labelKey: 'admin.reports.expenses', Icon: TrendingDown },
+  { key: 'agentstats', labelKey: 'admin.agentStats', Icon: BarChart2 },
 ];
 
 function ExcelExportModal({
@@ -440,6 +441,7 @@ function ExcelExportModal({
     warehouse: false,
     hisobot: false,
     chiqimlar: false,
+    agentstats: false,
   });
   const [tempFrom, setTempFrom] = useState(today);
   const [tempTo, setTempTo] = useState(today);
@@ -452,7 +454,7 @@ function ExcelExportModal({
   };
 
   const selectAll = (v: boolean) => {
-    setSelected({ orders: v, clients: v, products: v, suppliers: v, staff: v, warehouse: v, hisobot: v, chiqimlar: v });
+    setSelected({ orders: v, clients: v, products: v, suppliers: v, staff: v, warehouse: v, hisobot: v, chiqimlar: v, agentstats: v });
   };
 
   const allSelected = Object.values(selected).every(Boolean);
@@ -662,8 +664,25 @@ function ExcelExportModal({
           date, orders: ordersCountMap[date] || 0, sales: dateMap[date] || 0,
           returns: returnsMap[date] || 0, debt: debtMap[date] || 0, profit: profitMap[date] || 0,
         }));
-        const h1 = ['Sana', 'Zakazlar', 'Savdo', 'Vozvrat', 'Qarz', 'Foyda'];
-        const r1 = dailyRows.map(r => [r.date, r.orders, r.sales, r.returns, r.debt, Math.round(r.profit)]);
+        const fromStr = from || '0000-00-00', toStr = to || '9999-99-99';
+        const expByDate: Record<string, number> = {};
+        expenses.filter(e => e.date >= fromStr && e.date <= toStr).forEach(e => {
+          expByDate[e.date] = (expByDate[e.date] || 0) + e.amount;
+        });
+        const h1 = ['Sana', 'Zakazlar', 'Savdo', 'Vozvrat', 'Qarz', 'Chiqim', 'Foyda', 'Sof foyda'];
+        const r1 = dailyRows.map(r => {
+          const chiqim = expByDate[r.date] || 0;
+          const sofFoyda = Math.round(r.profit) - chiqim;
+          return [r.date, r.orders, r.sales, r.returns, r.debt, chiqim, Math.round(r.profit), sofFoyda];
+        });
+        const totalOrders = r1.reduce((s, r) => s + (r[1] as number), 0);
+        const totalSales = r1.reduce((s, r) => s + (r[2] as number), 0);
+        const totalReturns = r1.reduce((s, r) => s + (r[3] as number), 0);
+        const totalDebt = r1.reduce((s, r) => s + (r[4] as number), 0);
+        const totalChiqim = Object.values(expByDate).reduce((s, v) => s + v, 0);
+        const totalFoyda = r1.reduce((s, r) => s + (r[6] as number), 0);
+        const totalSofFoyda = totalFoyda - totalChiqim;
+        r1.push(['Umumiy', totalOrders, totalSales, totalReturns, totalDebt, totalChiqim, totalFoyda, totalSofFoyda]);
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([h1, ...r1]), 'Hisobot');
         setLastExported('hisobot', new Date().toISOString());
       }
@@ -680,6 +699,32 @@ function ExcelExportModal({
         ]);
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([h2, ...r2]), 'Chiqimlar');
         setLastExported('chiqimlar', new Date().toISOString());
+      }
+
+      if (selected.agentstats) {
+        const ord = await apiGetOrders({ dateFrom: from, dateTo: to }) as any[];
+        const refDate = to || from || today;
+        const refMonth = getMonthKey(refDate, today);
+        const byAgent = new Map<string, { name: string; periodSales: number; monthlySales: number; ordersCount: number; itemsSold: number }>();
+        for (const o of ord) {
+          const aid = o.agentId || 'unknown';
+          const cur = byAgent.get(aid) || { name: o.agentName || aid, periodSales: 0, monthlySales: 0, ordersCount: 0, itemsSold: 0 };
+          cur.periodSales += o.total || 0;
+          cur.ordersCount += 1;
+          cur.itemsSold += (o.items || []).reduce((s: number, i: any) => s + (i.quantity || 0), 0);
+          if (getMonthKey(o.date, refDate) === refMonth) cur.monthlySales += o.total || 0;
+          byAgent.set(aid, cur);
+        }
+        const agentList = Array.from(byAgent.values()).sort((a, b) => b.periodSales - a.periodSales);
+        const h = ['Agent', 'Davr savdosi', 'Oylik savdo', 'Zakazlar soni', 'Mahsulotlar soni'];
+        const rows = agentList.map(a => [a.name, a.periodSales, a.monthlySales, a.ordersCount, a.itemsSold]);
+        const totSales = rows.reduce((s, r) => s + (r[1] as number), 0);
+        const totMonthly = rows.reduce((s, r) => s + (r[2] as number), 0);
+        const totOrders = rows.reduce((s, r) => s + (r[3] as number), 0);
+        const totItems = rows.reduce((s, r) => s + (r[4] as number), 0);
+        rows.push(['Umumiy', totSales, totMonthly, totOrders, totItems]);
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([h, ...rows]), 'Agent statistikasi');
+        setLastExported('agentstats', new Date().toISOString());
       }
 
       if (selected.warehouse) {
