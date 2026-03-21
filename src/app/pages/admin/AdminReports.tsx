@@ -710,7 +710,7 @@ function ExcelExportModal({
             holat,
           ];
         });
-        XLSX.utils.book_append_sheet(XLSX.utils.aoa_to_sheet([h1, ...rows1]), wb, 'Ombor');
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([h1, ...rows1]), 'Ombor');
         const suppList = await apiGetSuppliers();
         const allStockIns: Array<{ date: string; supplierName: string; productName: string; qty: number; cost: number; total: number }> = [];
         await Promise.all(suppList.map(async (s) => {
@@ -733,7 +733,7 @@ function ExcelExportModal({
         allStockIns.sort((a, b) => a.date.localeCompare(b.date));
         const h2 = ['Sana', 'Yetkazib beruvchi', 'Mahsulot', 'Miqdor', 'Tannarx', 'Summa'];
         const rows2 = allStockIns.map(r => [formatDisplay(r.date), r.supplierName, r.productName, r.qty, r.cost, r.total]);
-        XLSX.utils.book_append_sheet(XLSX.utils.aoa_to_sheet([h2, ...rows2]), wb, 'Ombor kirimlari');
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([h2, ...rows2]), 'Ombor kirimlari');
         setLastExported('warehouse', new Date().toISOString());
       }
 
