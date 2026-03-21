@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as LucideIcons from 'lucide-react';
 import {
   Check, X, Trash2, Pencil, Plus, CalendarDays,
-  Download, TrendingUp, TrendingDown, Wallet, SlidersHorizontal, ChevronDown, Table2, Banknote, RotateCcw, Package, Users, Truck, UserCog,
+  Download, TrendingUp, TrendingDown, Wallet, SlidersHorizontal, ChevronDown, ChevronUp, Table2, Banknote, RotateCcw, Package, Users, Truck, UserCog, Warehouse,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useApp, AVAILABLE_ICONS, CATEGORY_COLORS, COLOR_MAP, ExpenseCategoryDef } from '../../context/AppContext';
@@ -16,6 +16,30 @@ import { Checkbox } from '../../components/ui/checkbox';
 import { apiGetOrders } from '../../api/orders';
 import { apiGetSuppliers } from '../../api/suppliers';
 import { apiGetUsers } from '../../api/users';
+import { apiGetClientBalance } from '../../api/payments';
+import { apiGetSupplier } from '../../api/suppliers';
+
+const STATUS_UZ: Record<string, string> = {
+  new: 'Yangi',
+  tayyorlanmagan: 'Tayyorlanmagan',
+  yuborilgan: 'Yuborilgan',
+  accepted: 'Qabul qilindi',
+  delivering: 'Yetkazilmoqda',
+  delivered: 'Yetkazilgan',
+  cancelled: 'Bekor qilindi',
+  sent: 'Yuborilgan',
+};
+const ROLE_UZ: Record<string, string> = {
+  agent: 'Agent',
+  delivery: 'Yetkazib beruvchi',
+  admin: 'Admin',
+  sklad: 'Ombor',
+};
+
+function shortId(id: string, num?: number | null): string {
+  if (num != null) return `#${num}`;
+  return `#${id.slice(-8)}`;
+}
 
 /* ── Dynamic Lucide icon renderer ── */
 function CatIcon({ name, size = 15, className = '', style }: { name: string; size?: number; className?: string; style?: React.CSSProperties }) {
@@ -360,13 +384,16 @@ function CategoryManager() {
 }
 
 /* ── Excel Export Modal ── */
-type ExportCategory = 'orders' | 'clients' | 'products' | 'suppliers' | 'staff';
+type ExportCategory = 'orders' | 'clients' | 'products' | 'suppliers' | 'staff' | 'warehouse' | 'hisobot' | 'chiqimlar';
 const EXPORT_CATEGORIES: { key: ExportCategory; labelKey: string; Icon: typeof Package }[] = [
   { key: 'orders', labelKey: 'admin.ordersPage', Icon: Table2 },
   { key: 'clients', labelKey: 'admin.clientsPage', Icon: Users },
   { key: 'products', labelKey: 'admin.productsPage', Icon: Package },
   { key: 'suppliers', labelKey: 'admin.suppliers', Icon: Truck },
   { key: 'staff', labelKey: 'admin.agentsPage', Icon: UserCog },
+  { key: 'warehouse', labelKey: 'admin.warehouse', Icon: Warehouse },
+  { key: 'hisobot', labelKey: 'admin.reports.dailyReport', Icon: TrendingUp },
+  { key: 'chiqimlar', labelKey: 'admin.reports.expenses', Icon: TrendingDown },
 ];
 
 function ExcelExportModal({
@@ -410,10 +437,14 @@ function ExcelExportModal({
     products: false,
     suppliers: false,
     staff: false,
+    warehouse: false,
+    hisobot: false,
+    chiqimlar: false,
   });
   const [tempFrom, setTempFrom] = useState(today);
   const [tempTo, setTempTo] = useState(today);
   const [selecting, setSelecting] = useState<'from' | 'to'>('from');
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const toggle = (key: ExportCategory, v: boolean) => {
@@ -421,7 +452,7 @@ function ExcelExportModal({
   };
 
   const selectAll = (v: boolean) => {
-    setSelected({ orders: v, clients: v, products: v, suppliers: v, staff: v });
+    setSelected({ orders: v, clients: v, products: v, suppliers: v, staff: v, warehouse: v, hisobot: v, chiqimlar: v });
   };
 
   const allSelected = Object.values(selected).every(Boolean);
@@ -430,7 +461,7 @@ function ExcelExportModal({
   const handleDateSelect = (iso: string) => {
     if (selecting === 'from') {
       setTempFrom(iso);
-      if (tempTo && iso > tempTo) setTempTo('');
+      setTempTo(iso);
       setSelecting('to');
     } else {
       if (iso < tempFrom) {
@@ -439,12 +470,14 @@ function ExcelExportModal({
       } else {
         setTempTo(iso);
       }
+      setCalendarOpen(false);
     }
   };
 
   const handleQuickDate = (from: string, to: string) => {
     setTempFrom(from);
     setTempTo(to);
+    setCalendarOpen(false);
   };
 
   const doExport = async () => {
@@ -457,16 +490,21 @@ function ExcelExportModal({
 
     try {
       if (selected.orders) {
-        const ord = await apiGetOrders({ dateFrom: from, dateTo: to });
-        const h = ['ID', 'Sana', 'Klient', 'Agent', 'Jami', 'Status', 'Izoh'];
+        const ord = await apiGetOrders({ dateFrom: from, dateTo: to }) as any[];
+        const h = ['#', 'Sana', 'Klient', 'Telefon', 'Manzil', 'Agent', 'Yetkazuvchi', 'Mashina', 'Jami', 'Status', 'Mahsulotlar', 'Izoh'];
         const rows = ord.map(o => [
-          o.id,
-          o.date,
+          shortId(o.id, o.orderNumber),
+          formatDisplay(o.date || ''),
           o.clientName || '',
+          o.clientPhone || '',
+          o.clientAddress || '',
           o.agentName || '',
+          o.deliveryName || '',
+          o.vehicleName || '',
           o.total || 0,
-          o.status || '',
-          (o as any).comment || '',
+          STATUS_UZ[o.status] || o.status,
+          (o.items || []).map((i: any) => `${i.productName} ${i.quantity}×${i.price}`).join('; ') || '',
+          o.comment || '',
         ]);
         const ws = XLSX.utils.aoa_to_sheet([h, ...rows]);
         XLSX.utils.book_append_sheet(wb, ws, 'Zakazlar');
@@ -474,16 +512,42 @@ function ExcelExportModal({
       }
 
       if (selected.clients) {
-        const h = ['ID', 'Ism', 'Telefon', 'Manzil'];
-        const rows = clients.map(c => [c.id, c.name, c.phone, c.address]);
+        const [balances, agentUsers] = await Promise.all([
+          Promise.all(clients.map(c => apiGetClientBalance(c.id).catch(() => null))),
+          apiGetUsers('agent').catch(() => []),
+        ]);
+        const agentMap = new Map(agentUsers.map(u => [u.id, u.name]));
+        const h = ['#', 'Ism', 'Telefon', 'Manzil', 'Agent', 'Tashrif kunlari', 'Jami zakaz', 'Jami savdo', 'Qarz'];
+        const rows = clients.map((c, i) => {
+          const bal = balances[i];
+          const cd = c as any;
+          return [
+            shortId(c.id),
+            c.name || '',
+            c.phone || '',
+            c.address || '',
+            agentMap.get(cd.agentId) || cd.agentName || '-',
+            (cd.visitDays || []).join(', ') || '-',
+            bal?.perOrder?.length ?? 0,
+            bal?.deliveredTotal ?? 0,
+            bal?.debt ?? 0,
+          ];
+        });
         const ws = XLSX.utils.aoa_to_sheet([h, ...rows]);
         XLSX.utils.book_append_sheet(wb, ws, 'Klientlar');
         setLastExported('clients', new Date().toISOString());
       }
 
       if (selected.products) {
-        const h = ['ID', 'Nomi', 'Narx', 'Tannarx', 'Qoldiq'];
-        const rows = products.map(p => [p.id, p.name, p.price, p.cost ?? 0, p.stock ?? 0]);
+        const h = ['#', 'Nomi', 'Narx', 'Tannarx', 'Qoldiq', 'Foyda'];
+        const rows = products.map(p => [
+          shortId(p.id),
+          p.name || '',
+          p.price ?? 0,
+          p.cost ?? 0,
+          p.stock ?? 0,
+          ((p.price ?? 0) - (p.cost ?? 0)),
+        ]);
         const ws = XLSX.utils.aoa_to_sheet([h, ...rows]);
         XLSX.utils.book_append_sheet(wb, ws, 'Mahsulotlar');
         setLastExported('products', new Date().toISOString());
@@ -491,8 +555,19 @@ function ExcelExportModal({
 
       if (selected.suppliers) {
         const supp = await apiGetSuppliers();
-        const h = ['ID', 'Nomi', 'Telefon', 'Manzil', 'Qarz'];
-        const rows = supp.map(s => [s.id, s.name, s.phone || '', s.address || '', s.remainingDebt ?? 0]);
+        const h = ['#', 'Nomi', 'Telefon', 'Manzil', 'Izoh', 'Olingan', "To'langan", 'Qarz', "Oxirgi yetkazish", "Oxirgi to'lov"];
+        const rows = supp.map(s => [
+          shortId(s.id),
+          s.name || '',
+          s.phone || '',
+          s.address || '',
+          s.comment || '',
+          s.totalReceived ?? 0,
+          s.totalPaid ?? 0,
+          s.remainingDebt ?? 0,
+          s.lastDeliveryAt || '-',
+          s.lastPaymentAt || '-',
+        ]);
         const ws = XLSX.utils.aoa_to_sheet([h, ...rows]);
         XLSX.utils.book_append_sheet(wb, ws, 'Yetkazib beruvchilar');
         setLastExported('suppliers', new Date().toISOString());
@@ -500,11 +575,166 @@ function ExcelExportModal({
 
       if (selected.staff) {
         const users = await apiGetUsers();
-        const h = ['ID', 'Ism', 'Telefon', 'Rol', 'Mashina'];
-        const rows = users.map(u => [u.id, u.name, u.phone, u.role, (u as any).vehicleName || '']);
+        const h = ['#', 'Ism', 'Telefon', 'Rol', 'Mashina'];
+        const rows = users.map(u => [
+          shortId(u.id),
+          u.name || '',
+          u.phone || '',
+          ROLE_UZ[u.role] || u.role,
+          (u as any).vehicleName || '',
+        ]);
         const ws = XLSX.utils.aoa_to_sheet([h, ...rows]);
         XLSX.utils.book_append_sheet(wb, ws, 'Xodimlar');
         setLastExported('staff', new Date().toISOString());
+      }
+
+      if (selected.hisobot) {
+        const ord = await apiGetOrders({ dateFrom: from, dateTo: to }) as any[];
+        const delivered = ord.filter((o: any) => o.status === 'delivered');
+        const productCostById: Record<string, number> = {};
+        products.forEach(p => { productCostById[p.id] = p.cost ?? 0; });
+
+        let paidByOrderId: Record<string, number> = {};
+        let returnsDetailByOrderId: Record<string, { returnedAmount: number; deliveredAmount: number; returnedQtyByProductId: Record<string, number> }> = {};
+
+        if (delivered.length > 0) {
+          const clientIds = Array.from(new Set(delivered.map((o: any) => o.clientId).filter(Boolean)));
+          const [balances, returnsRows] = await Promise.all([
+            Promise.all(clientIds.map((cid: string) => apiGetClientBalance(cid).catch(() => null))),
+            apiGetReturns().catch(() => []),
+          ]);
+          for (const balance of balances) {
+            for (const row of balance?.perOrder ?? []) {
+              paidByOrderId[row.orderId] = row.paid ?? 0;
+            }
+          }
+          const orderMap = new Map(delivered.map((o: any) => [o.id, o]));
+          const returnedQtyByOrder = new Map<string, Record<string, number>>();
+          for (const row of returnsRows || []) {
+            if (!orderMap.has(row.orderId)) continue;
+            const byProduct = returnedQtyByOrder.get(row.orderId) || {};
+            for (const item of row.items || []) {
+              byProduct[item.productId] = (byProduct[item.productId] || 0) + (item.quantity || 0);
+            }
+            returnedQtyByOrder.set(row.orderId, byProduct);
+          }
+          for (const order of delivered) {
+            const returnedQtyByProductId = returnedQtyByOrder.get(order.id) || {};
+            let returnedAmount = 0, deliveredAmount = 0;
+            for (const item of order.items || []) {
+              const oq = Number(item.quantity || 0), rq = Math.min(oq, returnedQtyByProductId[item.productId] || 0);
+              returnedAmount += rq * (item.price || 0);
+              deliveredAmount += Math.max(0, oq - rq) * (item.price || 0);
+            }
+            returnsDetailByOrderId[order.id] = { returnedAmount, deliveredAmount, returnedQtyByProductId };
+          }
+        }
+
+        const dateMap: Record<string, number> = {};
+        const profitMap: Record<string, number> = {};
+        const ordersCountMap: Record<string, number> = {};
+        const returnsMap: Record<string, number> = {};
+        const debtMap: Record<string, number> = {};
+        for (const order of delivered) {
+          const rd = returnsDetailByOrderId[order.id];
+          const paid = Math.max(0, paidByOrderId[order.id] ?? 0);
+          const adjustedRevenue = rd?.deliveredAmount ?? order.total;
+          const returnedAmount = rd?.returnedAmount ?? 0;
+          const collected = Math.min(adjustedRevenue, paid);
+          const debt = Math.max(0, adjustedRevenue - collected);
+          let adjustedGrossProfit = 0;
+          for (const item of order.items || []) {
+            const returnedQty = Math.min(Number(item.quantity || 0), rd?.returnedQtyByProductId[item.productId] || 0);
+            const deliveredQty = Math.max(0, Number(item.quantity || 0) - returnedQty);
+            const cost = productCostById[item.productId] ?? 0;
+            adjustedGrossProfit += deliveredQty * ((item.price || 0) - cost);
+          }
+          const collectionRatio = adjustedRevenue > 0 ? Math.min(1, collected / adjustedRevenue) : 0;
+          const realizedGrossProfit = adjustedGrossProfit * collectionRatio;
+
+          dateMap[order.date] = (dateMap[order.date] || 0) + collected;
+          profitMap[order.date] = (profitMap[order.date] || 0) + realizedGrossProfit;
+          ordersCountMap[order.date] = (ordersCountMap[order.date] || 0) + 1;
+          returnsMap[order.date] = (returnsMap[order.date] || 0) + returnedAmount;
+          debtMap[order.date] = (debtMap[order.date] || 0) + debt;
+        }
+        const dailyRows = Object.entries(dateMap).sort(([a], [b]) => a.localeCompare(b)).map(([date]) => ({
+          date, orders: ordersCountMap[date] || 0, sales: dateMap[date] || 0,
+          returns: returnsMap[date] || 0, debt: debtMap[date] || 0, profit: profitMap[date] || 0,
+        }));
+        const h1 = ['Sana', 'Zakazlar', 'Savdo', 'Vozvrat', 'Qarz', 'Foyda'];
+        const r1 = dailyRows.map(r => [r.date, r.orders, r.sales, r.returns, r.debt, Math.round(r.profit)]);
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([h1, ...r1]), 'Hisobot');
+        setLastExported('hisobot', new Date().toISOString());
+      }
+
+      if (selected.chiqimlar) {
+        const fromStr = from || '0000-00-00', toStr = to || '9999-99-99';
+        const filtered = expenses.filter(e => e.date >= fromStr && e.date <= toStr);
+        const h2 = ['Sana', 'Kategoriya', 'Summa', 'Izoh'];
+        const r2 = filtered.map(e => [
+          e.date,
+          expenseCategories.find(c => c.id === e.categoryId)?.label || e.categoryId,
+          e.amount,
+          e.comment,
+        ]);
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([h2, ...r2]), 'Chiqimlar');
+        setLastExported('chiqimlar', new Date().toISOString());
+      }
+
+      if (selected.warehouse) {
+        const ord = orders as any[];
+        const soldByProduct: Record<string, number> = {};
+        ord
+          .filter((o: any) => o.status !== 'cancelled' && o.status !== 'new')
+          .forEach((o: any) => (o.items || []).forEach((it: any) => {
+            soldByProduct[it.productId] = (soldByProduct[it.productId] || 0) + (it.quantity || 0);
+          }));
+        const h1 = ['#', 'Mahsulot', 'Jami kirgan', 'Jami sotilgan', 'Qoldiq', 'Tannarx', 'Sotuv narxi', 'Foyda', 'Holat'];
+        const rows1 = products.map(p => {
+          const totalSold = soldByProduct[p.id] || 0;
+          const remaining = p.stock || 0;
+          const totalIn = remaining + totalSold;
+          const profit = (p.price ?? 0) - (p.cost ?? 0);
+          const ratio = totalIn > 0 ? remaining / totalIn : 0;
+          const holat = ratio > 0.5 ? 'Yetarli' : ratio > 0.2 ? "O'rta" : 'Kam';
+          return [
+            shortId(p.id),
+            p.name || '',
+            totalIn,
+            totalSold,
+            remaining,
+            p.cost ?? 0,
+            p.price ?? 0,
+            profit,
+            holat,
+          ];
+        });
+        XLSX.utils.book_append_sheet(XLSX.utils.aoa_to_sheet([h1, ...rows1]), wb, 'Ombor');
+        const suppList = await apiGetSuppliers();
+        const allStockIns: Array<{ date: string; supplierName: string; productName: string; qty: number; cost: number; total: number }> = [];
+        await Promise.all(suppList.map(async (s) => {
+          try {
+            const detail = await apiGetSupplier(s.id);
+            for (const si of detail.stockIns || []) {
+              for (const it of si.items || []) {
+                allStockIns.push({
+                  date: si.date,
+                  supplierName: detail.name || s.name || '',
+                  productName: it.productName || '',
+                  qty: it.quantity || 0,
+                  cost: it.costPrice || 0,
+                  total: it.total || 0,
+                });
+              }
+            }
+          } catch { /* ignore */ }
+        }));
+        allStockIns.sort((a, b) => a.date.localeCompare(b.date));
+        const h2 = ['Sana', 'Yetkazib beruvchi', 'Mahsulot', 'Miqdor', 'Tannarx', 'Summa'];
+        const rows2 = allStockIns.map(r => [formatDisplay(r.date), r.supplierName, r.productName, r.qty, r.cost, r.total]);
+        XLSX.utils.book_append_sheet(XLSX.utils.aoa_to_sheet([h2, ...rows2]), wb, 'Ombor kirimlari');
+        setLastExported('warehouse', new Date().toISOString());
       }
 
       const fn = `eksport_${from}${to !== from ? `_${to}` : ''}_${now}.xlsx`;
@@ -574,20 +804,17 @@ function ExcelExportModal({
             </div>
           </div>
 
-          {/* Sana filtri — topnavbardagi kalendar bilan bir xil */}
+          {/* Sana filtri — kalendar yashirin, ochganda bitta kalendardan tanlash */}
           <div>
-            <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
+            <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
               {t('admin.exportExcel.dateFilter')}
             </p>
-            {/* Quick filters */}
-            <div className="flex gap-2 mb-3 flex-wrap">
+            <div className="flex gap-2 mb-2 flex-wrap">
               <button
                 type="button"
                 onClick={() => handleQuickDate(today, today)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                  tempFrom === today && tempTo === today
-                    ? 'bg-[#2563EB] text-white border-[#2563EB]'
-                    : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
+                  tempFrom === today && tempTo === today ? 'bg-[#2563EB] text-white border-[#2563EB]' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
                 }`}
               >
                 {t('admin.dateFilter.today')}
@@ -596,9 +823,7 @@ function ExcelExportModal({
                 type="button"
                 onClick={() => handleQuickDate(week.from, week.to)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                  tempFrom === week.from && tempTo === week.to
-                    ? 'bg-[#2563EB] text-white border-[#2563EB]'
-                    : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
+                  tempFrom === week.from && tempTo === week.to ? 'bg-[#2563EB] text-white border-[#2563EB]' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
                 }`}
               >
                 {t('admin.dateFilter.thisWeek')}
@@ -607,52 +832,27 @@ function ExcelExportModal({
                 type="button"
                 onClick={() => handleQuickDate(month.from, month.to)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                  tempFrom === month.from && tempTo === month.to
-                    ? 'bg-[#2563EB] text-white border-[#2563EB]'
-                    : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
+                  tempFrom === month.from && tempTo === month.to ? 'bg-[#2563EB] text-white border-[#2563EB]' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
                 }`}
               >
                 {t('admin.dateFilter.thisMonth')}
               </button>
             </div>
-            {/* Dan / Gacha — bitta kalendarga yo'naltiradi */}
-            <div className="grid grid-cols-2 gap-2 mb-3">
-              <button
-                type="button"
-                onClick={() => setSelecting('from')}
-                className={`p-2.5 rounded-xl border text-left transition-all ${
-                  selecting === 'from'
-                    ? 'border-[#2563EB] bg-blue-50 dark:bg-blue-900/20'
-                    : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:border-[#2563EB]'
-                }`}
-              >
-                <div className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 mb-0.5">{t('admin.dateFilter.from')}</div>
-                <div className={`text-sm font-semibold ${tempFrom ? 'text-gray-900 dark:text-white' : 'text-gray-300 dark:text-gray-600'}`}>
-                  {tempFrom ? formatDisplay(tempFrom) : 'dd.mm.yyyy'}
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelecting('to')}
-                className={`p-2.5 rounded-xl border text-left transition-all ${
-                  selecting === 'to'
-                    ? 'border-[#2563EB] bg-blue-50 dark:bg-blue-900/20'
-                    : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:border-[#2563EB]'
-                }`}
-              >
-                <div className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 mb-0.5">{t('admin.dateFilter.to')}</div>
-                <div className={`text-sm font-semibold ${tempTo ? 'text-gray-900 dark:text-white' : 'text-gray-300 dark:text-gray-600'}`}>
-                  {tempTo ? formatDisplay(tempTo) : 'dd.mm.yyyy'}
-                </div>
-              </button>
-            </div>
-            {/* Bitta kalendar — bir kun yoki kun oralig'i (topnavbar bilan bir xil) */}
-            <CalendarPopup
-              selecting={selecting}
-              dateFrom={tempFrom}
-              dateTo={tempTo}
-              onSelect={handleDateSelect}
-            />
+            <button
+              type="button"
+              onClick={() => { setCalendarOpen(o => !o); setSelecting('from'); }}
+              className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:border-[#2563EB] transition-all text-left"
+            >
+              <span className="text-sm font-medium text-gray-900 dark:text-white">
+                {tempFrom === tempTo ? formatDisplay(tempFrom) : `${formatDisplay(tempFrom)} — ${formatDisplay(tempTo)}`}
+              </span>
+              {calendarOpen ? <ChevronUp size={16} className="text-gray-500" /> : <ChevronDown size={16} className="text-gray-500" />}
+            </button>
+            {calendarOpen && (
+              <div className="mt-2">
+                <CalendarPopup selecting={selecting} dateFrom={tempFrom} dateTo={tempTo} onSelect={handleDateSelect} />
+              </div>
+            )}
           </div>
 
           <button
