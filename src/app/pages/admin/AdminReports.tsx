@@ -11,7 +11,7 @@ import { SimpleLineChart, SimpleGroupedBar, SimpleVBarChart } from '../../compon
 import { useAdminVisibleOrders, CalendarPopup, dateToIso, formatDisplay, getMonthKey, normalizeDateValue } from '../../components/AdminDateFilter';
 import { apiGetClientBalance } from '../../api/payments';
 import { apiGetReturns } from '../../api/returns';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Checkbox } from '../../components/ui/checkbox';
 import { apiGetOrders } from '../../api/orders';
 import { apiGetSuppliers } from '../../api/suppliers';
@@ -809,9 +809,6 @@ function ExcelExportModal({
             </div>
             {t('admin.exportExcel')}
           </DialogTitle>
-          <DialogDescription className="sr-only">
-            {t('admin.exportExcel.selectCategories')} {t('admin.exportExcel.dateFilter')}
-          </DialogDescription>
         </DialogHeader>
         <div className="space-y-5">
           {/* Kategoriya tanlash */}
