@@ -1046,7 +1046,7 @@ export const AdminReports = () => {
 
     (async () => {
       try {
-        const rows = await apiGetReturns();
+        const rows = await apiGetReturns({ status: 'accepted' });
         if (cancelled) return;
 
         const returnedQtyByOrder = new Map<string, Record<string, number>>();

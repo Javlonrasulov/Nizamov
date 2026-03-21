@@ -87,7 +87,10 @@ export class PaymentsService {
     const deliveredOrderIds = deliveredOrders.map(o => o.id);
     const returns = deliveredOrderIds.length
       ? await this.prisma.return.findMany({
-        where: { orderId: { in: deliveredOrderIds } },
+        where: {
+          orderId: { in: deliveredOrderIds },
+          status: 'accepted',
+        },
         select: {
           orderId: true,
           items: { select: { productId: true, quantity: true } },
