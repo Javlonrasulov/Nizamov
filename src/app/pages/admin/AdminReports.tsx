@@ -8,7 +8,7 @@ import * as XLSX from 'xlsx';
 import { useApp, AVAILABLE_ICONS, CATEGORY_COLORS, COLOR_MAP, ExpenseCategoryDef } from '../../context/AppContext';
 import { AdminLayout } from '../../components/AdminLayout';
 import { SimpleLineChart, SimpleGroupedBar, SimpleVBarChart } from '../../components/SimpleCharts';
-import { useAdminVisibleOrders } from '../../components/AdminDateFilter';
+import { useAdminVisibleOrders, CalendarPopup, dateToIso, formatDisplay } from '../../components/AdminDateFilter';
 import { apiGetClientBalance } from '../../api/payments';
 import { apiGetReturns } from '../../api/returns';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
@@ -388,7 +388,22 @@ function ExcelExportModal({
   expenses: Array<{ date: string; amount: number; categoryId: string; comment: string }>;
   expenseCategories: ExpenseCategoryDef[];
 }) {
-  const today = new Date().toISOString().split('T')[0];
+  const today = dateToIso(new Date());
+  const getThisWeekRange = () => {
+    const now = new Date();
+    const day = (now.getDay() + 6) % 7;
+    const from = new Date(now);
+    from.setDate(now.getDate() - day);
+    return { from: dateToIso(from), to: today };
+  };
+  const getThisMonthRange = () => {
+    const now = new Date();
+    const from = new Date(now.getFullYear(), now.getMonth(), 1);
+    return { from: dateToIso(from), to: today };
+  };
+  const week = getThisWeekRange();
+  const month = getThisMonthRange();
+
   const [selected, setSelected] = useState<Record<ExportCategory, boolean>>({
     orders: false,
     clients: false,
@@ -396,9 +411,9 @@ function ExcelExportModal({
     suppliers: false,
     staff: false,
   });
-  const [dateType, setDateType] = useState<'today' | 'range'>('today');
-  const [dateFrom, setDateFrom] = useState(today);
-  const [dateTo, setDateTo] = useState(today);
+  const [tempFrom, setTempFrom] = useState(today);
+  const [tempTo, setTempTo] = useState(today);
+  const [selecting, setSelecting] = useState<'from' | 'to'>('from');
   const [loading, setLoading] = useState(false);
 
   const toggle = (key: ExportCategory, v: boolean) => {
@@ -412,11 +427,31 @@ function ExcelExportModal({
   const allSelected = Object.values(selected).every(Boolean);
   const anySelected = Object.values(selected).some(Boolean);
 
+  const handleDateSelect = (iso: string) => {
+    if (selecting === 'from') {
+      setTempFrom(iso);
+      if (tempTo && iso > tempTo) setTempTo('');
+      setSelecting('to');
+    } else {
+      if (iso < tempFrom) {
+        setTempTo(tempFrom);
+        setTempFrom(iso);
+      } else {
+        setTempTo(iso);
+      }
+    }
+  };
+
+  const handleQuickDate = (from: string, to: string) => {
+    setTempFrom(from);
+    setTempTo(to);
+  };
+
   const doExport = async () => {
     if (!anySelected) return;
     setLoading(true);
-    const from = dateType === 'today' ? dateFrom : dateFrom;
-    const to = dateType === 'today' ? dateFrom : dateTo;
+    const from = tempFrom || today;
+    const to = tempTo || tempFrom || today;
     const wb = XLSX.utils.book_new();
     const now = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '');
 
@@ -539,17 +574,18 @@ function ExcelExportModal({
             </div>
           </div>
 
-          {/* Sana filtri */}
+          {/* Sana filtri — topnavbardagi kalendar bilan bir xil */}
           <div>
             <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
               {t('admin.exportExcel.dateFilter')}
             </p>
-            <div className="flex gap-2 mb-3">
+            {/* Quick filters */}
+            <div className="flex gap-2 mb-3 flex-wrap">
               <button
                 type="button"
-                onClick={() => setDateType('today')}
-                className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-colors ${
-                  dateType === 'today'
+                onClick={() => handleQuickDate(today, today)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                  tempFrom === today && tempTo === today
                     ? 'bg-[#2563EB] text-white border-[#2563EB]'
                     : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
                 }`}
@@ -558,45 +594,65 @@ function ExcelExportModal({
               </button>
               <button
                 type="button"
-                onClick={() => setDateType('range')}
-                className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-colors ${
-                  dateType === 'range'
+                onClick={() => handleQuickDate(week.from, week.to)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                  tempFrom === week.from && tempTo === week.to
                     ? 'bg-[#2563EB] text-white border-[#2563EB]'
                     : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
                 }`}
               >
-                {t('admin.exportExcel.dateRange')}
+                {t('admin.dateFilter.thisWeek')}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickDate(month.from, month.to)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                  tempFrom === month.from && tempTo === month.to
+                    ? 'bg-[#2563EB] text-white border-[#2563EB]'
+                    : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
+                }`}
+              >
+                {t('admin.dateFilter.thisMonth')}
               </button>
             </div>
-            {dateType === 'today' ? (
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => { setDateFrom(e.target.value); setDateTo(e.target.value); }}
-                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-50 dark:focus:ring-blue-900/20 [color-scheme:light] dark:[color-scheme:dark]"
-              />
-            ) : (
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <label className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 block mb-1">{t('admin.dateFilter.from')}</label>
-                  <input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-[#2563EB] [color-scheme:light] dark:[color-scheme:dark]"
-                  />
+            {/* Dan / Gacha — bitta kalendarga yo'naltiradi */}
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <button
+                type="button"
+                onClick={() => setSelecting('from')}
+                className={`p-2.5 rounded-xl border text-left transition-all ${
+                  selecting === 'from'
+                    ? 'border-[#2563EB] bg-blue-50 dark:bg-blue-900/20'
+                    : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:border-[#2563EB]'
+                }`}
+              >
+                <div className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 mb-0.5">{t('admin.dateFilter.from')}</div>
+                <div className={`text-sm font-semibold ${tempFrom ? 'text-gray-900 dark:text-white' : 'text-gray-300 dark:text-gray-600'}`}>
+                  {tempFrom ? formatDisplay(tempFrom) : 'dd.mm.yyyy'}
                 </div>
-                <div className="flex-1">
-                  <label className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 block mb-1">{t('admin.dateFilter.to')}</label>
-                  <input
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-[#2563EB] [color-scheme:light] dark:[color-scheme:dark]"
-                  />
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelecting('to')}
+                className={`p-2.5 rounded-xl border text-left transition-all ${
+                  selecting === 'to'
+                    ? 'border-[#2563EB] bg-blue-50 dark:bg-blue-900/20'
+                    : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:border-[#2563EB]'
+                }`}
+              >
+                <div className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 mb-0.5">{t('admin.dateFilter.to')}</div>
+                <div className={`text-sm font-semibold ${tempTo ? 'text-gray-900 dark:text-white' : 'text-gray-300 dark:text-gray-600'}`}>
+                  {tempTo ? formatDisplay(tempTo) : 'dd.mm.yyyy'}
                 </div>
-              </div>
-            )}
+              </button>
+            </div>
+            {/* Bitta kalendar — bir kun yoki kun oralig'i (topnavbar bilan bir xil) */}
+            <CalendarPopup
+              selecting={selecting}
+              dateFrom={tempFrom}
+              dateTo={tempTo}
+              onSelect={handleDateSelect}
+            />
           </div>
 
           <button

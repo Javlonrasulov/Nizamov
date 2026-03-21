@@ -14,7 +14,7 @@ function isoToDate(iso: string) {
   return new Date(y, m - 1, d);
 }
 
-function dateToIso(d: Date) {
+export function dateToIso(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
@@ -36,7 +36,7 @@ export function isDateInRange(value: string, from?: string, to?: string) {
   return normalized >= rangeFrom && normalized <= rangeTo;
 }
 
-function formatDisplay(iso: string) {
+export function formatDisplay(iso: string) {
   if (!iso) return '';
   const [y, m, d] = iso.split('-');
   return `${d}.${m}.${y}`;
@@ -52,15 +52,15 @@ function getFirstDayOfWeek(year: number, month: number) {
   return (day + 6) % 7;
 }
 
-interface CalendarPopupProps {
+export interface CalendarPopupProps {
   selecting: 'from' | 'to';
   dateFrom: string;
   dateTo: string;
   onSelect: (iso: string) => void;
-  onClose: () => void;
+  onClose?: () => void;
 }
 
-function CalendarPopup({ selecting, dateFrom, dateTo, onSelect, onClose }: CalendarPopupProps) {
+export function CalendarPopup({ selecting, dateFrom, dateTo, onSelect }: CalendarPopupProps) {
   const { theme, t } = useApp();
   const today = dateToIso(new Date());
 
