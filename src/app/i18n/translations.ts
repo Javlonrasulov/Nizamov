@@ -245,6 +245,12 @@ type TranslationKeys = {
   'admin.warehouseQty': string;
   'admin.dateRange': string;
   'admin.exportExcel': string;
+  'admin.exportExcel.selectCategories': string;
+  'admin.exportExcel.selectAll': string;
+  'admin.exportExcel.neverExported': string;
+  'admin.exportExcel.dateFilter': string;
+  'admin.exportExcel.dateRange': string;
+  'admin.exportExcel.exportBtn': string;
   'admin.addProduct': string;
   'admin.addAgent': string;
   'admin.salesByAgent': string;
@@ -698,7 +704,13 @@ const uz_lat: TranslationKeys = {
   'admin.costPrice': 'Tannarx',
   'admin.warehouseQty': 'Ombor miqdori',
   'admin.dateRange': 'Sana oralig\'i',
-  'admin.exportExcel': 'Excel export',
+  'admin.exportExcel': 'Excel eksport',
+  'admin.exportExcel.selectCategories': 'Eksport qilish uchun tanlang',
+  'admin.exportExcel.selectAll': 'Barchasini tanlash',
+  'admin.exportExcel.neverExported': "Hech qachon",
+  'admin.exportExcel.dateFilter': 'Sana filtri (zakazlar uchun)',
+  'admin.exportExcel.dateRange': "Kun oralig'i",
+  'admin.exportExcel.exportBtn': "Excelga yuklash",
   'admin.addProduct': "Mahsulot qo'shish",
   'admin.addAgent': "Xodim qo'shish",
   'admin.salesByAgent': "Agentlar bo'yicha savdo",
@@ -1140,7 +1152,13 @@ const uz_kir: TranslationKeys = {
   'admin.costPrice': 'Таннарх',
   'admin.warehouseQty': 'Омбор миқдори',
   'admin.dateRange': 'Сана оралиғи',
-  'admin.exportExcel': 'Excel экспорт',
+  'admin.exportExcel': 'Excel eksport',
+  'admin.exportExcel.selectCategories': 'Экспорт учун танланг',
+  'admin.exportExcel.selectAll': 'Ҳаммасини танлаш',
+  'admin.exportExcel.neverExported': 'Ҳеч қачон',
+  'admin.exportExcel.dateFilter': 'Сана фильтри (заказлар учун)',
+  'admin.exportExcel.dateRange': 'Кун оралиғи',
+  'admin.exportExcel.exportBtn': 'Excelга юклаш',
   'admin.addProduct': 'Маҳсулот қўшиш',
   'admin.addAgent': 'Ходим қўшиш',
   'admin.salesByAgent': 'Агентлар бўйича савдо',
@@ -1583,6 +1601,12 @@ const ru: TranslationKeys = {
   'admin.warehouseQty': 'Коичество на складе',
   'admin.dateRange': 'Диапазон дат',
   'admin.exportExcel': 'Экспорт Excel',
+  'admin.exportExcel.selectCategories': 'Выберите для экспорта',
+  'admin.exportExcel.selectAll': 'Выбрать всё',
+  'admin.exportExcel.neverExported': 'Никогда',
+  'admin.exportExcel.dateFilter': 'Фильтр по дате (для заказов)',
+  'admin.exportExcel.dateRange': 'Диапазон дат',
+  'admin.exportExcel.exportBtn': 'Скачать в Excel',
   'admin.addProduct': 'Добавить товар',
   'admin.addAgent': 'Добавить сотрудника',
   'admin.salesByAgent': 'Продажи по агентам',

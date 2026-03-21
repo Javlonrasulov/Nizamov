@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as LucideIcons from 'lucide-react';
 import {
   Check, X, Trash2, Pencil, Plus, CalendarDays,
-  Download, TrendingUp, TrendingDown, Wallet, SlidersHorizontal, ChevronDown, Table2, Banknote, RotateCcw,
+  Download, TrendingUp, TrendingDown, Wallet, SlidersHorizontal, ChevronDown, Table2, Banknote, RotateCcw, Package, Users, Truck, UserCog,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useApp, AVAILABLE_ICONS, CATEGORY_COLORS, COLOR_MAP, ExpenseCategoryDef } from '../../context/AppContext';
@@ -11,6 +11,11 @@ import { SimpleLineChart, SimpleGroupedBar, SimpleVBarChart } from '../../compon
 import { useAdminVisibleOrders } from '../../components/AdminDateFilter';
 import { apiGetClientBalance } from '../../api/payments';
 import { apiGetReturns } from '../../api/returns';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+import { Checkbox } from '../../components/ui/checkbox';
+import { apiGetOrders } from '../../api/orders';
+import { apiGetSuppliers } from '../../api/suppliers';
+import { apiGetUsers } from '../../api/users';
 
 /* ── Dynamic Lucide icon renderer ── */
 function CatIcon({ name, size = 15, className = '', style }: { name: string; size?: number; className?: string; style?: React.CSSProperties }) {
@@ -108,6 +113,28 @@ function IconPicker({ value, onChange }: { value: string; onChange: (v: string) 
       ))}
     </div>
   );
+}
+
+const EXCEL_EXPORT_STORAGE_KEY = 'crm_excel_export_last';
+
+function getLastExported(key: string): string | null {
+  try {
+    const raw = localStorage.getItem(EXCEL_EXPORT_STORAGE_KEY);
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    return obj[key] || null;
+  } catch {
+    return null;
+  }
+}
+
+function setLastExported(key: string, value: string) {
+  try {
+    const raw = localStorage.getItem(EXCEL_EXPORT_STORAGE_KEY);
+    const obj = raw ? JSON.parse(raw) : {};
+    obj[key] = value;
+    localStorage.setItem(EXCEL_EXPORT_STORAGE_KEY, JSON.stringify(obj));
+  } catch { /* ignore */ }
 }
 
 /* ── Color picker ── */
@@ -332,11 +359,265 @@ function CategoryManager() {
   );
 }
 
+/* ── Excel Export Modal ── */
+type ExportCategory = 'orders' | 'clients' | 'products' | 'suppliers' | 'staff';
+const EXPORT_CATEGORIES: { key: ExportCategory; labelKey: string; Icon: typeof Package }[] = [
+  { key: 'orders', labelKey: 'admin.ordersPage', Icon: Table2 },
+  { key: 'clients', labelKey: 'admin.clientsPage', Icon: Users },
+  { key: 'products', labelKey: 'admin.productsPage', Icon: Package },
+  { key: 'suppliers', labelKey: 'admin.suppliers', Icon: Truck },
+  { key: 'staff', labelKey: 'admin.agentsPage', Icon: UserCog },
+];
+
+function ExcelExportModal({
+  open,
+  onOpenChange,
+  t,
+  orders,
+  clients,
+  products,
+  expenses,
+  expenseCategories,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  t: (k: string) => string;
+  orders: Array<{ id: string; date: string; clientName: string; agentName: string; total: number; status: string; items?: Array<{ productName: string; quantity: number; price: number }> }>;
+  clients: Array<{ id: string; name: string; phone: string; address: string }>;
+  products: Array<{ id: string; name: string; price: number; cost: number; stock: number }>;
+  expenses: Array<{ date: string; amount: number; categoryId: string; comment: string }>;
+  expenseCategories: ExpenseCategoryDef[];
+}) {
+  const today = new Date().toISOString().split('T')[0];
+  const [selected, setSelected] = useState<Record<ExportCategory, boolean>>({
+    orders: false,
+    clients: false,
+    products: false,
+    suppliers: false,
+    staff: false,
+  });
+  const [dateType, setDateType] = useState<'today' | 'range'>('today');
+  const [dateFrom, setDateFrom] = useState(today);
+  const [dateTo, setDateTo] = useState(today);
+  const [loading, setLoading] = useState(false);
+
+  const toggle = (key: ExportCategory, v: boolean) => {
+    setSelected(prev => ({ ...prev, [key]: v }));
+  };
+
+  const selectAll = (v: boolean) => {
+    setSelected({ orders: v, clients: v, products: v, suppliers: v, staff: v });
+  };
+
+  const allSelected = Object.values(selected).every(Boolean);
+  const anySelected = Object.values(selected).some(Boolean);
+
+  const doExport = async () => {
+    if (!anySelected) return;
+    setLoading(true);
+    const from = dateType === 'today' ? dateFrom : dateFrom;
+    const to = dateType === 'today' ? dateFrom : dateTo;
+    const wb = XLSX.utils.book_new();
+    const now = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '');
+
+    try {
+      if (selected.orders) {
+        const ord = await apiGetOrders({ dateFrom: from, dateTo: to });
+        const h = ['ID', 'Sana', 'Klient', 'Agent', 'Jami', 'Status', 'Izoh'];
+        const rows = ord.map(o => [
+          o.id,
+          o.date,
+          o.clientName || '',
+          o.agentName || '',
+          o.total || 0,
+          o.status || '',
+          (o as any).comment || '',
+        ]);
+        const ws = XLSX.utils.aoa_to_sheet([h, ...rows]);
+        XLSX.utils.book_append_sheet(wb, ws, 'Zakazlar');
+        setLastExported('orders', new Date().toISOString());
+      }
+
+      if (selected.clients) {
+        const h = ['ID', 'Ism', 'Telefon', 'Manzil'];
+        const rows = clients.map(c => [c.id, c.name, c.phone, c.address]);
+        const ws = XLSX.utils.aoa_to_sheet([h, ...rows]);
+        XLSX.utils.book_append_sheet(wb, ws, 'Klientlar');
+        setLastExported('clients', new Date().toISOString());
+      }
+
+      if (selected.products) {
+        const h = ['ID', 'Nomi', 'Narx', 'Tannarx', 'Qoldiq'];
+        const rows = products.map(p => [p.id, p.name, p.price, p.cost ?? 0, p.stock ?? 0]);
+        const ws = XLSX.utils.aoa_to_sheet([h, ...rows]);
+        XLSX.utils.book_append_sheet(wb, ws, 'Mahsulotlar');
+        setLastExported('products', new Date().toISOString());
+      }
+
+      if (selected.suppliers) {
+        const supp = await apiGetSuppliers();
+        const h = ['ID', 'Nomi', 'Telefon', 'Manzil', 'Qarz'];
+        const rows = supp.map(s => [s.id, s.name, s.phone || '', s.address || '', s.remainingDebt ?? 0]);
+        const ws = XLSX.utils.aoa_to_sheet([h, ...rows]);
+        XLSX.utils.book_append_sheet(wb, ws, 'Yetkazib beruvchilar');
+        setLastExported('suppliers', new Date().toISOString());
+      }
+
+      if (selected.staff) {
+        const users = await apiGetUsers();
+        const h = ['ID', 'Ism', 'Telefon', 'Rol', 'Mashina'];
+        const rows = users.map(u => [u.id, u.name, u.phone, u.role, (u as any).vehicleName || '']);
+        const ws = XLSX.utils.aoa_to_sheet([h, ...rows]);
+        XLSX.utils.book_append_sheet(wb, ws, 'Xodimlar');
+        setLastExported('staff', new Date().toISOString());
+      }
+
+      const fn = `eksport_${from}${to !== from ? `_${to}` : ''}_${now}.xlsx`;
+      XLSX.writeFile(wb, fn);
+      onOpenChange(false);
+    } catch (e) {
+      console.error('Excel export error:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatLast = (key: string) => {
+    const v = getLastExported(key);
+    if (!v) return t('admin.exportExcel.neverExported') || "Hech qachon";
+    const d = new Date(v);
+    return d.toLocaleDateString('uz-UZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md rounded-2xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-2xl p-6 gap-5 [&>button]:top-4 [&>button]:right-4 [&>button]:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+        <DialogHeader className="pb-2 border-b border-gray-100 dark:border-gray-700">
+          <DialogTitle className="flex items-center gap-2.5 text-lg font-bold text-gray-900 dark:text-white">
+            <div className="w-9 h-9 rounded-xl bg-green-50 dark:bg-green-900/20 flex items-center justify-center">
+              <Download size={18} className="text-green-600 dark:text-green-400" />
+            </div>
+            {t('admin.exportExcel')}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-5">
+          {/* Kategoriya tanlash */}
+          <div>
+            <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
+              {t('admin.exportExcel.selectCategories')}
+            </p>
+            <div className="space-y-1.5">
+              <label
+                className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                  allSelected
+                    ? 'border-[#2563EB] bg-blue-50 dark:bg-blue-900/20'
+                    : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 hover:border-gray-300 dark:hover:border-gray-600'
+                }`}
+              >
+                <Checkbox checked={allSelected} onCheckedChange={(v) => selectAll(!!v)} />
+                <span className="text-sm font-medium text-gray-900 dark:text-white">{t('admin.exportExcel.selectAll')}</span>
+              </label>
+              {EXPORT_CATEGORIES.map(({ key, labelKey, Icon }) => (
+                <label
+                  key={key}
+                  className={`flex items-center justify-between gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                    selected[key]
+                      ? 'border-[#2563EB] bg-blue-50 dark:bg-blue-900/20'
+                      : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 hover:border-gray-300 dark:hover:border-gray-600'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Checkbox checked={selected[key]} onCheckedChange={(v) => toggle(key, !!v)} />
+                    <div className="w-8 h-8 rounded-lg bg-white dark:bg-gray-800 flex items-center justify-center">
+                      <Icon size={15} className="text-[#2563EB] dark:text-blue-400" />
+                    </div>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">{t(labelKey)}</span>
+                  </div>
+                  <span className="text-[10px] text-gray-400 dark:text-gray-500 shrink-0">{formatLast(key)}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Sana filtri */}
+          <div>
+            <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
+              {t('admin.exportExcel.dateFilter')}
+            </p>
+            <div className="flex gap-2 mb-3">
+              <button
+                type="button"
+                onClick={() => setDateType('today')}
+                className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                  dateType === 'today'
+                    ? 'bg-[#2563EB] text-white border-[#2563EB]'
+                    : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
+                }`}
+              >
+                {t('admin.dateFilter.today')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setDateType('range')}
+                className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                  dateType === 'range'
+                    ? 'bg-[#2563EB] text-white border-[#2563EB]'
+                    : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
+                }`}
+              >
+                {t('admin.exportExcel.dateRange')}
+              </button>
+            </div>
+            {dateType === 'today' ? (
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => { setDateFrom(e.target.value); setDateTo(e.target.value); }}
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-50 dark:focus:ring-blue-900/20 [color-scheme:light] dark:[color-scheme:dark]"
+              />
+            ) : (
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 block mb-1">{t('admin.dateFilter.from')}</label>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-[#2563EB] [color-scheme:light] dark:[color-scheme:dark]"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 block mb-1">{t('admin.dateFilter.to')}</label>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-[#2563EB] [color-scheme:light] dark:[color-scheme:dark]"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={doExport}
+            disabled={!anySelected || loading}
+            className="w-full py-3 rounded-xl bg-green-600 text-white font-semibold text-sm hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm shadow-green-200/50 dark:shadow-green-900/20 transition-colors"
+          >
+            <Download size={16} />
+            {loading ? t('common.loading') : t('admin.exportExcel.exportBtn')}
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /* ════════════════════════════════════════════
    MAIN PAGE
 ═══════════════════════════════════════════ */
 export const AdminReports = () => {
-  const { t, adminDateFrom, adminDateTo, expenses, addExpense, deleteExpense, expenseCategories, products } = useApp();
+  const { t, adminDateFrom, adminDateTo, expenses, addExpense, deleteExpense, expenseCategories, products, orders, clients } = useApp();
   const filteredOrders = useAdminVisibleOrders();
   const hasDateFilter = adminDateFrom || adminDateTo;
   const deliveredOrders = useMemo(
@@ -506,6 +787,7 @@ export const AdminReports = () => {
   const [showCatMgr, setShowCatMgr]       = useState(false);
   const [saved, setSaved]                 = useState(false);
   const [showExpenseTable, setShowExpenseTable] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
   const [form, setForm] = useState({ date: today, amount: '', categoryId: defaultCatId, comment: '' });
   const amountRef = useRef<HTMLInputElement>(null);
 
@@ -627,10 +909,20 @@ export const AdminReports = () => {
                 : t('admin.reports.allTimeReport')}
             </p>
           </div>
-          <button onClick={handleExport}
+          <button onClick={() => setExportModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-colors shadow-sm">
             <Download size={15} /> {t('admin.exportExcel')}
           </button>
+          <ExcelExportModal
+            open={exportModalOpen}
+            onOpenChange={setExportModalOpen}
+            t={t}
+            orders={orders}
+            clients={clients}
+            products={products}
+            expenses={expenses}
+            expenseCategories={expenseCategories}
+          />
         </div>
 
         {/* ─ Summary cards ─ */}
