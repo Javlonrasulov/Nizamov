@@ -60,6 +60,7 @@ export class OrdersService {
           clientAddress: dto.clientAddress,
           agentName: dto.agentName,
           deliveryName: dto.deliveryName,
+          comment: dto.comment?.trim() || null,
           items: {
             create: dto.items.map((i) => ({
               productId: i.productId,
@@ -109,6 +110,7 @@ export class OrdersService {
       if (dto.deliveryId !== undefined) data.deliveryId = dto.deliveryId;
       if (dto.deliveryName !== undefined) data.deliveryName = dto.deliveryName;
       if (dto.vehicleName !== undefined) data.vehicleName = dto.vehicleName;
+      if (dto.comment !== undefined) data.comment = dto.comment?.trim() || null;
       if (dto.total !== undefined) data.total = dto.total;
 
       if (dto.items !== undefined) {

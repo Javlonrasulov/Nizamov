@@ -73,6 +73,7 @@ model Order {
   clientAddress String
   agentName     String
   deliveryName  String?
+  comment       String?  // agent tomonidan yozilgan izoh
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
