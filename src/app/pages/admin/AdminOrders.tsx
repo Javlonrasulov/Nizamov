@@ -6,6 +6,7 @@ import { StatusBadge } from '../../components/StatusBadge';
 import { OrderStatus } from '../../data/mockData';
 import { useAdminVisibleOrders } from '../../components/AdminDateFilter';
 import { apiGetUsers } from '../../api/users';
+import { apiGetVehicles } from '../../api/vehicles';
 import { apiGetClientBalance, type Payment } from '../../api/payments';
 import { apiAcceptReturn, apiCreateReturn, apiGetReturns } from '../../api/returns';
 import type { User } from '../../data/mockData';
@@ -13,27 +14,6 @@ import { translations } from '../../i18n/translations';
 
 const formatOrderId = (order: { id: string; orderNumber?: number }) =>
   order.orderNumber != null ? `#${order.orderNumber}` : `#${order.id.slice(-6).toUpperCase()}`;
-
-const DEFAULT_VEHICLES: string[] = [];
-const OLD_DEMO_VEHICLES = ['01 A 123 AB', '02 B 456 CD', 'Gazel', 'Labo', 'Isuzu'];
-const loadVehicles = (): string[] => {
-  try {
-    const s = localStorage.getItem('crm_vehicles');
-    if (s) {
-      const parsed = JSON.parse(s) as unknown;
-      const list = Array.isArray(parsed) ? parsed.filter(v => typeof v === 'string') : [];
-      const isOldDemo =
-        list.length === OLD_DEMO_VEHICLES.length
-        && list.every((v, i) => v === OLD_DEMO_VEHICLES[i]);
-      if (isOldDemo) {
-        localStorage.removeItem('crm_vehicles');
-        return [];
-      }
-      return list;
-    }
-  } catch {}
-  return DEFAULT_VEHICLES;
-};
 
 export const AdminOrders = () => {
   const { t, updateOrderStatus, updateOrder, adminDateFrom, adminDateTo, refetchData, clients, currentUser, orders: appOrders } = useApp();
@@ -48,7 +28,15 @@ export const AdminOrders = () => {
   const [deliveryFilterId, setDeliveryFilterId] = useState<string>('');
   const [selectedDeliveryId, setSelectedDeliveryId] = useState('');
   const [vehicleName, setVehicleName] = useState('');
-  const [vehiclesList, setVehiclesList] = useState<string[]>(loadVehicles);
+  const [vehiclesList, setVehiclesList] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiGetVehicles()
+      .then(data => { if (!cancelled) setVehiclesList((data || []).map(v => v.name)); })
+      .catch(() => { if (!cancelled) setVehiclesList([]); });
+    return () => { cancelled = true; };
+  }, []);
   const [debtByOrderId, setDebtByOrderId] = useState<Record<string, number>>({});
   const [paidByOrderId, setPaidByOrderId] = useState<Record<string, number>>({});
   const [paymentsByOrderId, setPaymentsByOrderId] = useState<Record<string, Payment[]>>({});

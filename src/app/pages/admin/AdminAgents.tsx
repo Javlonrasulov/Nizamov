@@ -5,6 +5,7 @@ import { AdminLayout } from '../../components/AdminLayout';
 import { users } from '../../data/mockData';
 import { getMonthKey, isDateInRange, normalizeDateValue } from '../../components/AdminDateFilter';
 import { apiGetUsers, apiCreateUser, apiUpdateUser, apiDeleteUser } from '../../api/users';
+import { apiGetVehicles, apiCreateVehicle } from '../../api/vehicles';
 import type { User } from '../../data/mockData';
 
 const ROLES: { value: 'agent' | 'delivery' | 'sklad'; labelKey: 'login.role.agent' | 'login.role.delivery' | 'login.role.sklad' }[] = [
@@ -13,30 +14,6 @@ const ROLES: { value: 'agent' | 'delivery' | 'sklad'; labelKey: 'login.role.agen
   { value: 'sklad', labelKey: 'login.role.sklad' },
 ];
 
-const DEFAULT_VEHICLES: string[] = [];
-const OLD_DEMO_VEHICLES = ['01 A 123 AB', '02 B 456 CD', 'Gazel', 'Labo', 'Isuzu', 'Boshqa'];
-
-const loadVehicles = (): string[] => {
-  try {
-    const s = localStorage.getItem('crm_vehicles');
-    if (s) {
-      const parsed = JSON.parse(s) as unknown;
-      const list = Array.isArray(parsed) ? parsed.filter(v => typeof v === 'string') : [];
-
-      const isOldDemo =
-        list.length === OLD_DEMO_VEHICLES.length
-        && list.every((v, i) => v === OLD_DEMO_VEHICLES[i]);
-      if (isOldDemo) {
-        localStorage.removeItem('crm_vehicles');
-        return [];
-      }
-
-      return list;
-    }
-  } catch {}
-  return DEFAULT_VEHICLES;
-};
-
 export const AdminAgents = () => {
   const { t, adminDateFrom, adminDateTo, orders } = useApp();
   const [showForm, setShowForm] = useState(false);
@@ -44,7 +21,15 @@ export const AdminAgents = () => {
   const [form, setForm] = useState({ name: '', phone: '', password: '', role: 'agent' as 'agent' | 'delivery' | 'sklad', vehicleName: '', vehicleOther: '', comment: '' });
   const [staffList, setStaffList] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [vehiclesList, setVehiclesList] = useState<string[]>(loadVehicles);
+  const [vehiclesList, setVehiclesList] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiGetVehicles()
+      .then(data => { if (!cancelled) setVehiclesList((data || []).map(v => v.name)); })
+      .catch(() => { if (!cancelled) setVehiclesList([]); });
+    return () => { cancelled = true; };
+  }, []);
   const [showAddVehicleModal, setShowAddVehicleModal] = useState(false);
   const [newVehicleName, setNewVehicleName] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
@@ -82,22 +67,25 @@ export const AdminAgents = () => {
       phone: u.phone,
       password: '',
       role: u.role as 'agent' | 'delivery' | 'sklad',
-      vehicleName: u.vehicleName && (vehiclesList.includes(u.vehicleName) || DEFAULT_VEHICLES.includes(u.vehicleName)) ? u.vehicleName : (u.vehicleName ? 'Boshqa' : ''),
-      vehicleOther: u.vehicleName && !vehiclesList.includes(u.vehicleName) && !DEFAULT_VEHICLES.includes(u.vehicleName) ? u.vehicleName : '',
+      vehicleName: u.vehicleName && vehiclesList.includes(u.vehicleName) ? u.vehicleName : (u.vehicleName ? 'Boshqa' : ''),
+      vehicleOther: u.vehicleName && !vehiclesList.includes(u.vehicleName) ? u.vehicleName : '',
       comment: u.comment || '',
     });
     setShowForm(true);
   };
 
-  const handleAddVehicle = () => {
+  const handleAddVehicle = async () => {
     const name = newVehicleName.trim();
     if (!name || vehiclesList.includes(name)) return;
-    const updated = [...vehiclesList, name];
-    setVehiclesList(updated);
-    localStorage.setItem('crm_vehicles', JSON.stringify(updated));
-    setNewVehicleName('');
-    setShowAddVehicleModal(false);
-    if (showForm && form.role === 'delivery') setForm(p => ({ ...p, vehicleName: name }));
+    try {
+      await apiCreateVehicle(name);
+      setVehiclesList(prev => [...prev, name]);
+      setNewVehicleName('');
+      setShowAddVehicleModal(false);
+      if (showForm && form.role === 'delivery') setForm(p => ({ ...p, vehicleName: name }));
+    } catch {
+      // xato – qayta urinish
+    }
   };
 
   const getStats = (userId: string, role: 'agent' | 'delivery') => {

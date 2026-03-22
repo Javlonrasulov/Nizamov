@@ -10,6 +10,7 @@ import { ExpensesModule } from './expenses/expenses.module';
 import { SuppliersModule } from './suppliers/suppliers.module';
 import { PaymentsModule } from './payments/payments.module';
 import { ReturnsModule } from './returns/returns.module';
+import { VehiclesModule } from './vehicles/vehicles.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -25,6 +26,7 @@ import { HealthController } from './health.controller';
     SuppliersModule,
     PaymentsModule,
     ReturnsModule,
+    VehiclesModule,
   ],
   controllers: [HealthController],
 })

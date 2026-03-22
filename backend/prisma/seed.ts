@@ -34,6 +34,15 @@ async function main() {
     await prisma.product.upsert({ where: { id: p.id }, update: {}, create: p });
   }
 
+  const defaultVehicles = ['Gazel', 'Labo', 'Isuzu', 'Boshqa'];
+  for (let i = 0; i < defaultVehicles.length; i++) {
+    await prisma.vehicle.upsert({
+      where: { name: defaultVehicles[i] },
+      update: {},
+      create: { name: defaultVehicles[i], sortOrder: i },
+    });
+  }
+
   const defaultCategories = [
     { id: 'warehouse', label: 'Ombor', iconName: 'Building2', color: 'blue' },
     { id: 'transport', label: 'Transport', iconName: 'Truck', color: 'purple' },
