@@ -22,4 +22,8 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   vehicleName?: string;
+
+  @IsOptional()
+  @IsString()
+  comment?: string;
 }

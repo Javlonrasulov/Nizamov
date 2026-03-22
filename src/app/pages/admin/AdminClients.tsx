@@ -6,7 +6,6 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { AdminLayout } from '../../components/AdminLayout';
-import { useFilteredOrders, useAdminVisibleOrders } from '../../components/AdminDateFilter';
 import { apiGetUsers } from '../../api/users';
 import { apiCreatePayment, apiGetClientBalance, PaymentMethod, ClientBalance } from '../../api/payments';
 import { Client, WeekDay, users, Order } from '../../data/mockData';
@@ -625,8 +624,11 @@ function ClientHistoryPanel({ client, orders, onClose, onEdit, getAgentName }: H
 
 /* ─── Main Page ─── */
 export const AdminClients = () => {
-  const { t, lang, clients, addClient, updateClient, deleteClient, adminDateFrom, adminDateTo, orders: allOrders, currentUser } = useApp();
-  const filteredOrders = useAdminVisibleOrders();
+  const { t, lang, clients, addClient, updateClient, deleteClient, orders: allOrders, currentUser } = useApp();
+  const visibleOrders = useMemo(
+    () => allOrders.filter(o => o.status !== 'new'),
+    [allOrders],
+  );
 
   const [agentUsers, setAgentUsers] = useState<{ id: string; name: string }[]>(agentUsersMock.map(u => ({ id: u.id, name: u.name })));
   const [search, setSearch]       = useState('');
@@ -661,22 +663,15 @@ export const AdminClients = () => {
   const [bulkViewYear, setBulkViewYear] = useState(initialView.y);
   const [bulkViewMonth, setBulkViewMonth] = useState(initialView.m);
 
-  const hasFilter = adminDateFrom || adminDateTo;
-  const activeClientIds = useMemo(
-    () => (hasFilter ? new Set(filteredOrders.map(o => o.clientId)) : null),
-    [hasFilter, filteredOrders]
-  );
-
   const filteredBase = useMemo(() => clients.filter(c => {
     const q = search.toLowerCase();
     const matchSearch =
       c.name.toLowerCase().includes(q) ||
       c.phone.includes(q) ||
       c.address.toLowerCase().includes(q);
-    const matchDate  = !activeClientIds || activeClientIds.has(c.id);
     const matchAgent = agentFilter === 'all' || c.agentId === agentFilter;
-    return matchSearch && matchDate && matchAgent;
-  }), [clients, search, activeClientIds, agentFilter]);
+    return matchSearch && matchAgent;
+  }), [clients, search, agentFilter]);
 
   // Load balances when needed (debt filter, selection, or history panel)
   useEffect(() => {
@@ -710,7 +705,7 @@ export const AdminClients = () => {
     : filteredBase;
 
   const clientOrderCounts: Record<string, number> = {};
-  filteredOrders.forEach(o => {
+  visibleOrders.forEach(o => {
     clientOrderCounts[o.clientId] = (clientOrderCounts[o.clientId] || 0) + 1;
   });
 
@@ -839,14 +834,6 @@ export const AdminClients = () => {
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{filtered.length} {t('common.pcs')}</p>
           </div>
           <div className="flex items-center gap-2">
-            {hasFilter && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800">
-                <CalendarDays size={13} className="text-blue-500" />
-                <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-                  {adminDateFrom === adminDateTo ? adminDateFrom : `${adminDateFrom} → ${adminDateTo}`}
-                </span>
-              </div>
-            )}
             {/* View toggle */}
             <div className="flex rounded-xl overflow-hidden border border-gray-200 dark:border-gray-600">
               <button
@@ -963,32 +950,28 @@ export const AdminClients = () => {
                         </div>
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
-                        <label
-                          className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                          onClick={e => e.stopPropagation()}
+                        <button
+                          type="button"
+                          className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                          onClick={e => {
+                            e.stopPropagation();
+                            setSelectedIds(prev => {
+                              const next = new Set(prev);
+                              if (next.has(client.id)) next.delete(client.id);
+                              else next.add(client.id);
+                              return next;
+                            });
+                          }}
+                          aria-pressed={selectedIds.has(client.id)}
+                          aria-label={t('common.select')}
                           title={t('common.select')}
                         >
-                          <button
-                            type="button"
-                            className="w-7 h-7 flex items-center justify-center"
-                            onClick={() => {
-                              setSelectedIds(prev => {
-                                const next = new Set(prev);
-                                if (next.has(client.id)) next.delete(client.id);
-                                else next.add(client.id);
-                                return next;
-                              });
-                            }}
-                            aria-pressed={selectedIds.has(client.id)}
-                            aria-label={t('common.select')}
-                          >
-                            {selectedIds.has(client.id) ? (
-                              <CheckSquare2 size={18} className="text-blue-600 dark:text-blue-400" />
-                            ) : (
-                              <Square size={18} className="text-gray-300 dark:text-gray-600" />
-                            )}
-                          </button>
-                        </label>
+                          {selectedIds.has(client.id) ? (
+                            <CheckSquare2 size={18} className="text-blue-600 dark:text-blue-400" />
+                          ) : (
+                            <Square size={18} className="text-gray-300 dark:text-gray-600" />
+                          )}
+                        </button>
                         <button
                           onClick={e => { e.stopPropagation(); openEdit(client); }}
                           className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 text-gray-400 hover:text-blue-600 transition-colors"
@@ -1031,7 +1014,7 @@ export const AdminClients = () => {
                           <span className="text-xs text-green-600 dark:text-green-400">{t('admin.clients.gpsAvailable')}</span>
                         </div>
                       ) : <span />}
-                      {hasFilter && orderCount > 0 && (
+                      {orderCount > 0 && (
                         <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full text-xs font-semibold">
                           {orderCount} {t('common.orders')}
                         </span>
@@ -1107,7 +1090,7 @@ export const AdminClients = () => {
                                   </span>
                                 )}
                               </div>
-                              {hasFilter && orderCount > 0 && (
+                              {orderCount > 0 && (
                                 <span className="text-[10px] text-blue-600 dark:text-blue-400">{orderCount} {t('common.orders')}</span>
                               )}
                             </div>

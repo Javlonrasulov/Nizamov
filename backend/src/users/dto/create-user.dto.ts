@@ -18,4 +18,8 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   vehicleName?: string;
+
+  @IsOptional()
+  @IsString()
+  comment?: string;
 }

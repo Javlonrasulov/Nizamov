@@ -9,6 +9,7 @@ export interface User {
   role: UserRole;
   password?: string;
   vehicleName?: string;
+  comment?: string;
 }
 
 export interface Client {

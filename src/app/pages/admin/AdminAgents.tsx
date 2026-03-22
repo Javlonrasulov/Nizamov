@@ -41,7 +41,7 @@ export const AdminAgents = () => {
   const { t, adminDateFrom, adminDateTo, orders } = useApp();
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [form, setForm] = useState({ name: '', phone: '', password: '', role: 'agent' as 'agent' | 'delivery' | 'sklad', vehicleName: '', vehicleOther: '' });
+  const [form, setForm] = useState({ name: '', phone: '', password: '', role: 'agent' as 'agent' | 'delivery' | 'sklad', vehicleName: '', vehicleOther: '', comment: '' });
   const [staffList, setStaffList] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [vehiclesList, setVehiclesList] = useState<string[]>(loadVehicles);
@@ -71,7 +71,7 @@ export const AdminAgents = () => {
 
   const openAdd = () => {
     setEditingUser(null);
-    setForm({ name: '', phone: '', password: '', role: 'agent', vehicleName: '', vehicleOther: '' });
+    setForm({ name: '', phone: '', password: '', role: 'agent', vehicleName: '', vehicleOther: '', comment: '' });
     setShowForm(true);
   };
 
@@ -84,6 +84,7 @@ export const AdminAgents = () => {
       role: u.role as 'agent' | 'delivery' | 'sklad',
       vehicleName: u.vehicleName && (vehiclesList.includes(u.vehicleName) || DEFAULT_VEHICLES.includes(u.vehicleName)) ? u.vehicleName : (u.vehicleName ? 'Boshqa' : ''),
       vehicleOther: u.vehicleName && !vehiclesList.includes(u.vehicleName) && !DEFAULT_VEHICLES.includes(u.vehicleName) ? u.vehicleName : '',
+      comment: u.comment || '',
     });
     setShowForm(true);
   };
@@ -127,21 +128,22 @@ export const AdminAgents = () => {
         if (form.password) payload.password = form.password;
         if (form.role === 'delivery') payload.vehicleName = vehicleName ?? '';
         if (form.role !== 'delivery') payload.vehicleName = '';
+        payload.comment = form.comment.trim();
         await apiUpdateUser(editingUser.id, payload);
         await loadStaff();
         setShowForm(false);
       } catch {
-        setStaffList(prev => prev.map(u => u.id === editingUser.id ? { ...u, name: form.name, phone: form.phone, role: form.role, vehicleName } : u));
+        setStaffList(prev => prev.map(u => u.id === editingUser.id ? { ...u, name: form.name, phone: form.phone, role: form.role, vehicleName, comment: form.comment.trim() || undefined } : u));
         setShowForm(false);
       }
     } else {
       if (!form.password.trim()) return;
       try {
-        await apiCreateUser({ name: form.name.trim(), phone: form.phone.trim(), password: form.password, role: form.role, vehicleName });
+        await apiCreateUser({ name: form.name.trim(), phone: form.phone.trim(), password: form.password, role: form.role, vehicleName, comment: form.comment.trim() || undefined });
         await loadStaff();
         setShowForm(false);
       } catch {
-        setStaffList(prev => [...prev, { id: `u${Date.now()}`, name: form.name, phone: form.phone, role: form.role, vehicleName }]);
+        setStaffList(prev => [...prev, { id: `u${Date.now()}`, name: form.name, phone: form.phone, role: form.role, vehicleName, comment: form.comment.trim() || undefined }]);
         setShowForm(false);
       }
     }
@@ -253,6 +255,17 @@ export const AdminAgents = () => {
                   </label>
                 ))}
               </div>
+            </div>
+
+            <div className="mt-4">
+              <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">{t('orders.comment')}</label>
+              <textarea
+                value={form.comment}
+                onChange={e => setForm(p => ({ ...p, comment: e.target.value }))}
+                placeholder={t('returns.commentPlaceholder')}
+                rows={3}
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:border-[#2563EB] resize-y"
+              />
             </div>
 
             {form.role === 'delivery' && (
@@ -395,6 +408,11 @@ export const AdminAgents = () => {
                           <div className="flex items-center gap-1 mt-1 text-white/90 text-xs">
                             <Truck size={10} />
                             {user.vehicleName}
+                          </div>
+                        )}
+                        {user.comment?.trim() && (
+                          <div className="mt-2 max-w-[220px] rounded-lg bg-white/15 px-2.5 py-1.5 text-xs text-white/95">
+                            <span className="font-semibold">{t('orders.comment')}:</span> {user.comment}
                           </div>
                         )}
                       </div>

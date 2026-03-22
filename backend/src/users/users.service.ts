@@ -11,14 +11,14 @@ export class UsersService {
   async findAll(role?: string) {
     return this.prisma.user.findMany({
       where: role ? { role } : undefined,
-      select: { id: true, name: true, phone: true, role: true, vehicleName: true, createdAt: true },
+      select: { id: true, name: true, phone: true, role: true, vehicleName: true, comment: true, createdAt: true },
     });
   }
 
   async findOne(id: string) {
     return this.prisma.user.findUnique({
       where: { id },
-      select: { id: true, name: true, phone: true, role: true, vehicleName: true, createdAt: true },
+      select: { id: true, name: true, phone: true, role: true, vehicleName: true, comment: true, createdAt: true },
     });
   }
 
@@ -32,8 +32,9 @@ export class UsersService {
         password: hashed,
         role: dto.role,
         vehicleName: dto.vehicleName ?? undefined,
+        comment: dto.comment?.trim() || null,
       },
-      select: { id: true, name: true, phone: true, role: true, vehicleName: true, createdAt: true },
+      select: { id: true, name: true, phone: true, role: true, vehicleName: true, comment: true, createdAt: true },
     });
   }
 
@@ -44,11 +45,12 @@ export class UsersService {
     if (dto.password !== undefined) data.password = await bcrypt.hash(dto.password, 10);
     if (dto.role !== undefined) data.role = dto.role;
     if (dto.vehicleName !== undefined) data.vehicleName = dto.vehicleName;
+    if (dto.comment !== undefined) data.comment = dto.comment?.trim() || null;
     try {
       return await this.prisma.user.update({
         where: { id },
         data,
-        select: { id: true, name: true, phone: true, role: true, vehicleName: true, createdAt: true },
+        select: { id: true, name: true, phone: true, role: true, vehicleName: true, comment: true, createdAt: true },
       });
     } catch (e: any) {
       // Prisma throws when record is not found (P2025). Convert to 404.
