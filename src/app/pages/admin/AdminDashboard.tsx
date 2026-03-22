@@ -1,12 +1,15 @@
+import { useEffect, useMemo, useState } from 'react';
 import { ShoppingBag, TrendingUp, DollarSign, BarChart2, CalendarDays } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { AdminLayout } from '../../components/AdminLayout';
 import { StatusBadge } from '../../components/StatusBadge';
 import { SimpleLineChart, SimpleHBarChart } from '../../components/SimpleCharts';
 import { getMonthKey, normalizeDateValue, useAdminVisibleOrders } from '../../components/AdminDateFilter';
+import { apiGetClientBalance } from '../../api/payments';
+import { apiGetReturns } from '../../api/returns';
 
 export const AdminDashboard = () => {
-  const { t, adminDateFrom, adminDateTo, lang, orders, products } = useApp();
+  const { t, adminDateFrom, adminDateTo, lang, orders, products, expenses } = useApp();
   const filteredOrders = useAdminVisibleOrders();
   const visibleOrders = orders.filter(o => o.status !== 'new');
   const hasFilter = Boolean(adminDateFrom || adminDateTo);
@@ -14,19 +17,148 @@ export const AdminDashboard = () => {
   const referenceMonth = getMonthKey(adminDateTo || adminDateFrom || today, today);
   const todayOrders = visibleOrders.filter(o => normalizeDateValue(o.date) === today);
   const monthOrders = visibleOrders.filter(o => getMonthKey(o.date, today) === referenceMonth);
+  const deliveredOrders = useMemo(
+    () => filteredOrders.filter(o => o.status === 'delivered'),
+    [filteredOrders],
+  );
+  const [paidByOrderId, setPaidByOrderId] = useState<Record<string, number>>({});
+  const [returnsDetailByOrderId, setReturnsDetailByOrderId] = useState<Record<string, {
+    deliveredAmount: number;
+    returnedQtyByProductId: Record<string, number>;
+  }>>({});
 
   const productCostById: Record<string, number> = {};
   products.forEach(product => {
     productCostById[product.id] = product.cost ?? 0;
   });
 
-  const totalSales = filteredOrders.reduce((sum, o) => sum + o.total, 0);
-  const profit = filteredOrders.reduce((sum, order) => (
-    sum + order.items.reduce((itemSum, item) => {
-      const cost = productCostById[item.productId] ?? 0;
-      return itemSum + (item.price - cost) * item.quantity;
-    }, 0)
-  ), 0);
+  useEffect(() => {
+    const clientIds = Array.from(new Set(deliveredOrders.map(o => o.clientId).filter(Boolean)));
+    let cancelled = false;
+
+    if (clientIds.length === 0) {
+      setPaidByOrderId({});
+      return;
+    }
+
+    (async () => {
+      const balances = await Promise.all(
+        clientIds.map(async clientId => {
+          try {
+            return await apiGetClientBalance(clientId);
+          } catch {
+            return null;
+          }
+        }),
+      );
+      if (cancelled) return;
+
+      const nextPaid: Record<string, number> = {};
+      for (const balance of balances) {
+        for (const row of balance?.perOrder ?? []) {
+          nextPaid[row.orderId] = row.paid ?? 0;
+        }
+      }
+      setPaidByOrderId(nextPaid);
+    })();
+
+    return () => { cancelled = true; };
+  }, [deliveredOrders]);
+
+  useEffect(() => {
+    const orderMap = new Map(deliveredOrders.map(order => [order.id, order] as const));
+    let cancelled = false;
+
+    if (orderMap.size === 0) {
+      setReturnsDetailByOrderId({});
+      return;
+    }
+
+    (async () => {
+      try {
+        const rows = await apiGetReturns({ status: 'accepted' });
+        if (cancelled) return;
+
+        const returnedQtyByOrder = new Map<string, Record<string, number>>();
+        for (const row of rows || []) {
+          if (!orderMap.has(row.orderId)) continue;
+          const byProduct = returnedQtyByOrder.get(row.orderId) || {};
+          for (const item of row.items || []) {
+            byProduct[item.productId] = (byProduct[item.productId] || 0) + (item.quantity || 0);
+          }
+          returnedQtyByOrder.set(row.orderId, byProduct);
+        }
+
+        const nextDetail: Record<string, {
+          deliveredAmount: number;
+          returnedQtyByProductId: Record<string, number>;
+        }> = {};
+
+        for (const [orderId, order] of orderMap.entries()) {
+          const returnedQtyByProductId = returnedQtyByOrder.get(orderId) || {};
+          let deliveredAmount = 0;
+
+          for (const item of order.items || []) {
+            const orderedQty = Number(item.quantity || 0);
+            const returnedQty = Math.min(orderedQty, returnedQtyByProductId[item.productId] || 0);
+            const deliveredQty = Math.max(0, orderedQty - returnedQty);
+            const price = Number(item.price || 0);
+            deliveredAmount += deliveredQty * price;
+          }
+
+          nextDetail[orderId] = {
+            deliveredAmount,
+            returnedQtyByProductId,
+          };
+        }
+
+        setReturnsDetailByOrderId(nextDetail);
+      } catch {
+        if (!cancelled) setReturnsDetailByOrderId({});
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [deliveredOrders]);
+
+  const financialOrders = useMemo(() => {
+    return deliveredOrders.map(order => {
+      const returnDetail = returnsDetailByOrderId[order.id];
+      const paid = Math.max(0, paidByOrderId[order.id] ?? 0);
+      const adjustedRevenue = returnDetail?.deliveredAmount ?? order.total;
+      const collected = Math.min(adjustedRevenue, paid);
+
+      const adjustedGrossProfit = (order.items || []).reduce((sum, item) => {
+        const returnedQty = Math.min(
+          Number(item.quantity || 0),
+          returnDetail?.returnedQtyByProductId[item.productId] || 0,
+        );
+        const deliveredQty = Math.max(0, Number(item.quantity || 0) - returnedQty);
+        const cost = productCostById[item.productId] ?? 0;
+        return sum + deliveredQty * ((item.price || 0) - cost);
+      }, 0);
+
+      const collectionRatio = adjustedRevenue > 0
+        ? Math.min(1, collected / adjustedRevenue)
+        : 0;
+
+      return {
+        ...order,
+        collected,
+        realizedGrossProfit: adjustedGrossProfit * collectionRatio,
+      };
+    });
+  }, [deliveredOrders, paidByOrderId, productCostById, returnsDetailByOrderId]);
+
+  const filteredExpenses = expenses.filter(e => {
+    if (!adminDateFrom && !adminDateTo) return true;
+    const from = adminDateFrom || '0000-00-00';
+    const to = adminDateTo || '9999-99-99';
+    return e.date >= from && e.date <= to;
+  });
+
+  const totalSales = financialOrders.reduce((sum, order) => sum + order.collected, 0);
+  const profit = financialOrders.reduce((sum, order) => sum + order.realizedGrossProfit, 0) - filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
 
   const stats = [
     { label: hasFilter ? t('admin.dashboard.filteredOrders') : t('admin.todayOrders'), value: hasFilter ? filteredOrders.length : todayOrders.length, icon: ShoppingBag, color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-400', trend: '+12%' },
