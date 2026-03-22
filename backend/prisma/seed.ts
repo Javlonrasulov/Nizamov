@@ -4,26 +4,8 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
-  const hash = await bcrypt.hash('1234', 10);
   const adminHash = await bcrypt.hash('admin', 10);
-
-  await prisma.user.upsert({ where: { phone: '998901234567' }, update: {}, create: { name: 'Sardor Toshmatov', phone: '998901234567', role: 'agent', password: hash } });
-  await prisma.user.upsert({ where: { phone: '998907654321' }, update: {}, create: { name: 'Dilnoza Yusupova', phone: '998907654321', role: 'agent', password: hash } });
-  await prisma.user.upsert({ where: { phone: '998901112233' }, update: {}, create: { name: 'Bobur Karimov', phone: '998901112233', role: 'agent', password: hash } });
-  await prisma.user.upsert({ where: { phone: '998909998877' }, update: {}, create: { name: 'Jasur Razzaqov', phone: '998909998877', role: 'delivery', password: hash } });
-  await prisma.user.upsert({ where: { phone: '998908887766' }, update: {}, create: { name: 'Sanjar Mirzayev', phone: '998908887766', role: 'delivery', password: hash } });
-  await prisma.user.upsert({ where: { phone: '998900001122' }, update: {}, create: { name: 'Aziz Xasanov', phone: '998900001122', role: 'admin', password: adminHash } });
-
-  const agent1 = await prisma.user.findUnique({ where: { phone: '998901234567' } });
-  if (agent1 && (await prisma.client.count()) === 0) {
-    await prisma.client.createMany({
-      data: [
-        { name: 'Bek Supermarket', phone: '+998901010101', address: 'Toshkent, Chilonzor, 4-kvartal', lat: 41.2995, lng: 69.2401, agentId: agent1.id, visitDays: '["du","ch","sh"]' },
-        { name: "Hamza Do'kon", phone: '+998902020202', address: 'Toshkent, Yunusobod, Amir Temur', lat: 41.3456, lng: 69.2870, agentId: agent1.id, visitDays: '["se","pa","sh"]' },
-        { name: 'Sarvar Market', phone: '+998903030303', address: "Toshkent, Mirzo Ulug'bek", lat: 41.32, lng: 69.31, agentId: agent1.id, visitDays: '["du","ju","sh"]' },
-      ],
-    });
-  }
+  await prisma.user.upsert({ where: { phone: '998900001122' }, update: {}, create: { name: 'Admin', phone: '998900001122', role: 'admin', password: adminHash } });
 
   const products = [
     { id: 'p1', name: 'Coca-Cola 0.5L (yashik)', price: 85000, cost: 65000, stock: 150 },
@@ -32,15 +14,6 @@ async function main() {
   ];
   for (const p of products) {
     await prisma.product.upsert({ where: { id: p.id }, update: {}, create: p });
-  }
-
-  const defaultVehicles = ['Gazel', 'Labo', 'Isuzu', 'Boshqa'];
-  for (let i = 0; i < defaultVehicles.length; i++) {
-    await prisma.vehicle.upsert({
-      where: { name: defaultVehicles[i] },
-      update: {},
-      create: { name: defaultVehicles[i], sortOrder: i },
-    });
   }
 
   const defaultCategories = [
