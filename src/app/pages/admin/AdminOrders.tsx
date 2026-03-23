@@ -169,11 +169,11 @@ export const AdminOrders = () => {
   useEffect(() => {
     if (yuklashOrder) {
       apiGetUsers('delivery').then(setDeliveryUsers).catch(() => setDeliveryUsers([]));
+      apiGetVehicles()
+        .then(data => setVehiclesList((data || []).map(v => v.name)))
+        .catch(() => setVehiclesList([]));
       setSelectedDeliveryId('');
       setVehicleName('');
-      apiGetVehicles()
-        .then(data => { setVehiclesList((data || []).map(v => v.name)); })
-        .catch(() => { setVehiclesList([]); });
     }
   }, [yuklashOrder]);
 
