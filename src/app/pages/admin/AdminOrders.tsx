@@ -24,6 +24,12 @@ export const AdminOrders = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [yuklashOrder, setYuklashOrder] = useState<{ id: string } | null>(null);
+  const [bulkYuklashOrderIds, setBulkYuklashOrderIds] = useState<string[]>([]);
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const selectionEnabled = statusFilter === 'tayyorlanmagan';
+  useEffect(() => {
+    if (!selectionEnabled) setSelectedOrderIds([]);
+  }, [selectionEnabled]);
   const [deliveryUsers, setDeliveryUsers] = useState<User[]>([]);
   const [deliveryFilterId, setDeliveryFilterId] = useState<string>('');
   const [selectedDeliveryId, setSelectedDeliveryId] = useState('');
@@ -354,6 +360,27 @@ export const AdminOrders = () => {
     refetchData?.();
   };
 
+  const handleBulkYuklashConfirm = async () => {
+    if (bulkYuklashOrderIds.length === 0 || !selectedDeliveryId) return;
+    const delivery = deliveryUsers.find(u => u.id === selectedDeliveryId);
+    if (!delivery) return;
+
+    // Bir nechta zakazni bir xil dostavkachi + mashina bilan yuboramiz.
+    for (const id of bulkYuklashOrderIds) {
+      await updateOrder(id, {
+        status: 'yuborilgan',
+        deliveryId: delivery.id,
+        deliveryName: delivery.name,
+        vehicleName: vehicleName || undefined,
+      });
+    }
+
+    setBulkYuklashOrderIds([]);
+    setSelectedOrderIds([]);
+    setYuklashOrder(null);
+    refetchData?.();
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
     await refetchData?.();
@@ -377,6 +404,11 @@ export const AdminOrders = () => {
     const matchDelivery = !deliveryFilterId || orderDeliveryId === deliveryFilterId;
     return matchSearch && matchStatus && matchDelivery;
   });
+
+  const selectedOrders = filtered.filter(o => selectedOrderIds.includes(o.id));
+  const selectableOrderIds = filtered
+    .filter(o => needsYuklash(o.status) && !isFullyReturnedOrder(o.id) && !(statusFilter === 'cancelled' && returnedByOrderId[o.id]))
+    .map(o => o.id);
 
   const deliveryFilterUser = useMemo(
     () => deliveryUsers.find(u => u.id === deliveryFilterId) || null,
@@ -584,6 +616,145 @@ export const AdminOrders = () => {
     iframe.onload = () => doPrintOnce();
 
     // Fallback in case onload doesn't fire in some browsers
+    setTimeout(() => {
+      doPrintOnce();
+    }, 250);
+  };
+
+  const handlePrintMany = (orders: any[]) => {
+    if (!orders || orders.length === 0) return;
+
+    // Chop etish tili har doim o'zbek (kirill) bo'lishi uchun alohida tarjima funksiyasi ishlatamiz.
+    const tPrint = (key: keyof typeof translations['uz_lat']) => translations.uz_kir[key] || String(key);
+
+    const pagesHtml = orders.map((order: any) => {
+      const debt = debtByOrderId[order.id] ?? 0;
+      const title = `${tPrint('admin.ordersPage')} ${formatOrderId(order)}`;
+      const debtLabel = `${tPrint('payments.badge.debt')}: ${debt.toLocaleString('ru-RU')} ${tPrint('common.sum')}`;
+
+      const rows = (order.items ?? []).map((it: any, idx: number) => `
+        <tr>
+          <td style="width:38px;text-align:center;">${idx + 1}</td>
+          <td>${escapeHtml(String(it.productName ?? ''))}</td>
+          <td style="width:80px;text-align:right;">${Number(it.quantity || 0)} ${escapeHtml(tPrint('common.pcs'))}</td>
+          <td style="width:110px;text-align:right;">${Number(it.price || 0).toLocaleString('ru-RU')} ${escapeHtml(tPrint('common.sum'))}</td>
+          <td style="width:120px;text-align:right;font-weight:700;">${Number((it.quantity || 0) * (it.price || 0)).toLocaleString('ru-RU')} ${escapeHtml(tPrint('common.sum'))}</td>
+        </tr>
+      `).join('');
+
+      return `
+        <div class="print-page">
+          <div class="top">
+            <div>
+              <h1>${escapeHtml(title)}</h1>
+              <div class="muted" style="font-size:12px;">${escapeHtml(order.date ?? '')}</div>
+            </div>
+            <div class="badge ${debt > 0 ? 'debt' : ''}">${escapeHtml(debtLabel)}</div>
+          </div>
+
+          <div class="grid">
+            <div class="kv"><span class="k">${escapeHtml(tPrint('orders.client'))}</span> ${escapeHtml(order.clientName ?? '')}</div>
+            <div class="kv"><span class="k">${escapeHtml(tPrint('common.phone'))}</span> ${escapeHtml(order.clientPhone ?? '')}</div>
+            <div class="kv"><span class="k">${escapeHtml(tPrint('orders.agent'))}</span> ${escapeHtml(order.agentName ?? '')}</div>
+            <div class="kv"><span class="k">${escapeHtml(tPrint('common.address'))}</span> ${escapeHtml(order.clientAddress ?? '')}</div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width:38px;">#</th>
+                <th>${escapeHtml(tPrint('admin.suppliers.productName'))}</th>
+                <th style="width:80px; text-align:right;">${escapeHtml(tPrint('admin.suppliers.quantity'))}</th>
+                <th style="width:110px; text-align:right;">${escapeHtml(tPrint('admin.suppliers.salePrice'))}</th>
+                <th style="width:120px; text-align:right;">${escapeHtml(tPrint('common.total'))}</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows || `<tr><td colspan="5" class="muted">${escapeHtml(tPrint('orders.items'))}: 0</td></tr>`}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="4" style="text-align:right;">${escapeHtml(tPrint('common.total'))}</td>
+                <td style="text-align:right;">${Number(order.total || 0).toLocaleString('ru-RU')} ${escapeHtml(tPrint('common.sum'))}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      `;
+    }).join('');
+
+    const html = `
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(tPrint('admin.ordersPage'))}</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { font-family: Inter, Arial, sans-serif; color: #0f172a; margin: 24px; }
+      .muted { color: #475569; }
+      .top { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; }
+      h1 { font-size: 18px; margin: 0 0 6px; }
+      .badge { display:inline-block; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; border: 1px solid #e2e8f0; }
+      .badge.debt { background: #fef2f2; color: #b91c1c; border-color:#fee2e2; }
+      .badge.paid { background: #f0fdf4; color: #166534; border-color:#dcfce7; }
+      .grid { display:grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; margin-top: 14px; }
+      .kv { font-size: 12px; }
+      .k { font-weight: 700; color:#334155; display:inline-block; min-width: 140px; }
+      table { width:100%; border-collapse: collapse; margin-top: 18px; }
+      th, td { border: 1px solid #cbd5e1; padding: 8px 10px; font-size: 12px; vertical-align: top; }
+      th { background:#f1f5f9; text-align:left; }
+      tfoot td { font-weight: 800; background:#f8fafc; }
+      .print-page { page-break-after: always; }
+      .print-page:last-child { page-break-after: auto; }
+      @media print { body { margin: 10mm; } }
+    </style>
+  </head>
+  <body>
+    ${pagesHtml}
+  </body>
+</html>
+    `;
+
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.style.opacity = '0';
+    iframe.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc || !iframe.contentWindow) {
+      document.body.removeChild(iframe);
+      return;
+    }
+
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    const cleanup = () => {
+      try { document.body.removeChild(iframe); } catch {}
+    };
+
+    let printed = false;
+    const doPrintOnce = () => {
+      if (printed) return;
+      printed = true;
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } finally {
+        setTimeout(cleanup, 1200);
+      }
+    };
+
+    iframe.onload = () => doPrintOnce();
     setTimeout(() => {
       doPrintOnce();
     }, 250);
@@ -834,11 +1005,63 @@ export const AdminOrders = () => {
         )}
 
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+          {selectionEnabled && (
+            <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between gap-3">
+              <div className="text-sm text-gray-600 dark:text-gray-300">
+                Tanlangan: <span className="font-semibold text-gray-900 dark:text-white">{selectedOrderIds.length}</span> {t('common.pcs')}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handlePrintMany(selectedOrders)}
+                  disabled={selectedOrderIds.length === 0}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={t('common.print')}
+                >
+                  <Printer size={14} />
+                  {t('common.print')}
+                </button>
+                <button
+                  onClick={() => {
+                    setYuklashOrder(null);
+                    setBulkYuklashOrderIds(selectedOrderIds.slice());
+                    setSelectedDeliveryId('');
+                    setVehicleName('');
+                  }}
+                  disabled={selectedOrderIds.length === 0}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#2563EB] text-white text-xs font-medium hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Yuklash"
+                >
+                  <Truck size={14} />
+                  Yuklash
+                </button>
+              </div>
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-700/30">
-                  <th className="text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-5 py-3">{t('orders.id')}</th>
+                  <th className="text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-5 py-3">
+                    {selectionEnabled ? (
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={selectableOrderIds.length > 0 && selectableOrderIds.every(id => selectedOrderIds.includes(id))}
+                          onChange={(e) => {
+                            if (!e.target.checked) {
+                              setSelectedOrderIds([]);
+                              return;
+                            }
+                            setSelectedOrderIds(selectableOrderIds.slice());
+                          }}
+                          onClick={(ev) => ev.stopPropagation()}
+                        />
+                        {t('orders.id')}
+                      </label>
+                    ) : (
+                      t('orders.id')
+                    )}
+                  </th>
                   <th className="text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-5 py-3">{t('orders.client')}</th>
                   <th className="text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-5 py-3">{t('orders.agent')}</th>
                   <th className="text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-5 py-3">{t('common.total')}</th>
@@ -855,7 +1078,27 @@ export const AdminOrders = () => {
                       className={`border-b border-gray-50 dark:border-gray-700 last:border-0 transition-colors cursor-pointer ${expandedOrderId === order.id ? 'bg-blue-50/50 dark:bg-blue-900/10' : 'hover:bg-gray-50/50 dark:hover:bg-gray-700/50'}`}
                       onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}
                     >
-                      <td className="px-5 py-4 text-sm font-mono text-gray-600 dark:text-gray-300 font-medium">{formatOrderId(order)}</td>
+                      <td className="px-5 py-4 text-sm font-mono text-gray-600 dark:text-gray-300 font-medium">
+                        {selectionEnabled && (
+                          <label
+                            className="flex items-center gap-2 cursor-pointer select-none"
+                            onClick={(ev) => ev.stopPropagation()}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedOrderIds.includes(order.id)}
+                              disabled={!selectableOrderIds.includes(order.id)}
+                              onClick={(ev) => ev.stopPropagation()}
+                              onChange={() => {
+                                if (!selectableOrderIds.includes(order.id)) return;
+                                setSelectedOrderIds(prev => prev.includes(order.id) ? prev.filter(id => id !== order.id) : [...prev, order.id]);
+                              }}
+                            />
+                            <span>{formatOrderId(order)}</span>
+                          </label>
+                        )}
+                        {!selectionEnabled && <span>{formatOrderId(order)}</span>}
+                      </td>
                       <td className="px-5 py-4">
                         <p className="text-sm font-medium text-gray-900 dark:text-white">{order.clientName}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">{order.clientPhone}</p>
@@ -1207,10 +1450,18 @@ export const AdminOrders = () => {
           </div>
         </div>
 
-        {yuklashOrder && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/60" onClick={() => setYuklashOrder(null)}>
+        {(yuklashOrder || bulkYuklashOrderIds.length > 0) && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/60"
+            onClick={() => {
+              setYuklashOrder(null);
+              setBulkYuklashOrderIds([]);
+            }}
+          >
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full mx-4 p-5" onClick={e => e.stopPropagation()}>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Zakazni yuklash</h3>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
+                {bulkYuklashOrderIds.length > 0 ? 'Zakazlarni yuklash' : 'Zakazni yuklash'}
+              </h3>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Qaysi mashinaga va qaysi dostavkachiga yuklansin?</p>
               <div className="space-y-3">
                 <div>
@@ -1242,13 +1493,16 @@ export const AdminOrders = () => {
               </div>
               <div className="flex gap-2 mt-5">
                 <button
-                  onClick={() => setYuklashOrder(null)}
+                  onClick={() => {
+                    setYuklashOrder(null);
+                    setBulkYuklashOrderIds([]);
+                  }}
                   className="flex-1 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
                   Bekor qilish
                 </button>
                 <button
-                  onClick={handleYuklashConfirm}
+                  onClick={bulkYuklashOrderIds.length > 0 ? handleBulkYuklashConfirm : handleYuklashConfirm}
                   disabled={!selectedDeliveryId}
                   className="flex-1 px-4 py-2 rounded-xl bg-[#2563EB] text-white text-sm font-medium hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
