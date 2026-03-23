@@ -171,7 +171,9 @@ export const AdminOrders = () => {
       apiGetUsers('delivery').then(setDeliveryUsers).catch(() => setDeliveryUsers([]));
       setSelectedDeliveryId('');
       setVehicleName('');
-      setVehiclesList(loadVehicles());
+      apiGetVehicles()
+        .then(data => { setVehiclesList((data || []).map(v => v.name)); })
+        .catch(() => { setVehiclesList([]); });
     }
   }, [yuklashOrder]);
 
