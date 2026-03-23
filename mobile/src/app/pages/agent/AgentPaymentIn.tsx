@@ -1,0 +1,292 @@
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router';
+import { Calendar, Check, ChevronDown, CreditCard, Search, X } from 'lucide-react';
+import { useApp } from '../../context/AppContext';
+import { MobileShell, MobileHeader, MobileContent } from '../../components/MobileShell';
+import { MobileNav } from '../../components/MobileNav';
+import { apiCreatePayment, apiGetClientBalance, ClientBalance, PaymentMethod } from '../../api/payments';
+
+const INITIAL_VISIBLE = 5;
+
+export const AgentPaymentIn = () => {
+  const { t, currentUser, clients, refetchData } = useApp();
+  const navigate = useNavigate();
+
+  const [step, setStep] = useState<1 | 2>(1);
+  const [search, setSearch] = useState('');
+  const [expandClients, setExpandClients] = useState(false);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+
+  const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [method, setMethod] = useState<PaymentMethod>('cash');
+  const [amount, setAmount] = useState<string>('');
+  const [saving, setSaving] = useState(false);
+  const [savedOk, setSavedOk] = useState(false);
+  const [balances, setBalances] = useState<Record<string, ClientBalance>>({});
+  const [balancesLoading, setBalancesLoading] = useState<Record<string, boolean>>({});
+
+  useEffect(() => { refetchData?.(); }, [refetchData]);
+
+  const myClients = clients.filter(c => c.agentId === currentUser?.id);
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return myClients;
+    return myClients.filter(c =>
+      c.name.toLowerCase().includes(q)
+      || c.phone.replace(/\s/g, '').includes(q.replace(/\s/g, ''))
+      || c.address.toLowerCase().includes(q),
+    );
+  }, [myClients, search]);
+
+  const visible = expandClients ? filtered : filtered.slice(0, INITIAL_VISIBLE);
+  const hasMore = filtered.length > INITIAL_VISIBLE;
+
+  const selectedClient = selectedClientId ? myClients.find(c => c.id === selectedClientId) : null;
+  const selectedDebt = selectedClient ? (balances[selectedClient.id]?.debt ?? 0) : 0;
+
+  // balances / balancesLoading ni dependency qilmang: har safar setBalances effektni qayta ishga tushiradi,
+  // cleanup async ni bekor qiladi — ketma-ket yuklashlar to‘xtab, qarzlar ko‘rinmay qoladi (AdminClients kabi).
+  useEffect(() => {
+    const ids = new Set<string>();
+    const vis = expandClients ? filtered : filtered.slice(0, INITIAL_VISIBLE);
+    vis.forEach(c => ids.add(c.id));
+    if (selectedClientId) ids.add(selectedClientId);
+    const toLoad = Array.from(ids).filter(id => !balances[id] && !balancesLoading[id]);
+    if (toLoad.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      for (const id of toLoad) {
+        if (cancelled) return;
+        setBalancesLoading(prev => ({ ...prev, [id]: true }));
+        try {
+          const bal = await apiGetClientBalance(id);
+          if (!cancelled) setBalances(prev => ({ ...prev, [id]: bal }));
+        } catch {
+          // ignore
+        } finally {
+          setBalancesLoading(prev => ({ ...prev, [id]: false }));
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [filtered, expandClients, selectedClientId]);
+
+  const reset = () => {
+    setStep(1);
+    setSearch('');
+    setExpandClients(false);
+    setSelectedClientId(null);
+    setDate(new Date().toISOString().split('T')[0]);
+    setMethod('cash');
+    setAmount('');
+    setSaving(false);
+    setSavedOk(false);
+  };
+
+  const canSubmit = !!selectedClient && !!date && parseInt(amount || '0') > 0 && !!currentUser?.id;
+  const formattedAmount = amount ? parseInt(amount, 10).toLocaleString('ru-RU') : '';
+
+  const handleSubmit = async () => {
+    if (!canSubmit || !selectedClient || !currentUser) return;
+    setSaving(true);
+    try {
+      await apiCreatePayment({
+        clientId: selectedClient.id,
+        amount: parseInt(amount, 10),
+        method,
+        date,
+        collectedByUserId: currentUser.id,
+      });
+      setSavedOk(true);
+      setTimeout(() => {
+        reset();
+        navigate('/agent');
+      }, 800);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <MobileShell>
+      <MobileHeader title={t('payments.in.title')} showBack showLang showLogout />
+      <MobileContent className="pb-20">
+        <div className="p-4 space-y-4">
+          {step === 1 && (
+            <>
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-100 dark:border-gray-700 shadow-sm">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div>
+                    <p className="text-sm font-bold text-gray-900 dark:text-white">{t('payments.in.selectClient')}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500">{filtered.length} {t('clients.countSuffix')}</p>
+                  </div>
+                  {search.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => setSearch('')}
+                      className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
+                      title={t('common.clear')}
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
+
+                <div className="relative mb-3">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    placeholder={t('clients.search')}
+                    className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-50 dark:placeholder:text-gray-500"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  {visible.map(c => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => { setSelectedClientId(c.id); setStep(2); }}
+                      className="w-full text-left bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-200 dark:border-gray-700 hover:border-[#2563EB]/50 dark:hover:border-blue-500/50 transition-colors"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{c.name}</p>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                          balancesLoading[c.id]
+                            ? 'bg-gray-100 text-gray-500'
+                            : (balances[c.id]?.debt ?? 0) > 0
+                            ? 'bg-red-100 text-red-600'
+                            : 'bg-green-100 text-green-600'
+                        }`}>
+                          {balancesLoading[c.id]
+                            ? '...'
+                            : (balances[c.id]?.debt ?? 0) > 0
+                            ? `${t('payments.badge.debt')}: ${(balances[c.id]?.debt ?? 0).toLocaleString('ru-RU')} ${t('common.sum')}`
+                            : t('payments.badge.paid')}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{c.phone}</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{c.address}</p>
+                    </button>
+                  ))}
+
+                  {hasMore && !expandClients && (
+                    <button
+                      type="button"
+                      onClick={() => setExpandClients(true)}
+                      className="w-full py-3 rounded-xl border-2 border-dashed border-[#2563EB]/40 text-[#2563EB] dark:text-blue-400 text-sm font-medium flex items-center justify-center gap-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                    >
+                      <ChevronDown size={16} />
+                      {t('common.showAllWithCount').replace('N', String(filtered.length))}
+                    </button>
+                  )}
+
+                  {filtered.length === 0 && (
+                    <div className="text-center py-10 text-sm text-gray-400 dark:text-gray-500">
+                      {t('clients.empty')}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
+          {step === 2 && selectedClient && (
+            <>
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-100 dark:border-gray-700 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs text-gray-400 dark:text-gray-500">{t('payments.in.client')}</p>
+                    <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{selectedClient.name}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{selectedClient.phone}</p>
+                    <p className={`text-xs mt-1 ${
+                      balancesLoading[selectedClient.id]
+                        ? 'text-gray-400 dark:text-gray-500'
+                        : selectedDebt > 0
+                        ? 'text-red-600 dark:text-red-400'
+                        : 'text-green-600 dark:text-green-400'
+                    }`}>
+                      {balancesLoading[selectedClient.id]
+                        ? '...'
+                        : `${t('payments.clientDebt')}: ${selectedDebt.toLocaleString('ru-RU')} ${t('common.sum')}`}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setStep(1); }}
+                    className="px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-600 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
+                    {t('common.change')}
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-100 dark:border-gray-700 shadow-sm space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1.5">{t('common.date')}</label>
+                  <div className="relative">
+                    <Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="date"
+                      value={date}
+                      onChange={e => setDate(e.target.value)}
+                      className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-50"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1.5">{t('payments.method')}</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['cash', 'terminal', 'transfer'] as PaymentMethod[]).map(m => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setMethod(m)}
+                        className={`py-2.5 rounded-xl border text-xs font-semibold transition-colors ${
+                          method === m
+                            ? 'bg-[#2563EB] text-white border-[#2563EB]'
+                            : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        {t(`payments.method.${m}` as any)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1.5">{t('payments.amount')}</label>
+                  <div className="relative">
+                    <CreditCard size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      inputMode="numeric"
+                      value={formattedAmount}
+                      onChange={e => setAmount(e.target.value.replace(/[^\d]/g, ''))}
+                      placeholder={t('payments.amount.placeholder')}
+                      className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-50 dark:placeholder:text-gray-500"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={!canSubmit || saving}
+                  className="w-full py-3.5 rounded-xl bg-green-600 text-white font-semibold text-sm hover:bg-green-700 active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  {savedOk ? <Check size={16} /> : null}
+                  {savedOk ? t('payments.saved') : (saving ? '...' : t('common.save'))}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </MobileContent>
+      <MobileNav role="agent" />
+    </MobileShell>
+  );
+};
+

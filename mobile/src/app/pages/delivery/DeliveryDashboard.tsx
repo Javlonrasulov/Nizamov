@@ -1,0 +1,367 @@
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router';
+import {
+  Truck, CheckCircle2, Clock, Package,
+  MapPin, Phone, ChevronRight, ShoppingBag, User, RefreshCw, Check, CreditCard
+} from 'lucide-react';
+import { useApp } from '../../context/AppContext';
+import { MobileShell, MobileHeader, MobileContent } from '../../components/MobileShell';
+import { MobileNav } from '../../components/MobileNav';
+import { StatusBadge } from '../../components/StatusBadge';
+import { apiGetReturns, type ReturnRecord } from '../../api/returns';
+
+export const DeliveryDashboard = () => {
+  const { t, currentUser, orders, refetchData } = useApp();
+  const navigate = useNavigate();
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshedOk, setRefreshedOk] = useState(false);
+
+  useEffect(() => {
+    refetchData?.();
+  }, [refetchData]);
+
+  const handleRefresh = async () => {
+    const startedAt = Date.now();
+    const minSpinMs = 700;
+    setRefreshing(true);
+    try {
+      await refetchData?.();
+      const elapsed = Date.now() - startedAt;
+      const waitMore = Math.max(0, minSpinMs - elapsed);
+      window.setTimeout(() => {
+        setRefreshing(false);
+        setRefreshedOk(true);
+        window.setTimeout(() => setRefreshedOk(false), 1500);
+      }, waitMore);
+    } finally {}
+  };
+
+  const formatOrderId = (o: { id: string; orderNumber?: number }) =>
+    o.orderNumber != null ? `#${o.orderNumber}` : `#${o.id.slice(-6).toUpperCase()}`;
+
+  const today = new Date().toISOString().split('T')[0];
+
+  /* Faqat bu dostavchiga tegishli zakazlar */
+  const myOrders = orders.filter(o => o.deliveryId === currentUser?.id);
+  const todayOrders = myOrders.filter(o => o.date === today);
+
+  const [returnsByOrderId, setReturnsByOrderId] = useState<Record<string, ReturnRecord[]>>({});
+  const [returnsLoadingByOrderId, setReturnsLoadingByOrderId] = useState<Record<string, boolean>>({});
+
+  const todayOrderIds = useMemo(() => todayOrders.map(o => o.id), [todayOrders]);
+  useEffect(() => {
+    if (todayOrderIds.length === 0) {
+      setReturnsByOrderId({});
+      setReturnsLoadingByOrderId({});
+      return;
+    }
+    let cancelled = false;
+
+    const load = async () => {
+      const nextLoading: Record<string, boolean> = {};
+      todayOrderIds.forEach(id => { nextLoading[id] = true; });
+      setReturnsLoadingByOrderId(nextLoading);
+
+      try {
+        const results = await Promise.all(
+          todayOrderIds.map(async orderId => {
+            const rets = await apiGetReturns({ orderId, status: 'accepted' });
+            return [orderId, rets || []] as const;
+          }),
+        );
+        if (cancelled) return;
+        setReturnsByOrderId(Object.fromEntries(results));
+      } catch {
+        if (cancelled) return;
+        setReturnsByOrderId({});
+      } finally {
+        if (cancelled) return;
+        setReturnsLoadingByOrderId({});
+      }
+    };
+
+    load();
+    return () => { cancelled = true; };
+  }, [todayOrderIds.join('|')]);
+
+  const getReturnState = (order: typeof todayOrders[number]) => {
+    const rets = returnsByOrderId[order.id] ?? [];
+    if (rets.length === 0) return null;
+
+    const returnedAmount = rets.reduce((sum, r) => (
+      sum + (r.items || []).reduce((s, it) => {
+        const price = order.items.find(x => x.productId === it.productId)?.price ?? 0;
+        return s + (it.quantity || 0) * price;
+      }, 0)
+    ), 0);
+
+    const isAllReturned = returnedAmount >= order.total - 0.00001;
+    return {
+      isAllReturned,
+      isPartialReturned: !isAllReturned && returnedAmount > 0,
+    };
+  };
+
+  const active = todayOrders.filter(o => {
+    const ret = getReturnState(o);
+    if (ret?.isAllReturned) return false;
+    return o.status === 'yuborilgan' || o.status === 'delivering' || o.status === 'accepted' || ret?.isPartialReturned;
+  });
+  const delivered = todayOrders.filter(o => o.status === 'delivered');
+  // agent yuborgan (tayyorlanmagan/sent) dostavkachiga berilmagan; dostavkachining pending'i yuborilgan
+  const pending = todayOrders.filter(o => o.status === 'yuborilgan');
+
+  const totalToday = todayOrders.reduce((s, o) => s + o.total, 0);
+  const deliveredSum = delivered.reduce((s, o) => s + o.total, 0);
+
+  const formatSum = (n: number) => `${n.toLocaleString('ru-RU')} ${t('common.sum')}`;
+
+  const getReturnLabel = (order: typeof todayOrders[number]) => {
+    const state = getReturnState(order);
+    if (!state) return null;
+    if (state.isAllReturned) return { key: 'all', label: t('returns.summary.allReturned'), tone: 'red' as const };
+    if (state.isPartialReturned) return { key: 'partial', label: t('returns.summary.partialReturned'), tone: 'amber' as const };
+    return null;
+  };
+
+  const renderReturnPill = (order: typeof todayOrders[number]) => {
+    if (returnsLoadingByOrderId[order.id]) return <span className="text-[10px] text-gray-400">{t('common.loading')}</span>;
+    const pill = getReturnLabel(order);
+    if (!pill) return null;
+    return (
+      <span
+        className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+          pill.tone === 'red'
+            ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'
+            : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300'
+        }`}
+      >
+        {pill.label}
+      </span>
+    );
+  };
+
+  return (
+    <MobileShell>
+      <MobileHeader
+        title={t('common.dashboard')}
+        showLang
+        showLogout
+        rightElement={(
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors disabled:opacity-60"
+            title={t('common.refresh')}
+          >
+            {refreshedOk && !refreshing
+              ? <Check size={16} className="text-green-600 dark:text-green-400" />
+              : <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />}
+          </button>
+        )}
+      />
+      <MobileContent className="pb-20">
+
+        {/* ── Salomlash banner ── */}
+        <div className="bg-gradient-to-br from-purple-600 via-purple-700 to-purple-800 px-4 pt-5 pb-6 relative overflow-hidden">
+          {/* Fon bezak doiralari */}
+          <div className="absolute -top-8 -right-8 w-36 h-36 rounded-full bg-white/10" />
+          <div className="absolute -bottom-10 -left-6 w-28 h-28 rounded-full bg-white/5" />
+
+          <div className="relative z-10">
+            <h2 className="font-bold text-xl text-white">{currentUser?.name}</h2>
+
+            {/* Statistika qatorlari */}
+            <div className="grid grid-cols-3 gap-2 mt-4">
+              {[
+                { icon: Truck, label: t('delivery.stat.active'), value: active.length, color: 'bg-white/20' },
+                { icon: CheckCircle2, label: t('delivery.delivered'), value: delivered.length, color: 'bg-white/20' },
+                { icon: Clock, label: t('delivery.stat.pending'), value: pending.length, color: 'bg-white/20' },
+              ].map(stat => (
+                <div key={stat.label} className={`${stat.color} rounded-2xl px-3 py-3 flex flex-col items-center gap-1`}>
+                  <stat.icon size={18} className="text-purple-200" />
+                  <span className="text-2xl font-bold text-white leading-none">{stat.value}</span>
+                  <span className="text-purple-200 text-[10px] text-center">{stat.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Bugungi summa ── */}
+        <div className="mx-4 -mt-4 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 px-4 py-3 flex items-center justify-between relative z-10">
+          <div>
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">{t('delivery.stat.todayTotal')}</p>
+            <p className="text-base font-bold text-gray-900 dark:text-white">{formatSum(totalToday)}</p>
+          </div>
+          <div className="w-px h-8 bg-gray-100 dark:bg-gray-700 mx-2" />
+          <div>
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">{t('delivery.delivered')}</p>
+            <p className="text-base font-bold text-green-600 dark:text-green-400">{formatSum(deliveredSum)}</p>
+          </div>
+        </div>
+
+        <div className="p-4 space-y-4 mt-1">
+
+          {/* ── Tezkor harakatlar ── */}
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => navigate('/delivery/orders')}
+              className="flex items-center gap-3 bg-white dark:bg-gray-800 rounded-2xl px-4 py-3.5 border border-gray-100 dark:border-gray-700 shadow-sm active:scale-[0.97] transition-all"
+            >
+              <div className="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0">
+                <ShoppingBag size={18} className="text-purple-600 dark:text-purple-400" />
+              </div>
+              <div className="text-left">
+                <p className="text-xs font-semibold text-gray-800 dark:text-gray-100">{t('common.orders')}</p>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500">{t('orders.history')}</p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => navigate('/delivery/profile')}
+              className="flex items-center gap-3 bg-white dark:bg-gray-800 rounded-2xl px-4 py-3.5 border border-gray-100 dark:border-gray-700 shadow-sm active:scale-[0.97] transition-all"
+            >
+              <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+                <User size={18} className="text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="text-left">
+                <p className="text-xs font-semibold text-gray-800 dark:text-gray-100">{t('common.profile')}</p>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500">{t('delivery.stat.info')}</p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => navigate('/delivery/payments/in')}
+              className="col-span-2 flex items-center gap-3 bg-white dark:bg-gray-800 rounded-2xl px-4 py-3.5 border border-gray-100 dark:border-gray-700 shadow-sm active:scale-[0.97] transition-all"
+            >
+              <div className="w-9 h-9 rounded-xl bg-green-50 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
+                <CreditCard size={18} className="text-green-600 dark:text-green-400" />
+              </div>
+              <div className="text-left">
+                <p className="text-xs font-semibold text-gray-800 dark:text-gray-100">{t('payments.in.title')}</p>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500">{t('payments.clientDebt')}</p>
+              </div>
+            </button>
+          </div>
+
+          {/* ── Faol zakazlar ── */}
+          {active.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 flex items-center gap-1.5">
+                  <Truck size={14} className="text-purple-500" />
+                  {t('delivery.stat.active')}
+                </h3>
+                <span className="text-xs text-purple-500 dark:text-purple-400 font-medium">{active.length} {t('common.pcs')}</span>
+              </div>
+              <div className="space-y-2">
+                {active.map(order => (
+                  <button
+                    key={order.id}
+                    onClick={() => navigate(`/delivery/${order.id}`)}
+                    className="w-full bg-white dark:bg-gray-800 rounded-2xl p-4 border border-purple-100 dark:border-purple-900/40 shadow-sm text-left active:scale-[0.98] transition-all"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <p className="font-bold text-gray-900 dark:text-white text-sm">{order.clientName}</p>
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500 font-mono mt-0.5">{formatOrderId(order)}</p>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {getReturnState(order)?.isAllReturned ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                            {t('returns.summary.allReturned')}
+                          </span>
+                        ) : (
+                          <>
+                            <StatusBadge status={getReturnState(order)?.isPartialReturned ? 'delivered' : order.status} />
+                            {renderReturnPill(order)}
+                          </>
+                        )}
+                        <ChevronRight size={14} className="text-gray-300 dark:text-gray-500" />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 mb-1">
+                      <MapPin size={11} className="text-purple-400 flex-shrink-0" />
+                      <span className="truncate">{order.clientAddress}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 mb-2">
+                      <Phone size={11} className="text-purple-400 flex-shrink-0" />
+                      <span>{order.clientPhone}</span>
+                    </div>
+                    <div className="flex items-center justify-between pt-2 border-t border-gray-50 dark:border-gray-700">
+                      <span className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
+                        <Package size={11} />
+                        {order.items.length} {t('common.pcs')} {t('orders.items')}
+                      </span>
+                      <span className="text-sm font-bold text-purple-600 dark:text-purple-400">
+                        {formatSum(order.total)}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Yetkazilgan ── */}
+          {delivered.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 flex items-center gap-1.5">
+                  <CheckCircle2 size={14} className="text-green-500" />
+                  {t('delivery.delivered')}
+                </h3>
+                <span className="text-xs text-green-500 font-medium">{delivered.length} {t('common.pcs')}</span>
+              </div>
+              <div className="space-y-2">
+                {delivered.map(order => (
+                  <button
+                    key={order.id}
+                    onClick={() => navigate(`/delivery/${order.id}`)}
+                    className="w-full bg-white dark:bg-gray-800 rounded-2xl px-4 py-3 border border-gray-100 dark:border-gray-700 shadow-sm text-left flex items-center justify-between active:scale-[0.98] transition-all opacity-80"
+                  >
+                    <div>
+                      <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{order.clientName}</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                        {order.items.length} {t('orders.productsCount')} · {formatSum(order.total)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {getReturnState(order)?.isAllReturned ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                          {t('returns.summary.allReturned')}
+                        </span>
+                      ) : (
+                        <>
+                          <StatusBadge status={getReturnState(order)?.isPartialReturned ? 'delivered' : order.status} />
+                          {renderReturnPill(order)}
+                        </>
+                      )}
+                      <ChevronRight size={14} className="text-gray-300 dark:text-gray-600" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Bo'sh holat ── */}
+          {todayOrders.length === 0 && (
+            <div className="text-center py-16">
+              <div className="w-16 h-16 rounded-full bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center mx-auto mb-3">
+                <Truck size={28} className="text-purple-300 dark:text-purple-500" />
+              </div>
+              <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">{t('delivery.stat.noOrders')}</p>
+              <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">{t('delivery.stat.waitOrders')}</p>
+            </div>
+          )}
+        </div>
+      </MobileContent>
+      <MobileNav role="delivery" />
+    </MobileShell>
+  );
+};

@@ -1,0 +1,265 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Vehicle {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model User {
+  id          String   @id @default(cuid())
+  name        String
+  phone       String   @unique
+  role        String   // agent | delivery | admin
+  password    String
+  vehicleName String?  // dostavchi uchun mashina
+  comment     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  clientsAsAgent   Client[]  @relation("AgentClients")
+  ordersAsAgent    Order[]   @relation("AgentOrders")
+  ordersAsDelivery Order[]   @relation("DeliveryOrders")
+  paymentsCollected Payment[] @relation("CollectedPayments")
+  returnsCreated   Return[]  @relation("ReturnsCreated")
+  returnsAccepted Return[]  @relation("ReturnsAccepted")
+}
+
+model Client {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String
+  address   String
+  lat       Float?
+  lng       Float?
+  visitDays String   // JSON: ["du","se","ch"] — SQLite array yo‘q
+  agentId   String
+  agent     User     @relation("AgentClients", fields: [agentId], references: [id], onDelete: Cascade)
+  orders    Order[]
+  payments  Payment[]
+  returns   Return[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([agentId])
+}
+
+model Product {
+  id        String   @id @default(cuid())
+  name      String
+  price     Int
+  cost      Int
+  stock     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orderItems OrderItem[]
+  supplierStockInItems SupplierStockInItem[]
+  returnItems ReturnItem[]
+}
+
+model Order {
+  id            String   @id @default(cuid())
+  orderNumber   Int?     // qisqa raqam: 1, 2, 3... (ixtiyoriy - eski zakazlar uchun)
+  clientId      String
+  agentId       String
+  deliveryId    String?
+  status        String   // new | tayyorlanmagan | yuborilgan | accepted | delivering | delivered | cancelled | sent
+  vehicleName   String?  // qaysi mashinaga yuklangan
+  date          String   // YYYY-MM-DD
+  total         Int
+  clientName    String
+  clientPhone   String
+  clientAddress String
+  agentName     String
+  deliveryName  String?
+  comment       String?  // agent tomonidan yozilgan izoh
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  client  Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  agent   User        @relation("AgentOrders", fields: [agentId], references: [id])
+  delivery User?      @relation("DeliveryOrders", fields: [deliveryId], references: [id])
+  items   OrderItem[]
+  payments Payment[]
+  returns Return[]
+
+  @@index([clientId])
+  @@index([agentId])
+  @@index([deliveryId])
+  @@index([date])
+  @@index([status])
+}
+
+model Return {
+  id                String    @id @default(cuid())
+  clientId          String
+  orderId           String
+  date              String    // YYYY-MM-DD (qaytarish sanasi)
+  status            String    @default("pending") // pending | accepted
+  createdByUserId   String
+  acceptedByUserId  String?
+  acceptedAt        DateTime?
+  comment           String?
+  createdAt         DateTime  @default(now())
+
+  client    Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  order     Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdBy User   @relation("ReturnsCreated", fields: [createdByUserId], references: [id])
+  acceptedBy User? @relation("ReturnsAccepted", fields: [acceptedByUserId], references: [id])
+  items     ReturnItem[]
+
+  @@index([clientId])
+  @@index([orderId])
+  @@index([date])
+  @@index([status])
+  @@index([createdAt])
+  @@index([createdByUserId])
+  @@index([acceptedByUserId])
+}
+
+model ReturnItem {
+  id         String @id @default(cuid())
+  returnId   String
+  productId  String
+  productName String
+  quantity   Int
+
+  return  Return  @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([returnId])
+  @@index([productId])
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  orderId     String
+  productId   String
+  productName String
+  quantity    Int
+  price       Int
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+}
+
+model ExpenseCategory {
+  id       String   @id @default(cuid())
+  label    String
+  iconName String
+  color    String
+  createdAt DateTime @default(now())
+
+  expenses Expense[]
+}
+
+model Expense {
+  id         String   @id @default(cuid())
+  date       String
+  amount     Int
+  categoryId String
+  comment    String
+  createdAt  DateTime @default(now())
+
+  category ExpenseCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([categoryId])
+  @@index([date])
+}
+
+model Supplier {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String?
+  address   String?
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stockIns SupplierStockIn[]
+  payments SupplierPayment[]
+
+  @@index([name])
+}
+
+model SupplierStockIn {
+  id         String   @id @default(cuid())
+  supplierId String
+  date       String   // YYYY-MM-DD (kirim sanasi)
+  total      Int
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  items    SupplierStockInItem[]
+
+  @@index([supplierId])
+  @@index([date])
+  @@index([createdAt])
+}
+
+model SupplierStockInItem {
+  id          String @id @default(cuid())
+  stockInId   String
+  productId   String
+  productName String
+  quantity    Int
+  costPrice   Int
+  salePrice   Int?
+  total       Int
+
+  stockIn SupplierStockIn @relation(fields: [stockInId], references: [id], onDelete: Cascade)
+  product Product         @relation(fields: [productId], references: [id])
+
+  @@index([stockInId])
+  @@index([productId])
+}
+
+model SupplierPayment {
+  id         String   @id @default(cuid())
+  supplierId String
+  date       String   // YYYY-MM-DD (to'lov sanasi)
+  amount     Int
+  type       String   // cash | card | bank
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@index([supplierId])
+  @@index([date])
+  @@index([createdAt])
+}
+
+model Payment {
+  id                String   @id @default(cuid())
+  clientId           String
+  orderId            String?
+  amount             Int
+  method             String   // cash | terminal | transfer
+  date               String   // YYYY-MM-DD
+  collectedByUserId  String
+  comment            String?
+  createdAt          DateTime @default(now())
+
+  client     Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  order      Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  collectedBy User  @relation("CollectedPayments", fields: [collectedByUserId], references: [id])
+
+  @@index([clientId])
+  @@index([orderId])
+  @@index([date])
+  @@index([createdAt])
+  @@index([collectedByUserId])
+}

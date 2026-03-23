@@ -1,0 +1,852 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router';
+import {
+  Search, Plus, Phone, MapPin, ChevronRight,
+  X, ChevronLeft, Package, ShoppingBag, Calendar, ChevronDown, ChevronUp, Edit2
+} from 'lucide-react';
+import { useApp } from '../../context/AppContext';
+import { MobileShell, MobileHeader, MobileContent } from '../../components/MobileShell';
+import { MobileNav } from '../../components/MobileNav';
+import { formatCurrency } from '../../data/mockData';
+import { MapPicker } from '../../components/MapPicker';
+
+const DAY_SHORT_KEYS: Record<string, any> = {
+  du: 'days.monday.short',
+  se: 'days.tuesday.short',
+  ch: 'days.wednesday.short',
+  pa: 'days.thursday.short',
+  ju: 'days.friday.short',
+  sh: 'days.saturday.short',
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  new: 'bg-blue-100 text-blue-700',
+  accepted: 'bg-yellow-100 text-yellow-700',
+  sent: 'bg-purple-100 text-purple-700',
+  delivering: 'bg-orange-100 text-orange-700',
+  delivered: 'bg-green-100 text-green-700',
+  cancelled: 'bg-red-100 text-red-700',
+};
+
+const WEEK_DAY_SHORT_KEYS = [
+  'days.monday.short',
+  'days.tuesday.short',
+  'days.wednesday.short',
+  'days.thursday.short',
+  'days.friday.short',
+  'days.saturday.short',
+  'days.sunday.short',
+] as const;
+
+function toYMD(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+/** Sana satrini ko'rsatish (callback emas — minifikatsiya/APK da "is not a function" oldini olish) */
+function formatDateLabel(ymd: string, locale: string): string {
+  const parts = ymd.split('-');
+  const m = parts[1];
+  const d = parts[2];
+  if (m == null || d == null || m === '' || d === '') return ymd;
+  const monthIdx = parseInt(m, 10) - 1;
+  if (!Number.isFinite(monthIdx) || monthIdx < 0 || monthIdx > 11) return ymd;
+  const monthStr =
+    new Date(2000, monthIdx, 1).toLocaleString(locale, { month: 'short' }) || m;
+  return `${d}-${monthStr}`;
+}
+
+function formatOrderId(order: { id: string; orderNumber?: number }): string {
+  return order.orderNumber != null ? `#${order.orderNumber}` : `#${order.id.slice(-6).toUpperCase()}`;
+}
+
+// Ikkita sanani tartiblaydi: [kichik, katta]
+function sortRange(a: string | null, b: string | null): [string | null, string | null] {
+  if (!a || !b) return [a, b];
+  return a <= b ? [a, b] : [b, a];
+}
+
+// Sana oralig'idagi barcha YMD larni qaytaradi
+function getDatesInRange(start: string, end: string): string[] {
+  const dates: string[] = [];
+  const cur = new Date(start);
+  const endDate = new Date(end);
+  while (cur <= endDate) {
+    dates.push(toYMD(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return dates;
+}
+
+// ── Range Calendar ─────────────────────────────────────────────────
+function RangeCalendar({
+  rangeStart,
+  rangeEnd,
+  hoverDate,
+  onDateClick,
+  onDateHover,
+  onMouseLeave,
+  onToday,
+  onClear,
+  highlightedDates,
+}: {
+  rangeStart: string | null;
+  rangeEnd: string | null;
+  hoverDate: string | null;
+  onDateClick: (d: string) => void;
+  onDateHover: (d: string | null) => void;
+  onMouseLeave: () => void;
+  onToday: () => void;
+  onClear: () => void;
+  highlightedDates: Set<string>;
+}) {
+  const { t, lang } = useApp();
+  const today = new Date();
+  const [viewYear, setViewYear] = useState(today.getFullYear());
+  const [viewMonth, setViewMonth] = useState(today.getMonth());
+
+  const firstDay = new Date(viewYear, viewMonth, 1);
+  // Mon=0 ... Sun=6
+  const startDow = (firstDay.getDay() + 6) % 7;
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+  const prevMonth = () => {
+    if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); }
+    else setViewMonth(m => m - 1);
+  };
+  const nextMonth = () => {
+    if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); }
+    else setViewMonth(m => m + 1);
+  };
+
+  const todayYmd = toYMD(today);
+  const locale = lang === 'ru' ? 'ru-RU' : (lang === 'uz_kir' ? 'uz-Cyrl-UZ' : 'uz-Latn-UZ');
+  const monthLabel = (monthIndex: number) => {
+    const m = new Date(viewYear, monthIndex, 1).toLocaleString(locale, { month: 'short' });
+    return m || '';
+  };
+
+  // Preview range (hover)
+  const previewEnd = rangeStart && !rangeEnd ? (hoverDate || null) : null;
+  const [displayStart, displayEnd] = sortRange(
+    rangeStart,
+    rangeEnd ?? previewEnd
+  );
+
+  return (
+    <div
+      className="select-none"
+      onClick={e => e.stopPropagation()}
+      onMouseLeave={onMouseLeave}
+    >
+      {/* Month nav */}
+      <div className="flex items-center justify-between mb-4">
+        <button
+          onClick={prevMonth}
+          className="w-8 h-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center transition-colors"
+        >
+          <ChevronLeft size={16} className="text-gray-500 dark:text-gray-300" />
+        </button>
+        <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+          {new Date(viewYear, viewMonth, 1).toLocaleString(locale, { month: 'long', year: 'numeric' })}
+        </span>
+        <button
+          onClick={nextMonth}
+          className="w-8 h-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center transition-colors"
+        >
+          <ChevronRight size={16} className="text-gray-500 dark:text-gray-300" />
+        </button>
+      </div>
+
+      {/* Week headers */}
+      <div className="grid grid-cols-7 mb-1">
+        {WEEK_DAY_SHORT_KEYS.map(k => (
+          <div key={k} className="text-center text-[11px] font-medium text-gray-400 dark:text-gray-500 py-1">
+            {t(k)}
+          </div>
+        ))}
+      </div>
+
+      {/* Days grid */}
+      <div className="grid grid-cols-7">
+        {/* Empty cells before first day */}
+        {Array.from({ length: startDow }).map((_, i) => (
+          <div key={`e-${i}`} />
+        ))}
+
+        {/* Day cells */}
+        {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
+          const ymd = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          // column in the week row (0=Mon, 6=Sun)
+          const col = (startDow + day - 1) % 7;
+
+          const isStart = ymd === displayStart;
+          const isEnd = ymd === displayEnd;
+          const isSelected = isStart || isEnd;
+          const isInRange = !!(displayStart && displayEnd && ymd > displayStart && ymd < displayEnd);
+          const isToday = ymd === todayYmd;
+          const hasOrder = highlightedDates.has(ymd);
+          const isSingleDay = displayStart === displayEnd && isSelected;
+
+          // Band left/right halves
+          const showLeftBand = (isInRange || isEnd) && col !== 0 && !isSingleDay;
+          const showRightBand = (isInRange || isStart) && col !== 6 && !isSingleDay && displayEnd !== null;
+
+          return (
+            <div key={ymd} className="relative h-10 flex items-center justify-center">
+              {/* Left band half */}
+              {showLeftBand && (
+                <div className="absolute left-0 right-1/2 top-1 bottom-1 bg-indigo-100" />
+              )}
+              {/* Right band half */}
+              {showRightBand && (
+                <div className="absolute left-1/2 right-0 top-1 bottom-1 bg-indigo-100" />
+              )}
+              {/* Middle band (for in-range days) */}
+              {isInRange && (
+                <div className="absolute inset-x-0 top-1 bottom-1 bg-indigo-100" />
+              )}
+
+              {/* Day button */}
+              <button
+                onClick={() => onDateClick(ymd)}
+                onMouseEnter={() => onDateHover(ymd)}
+                className={`
+                  relative z-10 w-9 h-9 rounded-full flex flex-col items-center justify-center text-[13px] font-medium transition-all
+                  ${isSelected
+                    ? 'bg-indigo-500 text-white shadow-md'
+                    : isInRange
+                    ? 'text-indigo-700 hover:bg-indigo-200'
+                    : isToday
+                    ? 'border-2 border-indigo-400 text-indigo-600 dark:text-indigo-300'
+                    : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'}
+                `}
+              >
+                {day}
+                {hasOrder && !isSelected && (
+                  <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-indigo-400" />
+                )}
+                {hasOrder && isSelected && (
+                  <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-white/70" />
+                )}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Footer */}
+      <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+        <button
+          onClick={onToday}
+          className="text-sm text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors font-medium px-1"
+        >
+          {t('orders.today')}
+        </button>
+        <button
+          onClick={onClear}
+          className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-red-500 transition-colors border border-gray-200 dark:border-gray-600 rounded-full px-3 py-1 hover:border-red-200"
+        >
+          <X size={12} />
+          {t('orders.clear')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Client Orders Modal ────────────────────────────────────────────
+function ClientOrdersModal({
+  clientId,
+  onClose,
+}: {
+  clientId: string;
+  onClose: () => void;
+}) {
+  const { clients, orders, lang, t, updateClient } = useApp();
+  const client = clients.find(c => c.id === clientId);
+  if (!client) return null;
+  const today = toYMD(new Date());
+
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [rangeStart, setRangeStart] = useState<string | null>(today);
+  const [rangeEnd, setRangeEnd] = useState<string | null>(null);
+  const [hoverDate, setHoverDate] = useState<string | null>(null);
+  const [showMapPicker, setShowMapPicker] = useState(false);
+  const [savingLocation, setSavingLocation] = useState(false);
+
+  const clientOrders = orders.filter(o => o.clientId === clientId);
+  const orderDates = new Set(clientOrders.map(o => o.date));
+
+  const handleDateClick = (ymd: string) => {
+    if (!rangeStart || (rangeStart && rangeEnd)) {
+      // Yangi tanlash boshlash
+      setRangeStart(ymd);
+      setRangeEnd(null);
+    } else {
+      // Ikkinchi kun tanlash → oraliq yakunlash
+      if (ymd === rangeStart) {
+        // Bir xil kunga bosish — bitta kun
+        setRangeEnd(null);
+      } else {
+        setRangeEnd(ymd);
+      }
+      setHoverDate(null);
+    }
+  };
+
+  const handleToday = () => {
+    setRangeStart(today);
+    setRangeEnd(null);
+    setHoverDate(null);
+  };
+
+  const handleClear = () => {
+    setRangeStart(null);
+    setRangeEnd(null);
+    setHoverDate(null);
+  };
+
+  // Filtrlash uchun sana oraliqni hisoblash
+  const [sortedStart, sortedEnd] = sortRange(rangeStart, rangeEnd);
+
+  const locale = lang === 'ru'
+    ? 'ru-RU'
+    : (lang === 'uz_kir' ? 'uz-Cyrl-UZ' : 'uz-Latn-UZ');
+
+  const filteredOrders = sortedStart
+    ? clientOrders
+      .filter(o => {
+        if (!sortedEnd) return o.date === sortedStart;
+        return o.date >= sortedStart && o.date <= sortedEnd;
+      })
+      .sort((a, b) => b.date.localeCompare(a.date))
+    : [];
+
+  const totalSelected = filteredOrders.reduce((s, o) => s + o.total, 0);
+  const getInitials = (name: string) => name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+
+  // Range label
+  const rangeLabel = (() => {
+    if (!sortedStart) return 'Kun tanlang';
+    if (!sortedEnd || sortedStart === sortedEnd) return formatDateLabel(sortedStart, locale);
+    const days = getDatesInRange(sortedStart, sortedEnd).length;
+    return `${formatDateLabel(sortedStart, locale)} — ${formatDateLabel(sortedEnd, locale)} (${days} kun)`;
+  })();
+
+  const handleLocationConfirm = async (lat: number, lng: number) => {
+    setSavingLocation(true);
+    try {
+      await updateClient(client.id, { lat, lng });
+    } finally {
+      setSavingLocation(false);
+      setShowMapPicker(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[9000] bg-black/50 flex items-end justify-center" onClick={onClose}>
+      <div
+        className="w-full max-w-[430px] bg-white rounded-t-3xl flex flex-col overflow-hidden"
+        style={{ height: '90vh' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-700 font-semibold text-sm flex-shrink-0">
+              {getInitials(client.name)}
+            </div>
+            <div>
+              <p className="font-semibold text-gray-900 text-sm">{client.name}</p>
+              <p className="text-xs text-gray-500">{client.phone}</p>
+              <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+                <MapPin size={14} className="text-gray-400 flex-shrink-0" />
+                <span className="truncate">
+                  {client.lat != null && client.lng != null ? `${client.lat.toFixed(5)}, ${client.lng.toFixed(5)}` : '—'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowMapPicker(true)}
+                  className="ml-auto text-xs text-[#2563EB] font-medium hover:underline"
+                  disabled={savingLocation}
+                >
+                  {client.lat != null && client.lng != null ? t('clients.add.locationSelectedEdit') : t('clients.add.locationSelect')}
+                </button>
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+          >
+            <X size={18} className="text-gray-500" />
+          </button>
+        </div>
+
+        {/* Scrollable content */}
+        <div
+          className="flex-1 min-h-0 overflow-y-auto"
+          onClick={() => setCalendarOpen(false)}
+        >
+          {/* ── Calendar toggle ── */}
+          <div className="px-4 pt-3 pb-0" onClick={e => e.stopPropagation()}>
+            <button
+              onClick={() => setCalendarOpen(v => !v)}
+              className="w-full flex items-center justify-between py-2.5 px-3 rounded-xl bg-gray-50 border border-gray-100 hover:bg-gray-100 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <Calendar size={15} className="text-indigo-500" />
+                <span className="text-sm font-semibold text-gray-800 truncate max-w-[200px]">
+                  {rangeLabel}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-xs text-gray-400">{orderDates.size} kun</span>
+                {calendarOpen
+                  ? <ChevronUp size={15} className="text-gray-400" />
+                  : <ChevronDown size={15} className="text-gray-400" />}
+              </div>
+            </button>
+          </div>
+
+          {/* ── Calendar panel ── */}
+          {calendarOpen && (
+            <div className="px-4 pt-3 pb-2" onClick={e => e.stopPropagation()}>
+              <div className="bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">
+                {!rangeStart || !rangeEnd ? (
+                  <p className="text-xs text-center text-gray-400 dark:text-gray-500 mb-2">
+                    {!rangeStart ? t('clients.calendar.pickFirstDay') : t('clients.calendar.pickLastDay')}
+                  </p>
+                ) : null}
+                <RangeCalendar
+                  rangeStart={rangeStart}
+                  rangeEnd={rangeEnd}
+                  hoverDate={hoverDate}
+                  onDateClick={handleDateClick}
+                  onDateHover={d => rangeStart && !rangeEnd ? setHoverDate(d) : undefined}
+                  onMouseLeave={() => setHoverDate(null)}
+                  onToday={handleToday}
+                  onClear={handleClear}
+                  highlightedDates={orderDates}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="h-px bg-gray-100 mx-4 mt-3" />
+
+          {/* ── Orders list ── */}
+          <div className="px-4 py-3">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <ShoppingBag size={15} className="text-indigo-500" />
+                <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('clients.ordersTitle')}</span>
+                {filteredOrders.length > 0 && (
+                  <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 px-2 py-0.5 rounded-full">
+                    {filteredOrders.length} {t('common.pcs')}
+                  </span>
+                )}
+              </div>
+              {filteredOrders.length > 0 && (
+                <span className="text-xs font-semibold text-green-600">{formatCurrency(totalSelected)}</span>
+              )}
+            </div>
+
+            {filteredOrders.length === 0 ? (
+              <div className="py-8 text-center">
+                <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mx-auto mb-3">
+                  <Package size={22} className="text-gray-300 dark:text-gray-500" />
+                </div>
+                <p className="text-sm text-gray-400 dark:text-gray-500">
+                  {!sortedStart ? t('clients.calendar.noOrders') : t('clients.calendar.noOrdersHint')}
+                </p>
+                {orderDates.size > 0 ? null : (
+                  <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">
+                    {t('orders.noOrdersForDay')}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredOrders.map(order => (
+                  <div key={order.id} className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-3 border border-gray-100 dark:border-gray-700">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-gray-700 dark:text-gray-200">{formatOrderId(order)}</span>
+                        <span className="text-[10px] text-gray-400 dark:text-gray-500">{formatDateLabel(order.date, locale)}</span>
+                      </div>
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[order.status]}`}>
+                        {t(`status.${order.status}` as any)}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5 mb-2">
+                      {order.items.map((item, i) => (
+                        <div key={i} className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 flex-shrink-0" />
+                            <span className="text-xs text-gray-600 dark:text-gray-300 truncate max-w-[170px]">{item.productName}</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-[11px] text-gray-400 dark:text-gray-500">×{item.quantity}</span>
+                            <span className="text-xs font-medium text-gray-700 dark:text-gray-200">{formatCurrency(item.price * item.quantity)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{t('orders.totalLabel')}</span>
+                      <span className="text-sm font-semibold text-indigo-600">{formatCurrency(order.total)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {showMapPicker && (
+        <MapPicker
+          initialLat={client.lat}
+          initialLng={client.lng}
+          onConfirm={handleLocationConfirm}
+          onClose={() => setShowMapPicker(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Client Edit Modal ────────────────────────────────────────────────
+function ClientEditModal({
+  clientId,
+  onClose,
+}: {
+  clientId: string;
+  onClose: () => void;
+}) {
+  const { clients, updateClient, lang, t } = useApp();
+  const client = clients.find(c => c.id === clientId);
+
+  const [form, setForm] = useState({
+    name: '',
+    phone: '',
+    address: '',
+    lat: undefined as number | undefined,
+    lng: undefined as number | undefined,
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showMapPicker, setShowMapPicker] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!client) return;
+    setForm({
+      name: client.name ?? '',
+      phone: client.phone ?? '',
+      address: client.address ?? '',
+      lat: client.lat,
+      lng: client.lng,
+    });
+    setErrors({});
+  }, [clientId]);
+
+  if (!client) return null;
+
+  const normalizePhone = (s: string) => (s || '').replace(/\D/g, '');
+  const phoneNorm = normalizePhone(form.phone);
+
+  const validate = () => {
+    const errs: Record<string, string> = {};
+    if (!form.name.trim()) errs.name = t('clients.validation.nameRequired');
+    if (!form.phone.trim()) errs.phone = t('clients.validation.phoneRequired');
+    if (!form.address.trim()) errs.address = t('clients.validation.addressRequired');
+    if (form.lat == null || form.lng == null) errs.location = t('clients.validation.locationRequired');
+
+    if (!errs.phone) {
+      const dup = clients.some(c =>
+        c.id !== client.id && normalizePhone(c.phone) === phoneNorm
+      );
+      if (dup) errs.phone = t('clients.validation.phoneDuplicate');
+    }
+
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const handleSave = () => {
+    if (saving) return;
+    if (!validate()) return;
+    setSaving(true);
+    updateClient(client.id, {
+      name: form.name,
+      phone: form.phone,
+      address: form.address,
+      lat: form.lat,
+      lng: form.lng,
+    });
+    setSaving(false);
+    onClose();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[9000] bg-black/50 flex items-end justify-center"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-[430px] bg-white rounded-t-3xl overflow-hidden border-t border-gray-100 flex flex-col"
+        style={{ height: '85vh' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 shrink-0">
+          <div className="flex items-center gap-2">
+            <Edit2 size={18} className="text-[#2563EB]" />
+              <p className="text-sm font-bold text-gray-900">{t('clients.edit.title')}</p>
+          </div>
+          <button
+            type="button"
+            className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors"
+            onClick={onClose}
+          >
+            <X size={18} className="text-gray-500" />
+          </button>
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">{t('clients.form.name')}</label>
+            <input
+              value={form.name}
+              onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
+              className="w-full py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-900 focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-50"
+            />
+            {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">{t('clients.form.phone')}</label>
+            <input
+              value={form.phone}
+              onChange={e => setForm(prev => ({ ...prev, phone: e.target.value }))}
+              className="w-full py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-900 focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-50"
+            />
+            {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">{t('clients.form.address')}</label>
+            <textarea
+              value={form.address}
+              onChange={e => setForm(prev => ({ ...prev, address: e.target.value }))}
+              rows={2}
+              className="w-full py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-900 resize-none focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-blue-50"
+            />
+            {errors.address && <p className="text-red-500 text-xs mt-1">{errors.address}</p>}
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">{t('clients.form.location')}</label>
+            <button
+              type="button"
+              onClick={() => setShowMapPicker(true)}
+              className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed transition-all text-sm font-medium ${
+                form.lat != null && form.lng != null
+                  ? 'border-green-300 bg-green-50 text-green-700'
+                  : 'border-gray-300 bg-gray-50 text-gray-600 hover:border-[#2563EB] hover:text-[#2563EB]'
+              }`}
+            >
+              <MapPin size={16} />
+              {form.lat != null && form.lng != null ? t('clients.add.locationSelectedEdit') : t('clients.add.locationSelect')}
+            </button>
+            {errors.location && <p className="text-red-500 text-xs mt-1">{errors.location}</p>}
+          </div>
+
+          <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+            <p className="text-xs text-gray-500">
+              {form.lat != null && form.lng != null
+                ? `📍 ${form.lat.toFixed(5)}, ${form.lng.toFixed(5)}`
+                : '—'}
+            </p>
+          </div>
+        </div>
+
+        <div className="px-4 py-3 border-t border-gray-100 shrink-0">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-semibold"
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="flex-1 py-3 rounded-xl bg-[#2563EB] text-white font-semibold disabled:opacity-60"
+            >
+              {saving ? '...' : t('common.save')}
+            </button>
+          </div>
+        </div>
+
+        {showMapPicker && (
+          <MapPicker
+            initialLat={form.lat}
+            initialLng={form.lng}
+            onConfirm={(lat, lng) => {
+              setForm(prev => ({ ...prev, lat, lng }));
+              setShowMapPicker(false);
+            }}
+            onClose={() => setShowMapPicker(false)}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+const INITIAL_VISIBLE = 3;
+
+// ── Main ClientsList ───────────────────────────────────────────────
+export const ClientsList = () => {
+  const { t, lang, currentUser, clients, refetchData, updateClient } = useApp();
+  const navigate = useNavigate();
+  const [search, setSearch] = useState('');
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [expandList, setExpandList] = useState(false);
+  const [editingClientId, setEditingClientId] = useState<string | null>(null);
+
+  useEffect(() => { refetchData?.(); }, [refetchData]);
+
+  const myClients = clients.filter(c => c.agentId === currentUser?.id);
+  const filtered = myClients.filter(c =>
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    c.phone.includes(search) ||
+    c.address.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const getInitials = (name: string) => name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  const colors = ['bg-indigo-100 text-indigo-700', 'bg-purple-100 text-purple-700', 'bg-blue-100 text-blue-700', 'bg-violet-100 text-violet-700'];
+  const visibleList = expandList ? filtered : filtered.slice(0, INITIAL_VISIBLE);
+  const hasMore = filtered.length > INITIAL_VISIBLE;
+  const hiddenCount = filtered.length - INITIAL_VISIBLE;
+
+  return (
+    <MobileShell>
+      <MobileHeader title={t('clients.title')} showLang />
+      <MobileContent className="pb-20">
+        <div className="p-4 space-y-3">
+          {/* Search */}
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder={t('clients.search')}
+              className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50 transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500"
+            />
+          </div>
+
+          {/* Count + Add */}
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-gray-500 dark:text-gray-400">{filtered.length} {t('clients.countSuffix')}</p>
+            <button
+              onClick={() => navigate('/agent/clients/add')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500 text-white text-xs font-medium hover:bg-indigo-600 transition-colors"
+            >
+              <Plus size={13} />
+              {t('clients.add')}
+            </button>
+          </div>
+
+          {/* List */}
+          <div className="space-y-2">
+            {visibleList.map((client, idx) => (
+              <button
+                key={client.id}
+                onClick={() => setSelectedClientId(client.id)}
+                className="w-full text-left bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-3 active:bg-gray-50 dark:active:bg-gray-700 transition-colors"
+              >
+                <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-semibold text-sm flex-shrink-0 ${colors[idx % colors.length]}`}>
+                  {getInitials(client.name)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm truncate">{client.name}</p>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setEditingClientId(client.id); }}
+                      className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 flex items-center justify-center text-[#2563EB] dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                      title={t('clients.edit.title')}
+                    >
+                      <Edit2 size={14} />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <Phone size={11} className="text-gray-400 flex-shrink-0" />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{client.phone}</p>
+                  </div>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <MapPin size={11} className="text-gray-400 flex-shrink-0" />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{client.address}</p>
+                  </div>
+                  {client.visitDays && client.visitDays.length > 0 && (
+                    <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                      {client.visitDays.map(d => (
+                        <span key={d} className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300">
+                          {t(DAY_SHORT_KEYS[d] || d)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <ChevronRight size={16} className="text-gray-300 dark:text-gray-600 flex-shrink-0" />
+              </button>
+            ))}
+
+            {hasMore && (
+              <button
+                type="button"
+                onClick={() => setExpandList(true)}
+                className="w-full py-3 rounded-xl border-2 border-dashed border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 text-sm font-medium flex items-center justify-center gap-1.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
+              >
+                <ChevronDown size={16} />
+                {t('common.showAllWithCount').replace('N', String(filtered.length))}
+              </button>
+            )}
+
+            {filtered.length === 0 && (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mx-auto mb-3">
+                  <Search size={24} className="text-gray-400 dark:text-gray-500" />
+                </div>
+                <p className="text-gray-500 dark:text-gray-400 text-sm">{t('clients.empty')}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </MobileContent>
+
+      <MobileNav role="agent" />
+
+      {selectedClientId && (
+        <ClientOrdersModal
+          clientId={selectedClientId}
+          onClose={() => setSelectedClientId(null)}
+        />
+      )}
+
+      {editingClientId && (
+        <ClientEditModal
+          clientId={editingClientId}
+          onClose={() => setEditingClientId(null)}
+        />
+      )}
+    </MobileShell>
+  );
+};
