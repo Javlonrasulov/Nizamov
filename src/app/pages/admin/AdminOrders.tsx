@@ -712,8 +712,8 @@ export const AdminOrders = () => {
       th, td { border: 1px solid #cbd5e1; padding: 8px 10px; font-size: 12px; vertical-align: top; }
       th { background:#f1f5f9; text-align:left; }
       tfoot td { font-weight: 800; background:#f8fafc; }
-      .print-page { page-break-after: always; }
-      .print-page:last-child { page-break-after: auto; }
+      /* Brauzer o'zi betni uzadi: sig'sa bir sahifada, sig'masa keyingi sahifada davom etadi. */
+      .print-page { break-inside: avoid; page-break-inside: avoid; margin-bottom: 18px; }
       @media print { body { margin: 10mm; } }
     </style>
   </head>
