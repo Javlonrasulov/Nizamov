@@ -161,7 +161,7 @@ export const AdminSupplierProfile = () => {
         comment: stockInForm.comment.trim() || undefined,
         items,
       });
-      setStockInForm({ date: todayStr(), comment: '', items: [{ productId: '', quantity: '1', costPrice: '', salePrice: '' }] });
+      setStockInForm(f => ({ date: f.date, comment: '', items: [{ productId: '', quantity: '1', costPrice: '', salePrice: '' }] }));
       await load();
       await refetchData(); // products stock updated
     } catch (e: any) {
@@ -184,7 +184,7 @@ export const AdminSupplierProfile = () => {
         type: paymentForm.type,
         comment: paymentForm.comment.trim() || undefined,
       });
-      setPaymentForm({ date: todayStr(), amount: '', type: 'cash', comment: '' });
+      setPaymentForm(f => ({ date: f.date, amount: '', type: 'cash', comment: '' }));
       await load();
     } catch (e: any) {
       setError(e?.message || 'Xatolik');

@@ -51,19 +51,19 @@ export class SuppliersService {
         this.prisma.supplierStockIn.groupBy({
           by: ['supplierId'],
           orderBy: { supplierId: 'asc' },
-          _max: { createdAt: true },
+          _max: { date: true },
         }),
         this.prisma.supplierPayment.groupBy({
           by: ['supplierId'],
           orderBy: { supplierId: 'asc' },
-          _max: { createdAt: true },
+          _max: { date: true },
         }),
       ]);
 
     const receivedMap = new Map(receivedBySupplier.map(r => [r.supplierId, r._sum?.total ?? 0]));
     const paidMap = new Map(paidBySupplier.map(r => [r.supplierId, r._sum?.amount ?? 0]));
-    const lastStockInMap = new Map(lastStockInBySupplier.map(r => [r.supplierId, r._max?.createdAt ?? null]));
-    const lastPaymentMap = new Map(lastPaymentBySupplier.map(r => [r.supplierId, r._max?.createdAt ?? null]));
+    const lastStockInMap = new Map(lastStockInBySupplier.map(r => [r.supplierId, r._max?.date ?? null]));
+    const lastPaymentMap = new Map(lastPaymentBySupplier.map(r => [r.supplierId, r._max?.date ?? null]));
 
     return suppliers.map(s => {
       const totalReceived = receivedMap.get(s.id) ?? 0;
