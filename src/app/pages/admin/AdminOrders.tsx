@@ -407,7 +407,13 @@ export const AdminOrders = () => {
 
   const selectedOrders = filtered.filter(o => selectedOrderIds.includes(o.id));
   const selectableOrderIds = filtered
-    .filter(o => needsYuklash(o.status) && !isFullyReturnedOrder(o.id) && !(statusFilter === 'cancelled' && returnedByOrderId[o.id]))
+    // needsYuklash() keyinroq e'lon qilingani uchun (const) undan oldin ishlatib bo'lmaydi.
+    // Shu joyda inline tekshiramiz.
+    .filter(o =>
+      (o.status === 'tayyorlanmagan' || o.status === 'sent')
+      && !isFullyReturnedOrder(o.id)
+      && !(statusFilter === 'cancelled' && returnedByOrderId[o.id])
+    )
     .map(o => o.id);
 
   const deliveryFilterUser = useMemo(
