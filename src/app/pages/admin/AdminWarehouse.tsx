@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Warehouse, Package, ArrowUpRight } from 'lucide-react';
+import { Search, Warehouse, Package, ArrowUpRight, Trash2 } from 'lucide-react';
 import { AdminLayout } from '../../components/AdminLayout';
 import { useApp } from '../../context/AppContext';
 import { useAdminVisibleOrders } from '../../components/AdminDateFilter';
@@ -16,9 +16,11 @@ interface WarehouseItem {
 const formatSum = (n: number) => n.toLocaleString('uz-UZ') + " so'm";
 
 export const AdminWarehouse = () => {
-  const { t, products } = useApp();
+  const { t, products, deleteProduct } = useApp();
   const orders = useAdminVisibleOrders();
   const [search, setSearch] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState('');
 
   // Sotilgan miqdor (cancelled dan tashqari)
   const soldByProduct: Record<string, number> = {};
@@ -57,6 +59,19 @@ export const AdminWarehouse = () => {
     return { labelKey: 'common.stockLevel.low' as const, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/30' };
   };
 
+  const handleDelete = async (item: WarehouseItem) => {
+    const confirmed = window.confirm(`${item.productName} mahsulotini o'chirasizmi?`);
+    if (!confirmed) return;
+
+    setActionError('');
+    setDeletingId(item.id);
+    const ok = await deleteProduct(item.id);
+    if (!ok) {
+      setActionError("Mahsulotni o'chirib bo'lmadi. U boshqa ma'lumotlarga bog'langan bo'lishi mumkin.");
+    }
+    setDeletingId(null);
+  };
+
   return (
     <AdminLayout>
       <div className="max-w-6xl mx-auto space-y-6">
@@ -65,6 +80,12 @@ export const AdminWarehouse = () => {
           <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('admin.warehouse')}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{items.length} {t('common.pcs')}</p>
         </div>
+
+        {actionError && (
+          <div className="rounded-xl border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+            {actionError}
+          </div>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -105,7 +126,7 @@ export const AdminWarehouse = () => {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40">
-                  {[t('admin.warehouse.productName'), t('admin.warehouse.totalIn'), t('admin.warehouse.totalSold'), t('admin.warehouse.remaining'), t('admin.warehouse.costPrice'), t('admin.warehouse.salePrice'), t('admin.warehouse.profit'), t('common.status')].map(h => (
+                  {[t('admin.warehouse.productName'), t('admin.warehouse.totalIn'), t('admin.warehouse.totalSold'), t('admin.warehouse.remaining'), t('admin.warehouse.costPrice'), t('admin.warehouse.salePrice'), t('admin.warehouse.profit'), t('common.status'), t('common.delete')].map(h => (
                     <th key={h} className="text-left px-5 py-3 text-xs text-gray-500 dark:text-gray-400">{h}</th>
                   ))}
                 </tr>
@@ -113,7 +134,7 @@ export const AdminWarehouse = () => {
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center py-16 text-gray-400 dark:text-gray-500 text-sm">
+                    <td colSpan={9} className="text-center py-16 text-gray-400 dark:text-gray-500 text-sm">
                       <Warehouse size={36} className="mx-auto mb-3 opacity-30" />
                       {t('admin.warehouse.noProducts')}
                     </td>
@@ -148,6 +169,17 @@ export const AdminWarehouse = () => {
                           <span className={`text-xs px-2 py-1 rounded-full ${status.bg} ${status.color}`}>
                             {status.label}
                           </span>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(item)}
+                            disabled={deletingId === item.id}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-50"
+                            title={t('common.delete')}
+                          >
+                            <Trash2 size={14} />
+                          </button>
                         </td>
                       </tr>
                     );

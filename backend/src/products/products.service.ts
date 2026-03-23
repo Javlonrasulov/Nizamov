@@ -22,4 +22,8 @@ export class ProductsService {
   async update(id: string, dto: UpdateProductDto) {
     return this.prisma.product.update({ where: { id }, data: dto });
   }
+
+  async remove(id: string) {
+    return this.prisma.product.delete({ where: { id } });
+  }
 }

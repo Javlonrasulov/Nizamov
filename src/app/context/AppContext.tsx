@@ -6,7 +6,7 @@ import {
 } from '../data/mockData';
 import { AppContext } from './appContextInstance';
 import { apiLogin } from '../api/auth';
-import { apiGetProducts, apiCreateProduct, apiUpdateProduct } from '../api/products';
+import { apiGetProducts, apiCreateProduct, apiUpdateProduct, apiDeleteProduct } from '../api/products';
 import { apiGetClients, apiCreateClient, apiUpdateClient, apiDeleteClient } from '../api/clients';
 import { apiGetOrders, apiCreateOrder, apiUpdateOrder } from '../api/orders';
 import { apiUpdateUser } from '../api/users';
@@ -86,6 +86,7 @@ interface AppContextType {
   products: Product[];
   addProduct: (product: Omit<Product, 'id'>) => Promise<boolean>;
   updateProduct: (id: string, updates: Partial<Omit<Product, 'id'>>) => Promise<boolean>;
+  deleteProduct: (id: string) => Promise<boolean>;
   refetchData: () => Promise<void>;
   theme: Theme;
   toggleTheme: () => void;
@@ -308,6 +309,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const deleteProduct = async (id: string): Promise<boolean> => {
+    try {
+      await apiDeleteProduct(id);
+      setProductsList(prev => prev.filter(p => p.id !== id));
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const setAdminDateRange = (from: string, to: string) => { setAdminDateFrom(from); setAdminDateTo(to); };
 
   const addExpense    = (e: Omit<Expense, 'id'>)  => setExpenses(p => [{ ...e, id: `exp${Date.now()}` }, ...p]);
@@ -327,7 +338,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     currentUser, login, logout,
     clients: clientsList, addClient, updateClient, deleteClient,
     orders: ordersList, addOrder, updateOrderStatus, updateOrder,
-    products: productsList, addProduct, updateProduct, refetchData: fetchData,
+    products: productsList, addProduct, updateProduct, deleteProduct, refetchData: fetchData,
     theme, toggleTheme,
     adminDateFrom, adminDateTo, setAdminDateRange,
     expenses, addExpense, deleteExpense,
