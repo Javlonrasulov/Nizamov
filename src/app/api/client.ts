@@ -6,7 +6,7 @@ const isBrowserLocalhost =
 
 function resolveApiBase(): string {
   if (isBrowserLocalhost) return 'http://localhost:3000';
-  const env = (import.meta as any)?.env?.VITE_API_URL as string | undefined;
+  const env = import.meta.env.VITE_API_URL as string | undefined;
   if (env) return env.replace(/\/+$/, '');
 
   if (typeof window !== 'undefined') {
