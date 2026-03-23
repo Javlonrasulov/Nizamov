@@ -633,59 +633,40 @@ export const AdminOrders = () => {
     // Chop etish tili har doim o'zbek (kirill) bo'lishi uchun alohida tarjima funksiyasi ishlatamiz.
     const tPrint = (key: keyof typeof translations['uz_lat']) => translations.uz_kir[key] || String(key);
 
-    const pagesHtml = orders.map((order: any) => {
-      const debt = debtByOrderId[order.id] ?? 0;
-      const title = `${tPrint('admin.ordersPage')} ${formatOrderId(order)}`;
-      const debtLabel = `${tPrint('payments.badge.debt')}: ${debt.toLocaleString('ru-RU')} ${tPrint('common.sum')}`;
-
-      const rows = (order.items ?? []).map((it: any, idx: number) => `
-        <tr>
-          <td style="width:38px;text-align:center;">${idx + 1}</td>
-          <td>${escapeHtml(String(it.productName ?? ''))}</td>
-          <td style="width:80px;text-align:right;">${Number(it.quantity || 0)} ${escapeHtml(tPrint('common.pcs'))}</td>
-          <td style="width:110px;text-align:right;">${Number(it.price || 0).toLocaleString('ru-RU')} ${escapeHtml(tPrint('common.sum'))}</td>
-          <td style="width:120px;text-align:right;font-weight:700;">${Number((it.quantity || 0) * (it.price || 0)).toLocaleString('ru-RU')} ${escapeHtml(tPrint('common.sum'))}</td>
-        </tr>
-      `).join('');
-
+    let rowIndex = 0;
+    const rowsHtml = orders.map((order: any) => {
+      const itemRows = (order.items ?? []).map((it: any) => {
+        rowIndex += 1;
+        const qty = Number(it.quantity || 0);
+        const price = Number(it.price || 0);
+        return `
+          <tr>
+            <td style="text-align:center;">${rowIndex}</td>
+            <td>${escapeHtml(formatOrderId(order))}</td>
+            <td>${escapeHtml(order.clientName ?? '')}</td>
+            <td>${escapeHtml(order.agentName ?? '')}</td>
+            <td>${escapeHtml(String(it.productName ?? ''))}</td>
+            <td style="text-align:right;">${qty} ${escapeHtml(tPrint('common.pcs'))}</td>
+            <td style="text-align:right;">${price.toLocaleString('ru-RU')} ${escapeHtml(tPrint('common.sum'))}</td>
+            <td style="text-align:right; font-weight:700;">${(qty * price).toLocaleString('ru-RU')} ${escapeHtml(tPrint('common.sum'))}</td>
+            <td>${escapeHtml(order.date ?? '')}</td>
+          </tr>
+        `;
+      }).join('');
+      if (itemRows) return itemRows;
+      rowIndex += 1;
       return `
-        <div class="print-page">
-          <div class="top">
-            <div>
-              <h1>${escapeHtml(title)}</h1>
-              <div class="muted" style="font-size:12px;">${escapeHtml(order.date ?? '')}</div>
-            </div>
-            <div class="badge ${debt > 0 ? 'debt' : ''}">${escapeHtml(debtLabel)}</div>
-          </div>
-
-          <div class="grid">
-            <div class="kv"><span class="k">${escapeHtml(tPrint('orders.client'))}</span> ${escapeHtml(order.clientName ?? '')}</div>
-            <div class="kv"><span class="k">${escapeHtml(tPrint('common.phone'))}</span> ${escapeHtml(order.clientPhone ?? '')}</div>
-            <div class="kv"><span class="k">${escapeHtml(tPrint('orders.agent'))}</span> ${escapeHtml(order.agentName ?? '')}</div>
-            <div class="kv"><span class="k">${escapeHtml(tPrint('common.address'))}</span> ${escapeHtml(order.clientAddress ?? '')}</div>
-          </div>
-
-          <table>
-            <thead>
-              <tr>
-                <th style="width:38px;">#</th>
-                <th>${escapeHtml(tPrint('admin.suppliers.productName'))}</th>
-                <th style="width:80px; text-align:right;">${escapeHtml(tPrint('admin.suppliers.quantity'))}</th>
-                <th style="width:110px; text-align:right;">${escapeHtml(tPrint('admin.suppliers.salePrice'))}</th>
-                <th style="width:120px; text-align:right;">${escapeHtml(tPrint('common.total'))}</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows || `<tr><td colspan="5" class="muted">${escapeHtml(tPrint('orders.items'))}: 0</td></tr>`}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td colspan="4" style="text-align:right;">${escapeHtml(tPrint('common.total'))}</td>
-                <td style="text-align:right;">${Number(order.total || 0).toLocaleString('ru-RU')} ${escapeHtml(tPrint('common.sum'))}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+        <tr>
+          <td style="text-align:center;">${rowIndex}</td>
+          <td>${escapeHtml(formatOrderId(order))}</td>
+          <td>${escapeHtml(order.clientName ?? '')}</td>
+          <td>${escapeHtml(order.agentName ?? '')}</td>
+          <td class="muted">${escapeHtml(tPrint('orders.items'))}: 0</td>
+          <td style="text-align:right;">0</td>
+          <td style="text-align:right;">0</td>
+          <td style="text-align:right; font-weight:700;">0</td>
+          <td>${escapeHtml(order.date ?? '')}</td>
+        </tr>
       `;
     }).join('');
 
@@ -695,30 +676,42 @@ export const AdminOrders = () => {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${escapeHtml(tPrint('admin.ordersPage'))}</title>
+    <title>${escapeHtml(tPrint('admin.ordersPage'))} (${orders.length})</title>
     <style>
       * { box-sizing: border-box; }
       body { font-family: Inter, Arial, sans-serif; color: #0f172a; margin: 24px; }
       .muted { color: #475569; }
-      .top { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; }
       h1 { font-size: 18px; margin: 0 0 6px; }
-      .badge { display:inline-block; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; border: 1px solid #e2e8f0; }
-      .badge.debt { background: #fef2f2; color: #b91c1c; border-color:#fee2e2; }
-      .badge.paid { background: #f0fdf4; color: #166534; border-color:#dcfce7; }
-      .grid { display:grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; margin-top: 14px; }
-      .kv { font-size: 12px; }
-      .k { font-weight: 700; color:#334155; display:inline-block; min-width: 140px; }
-      table { width:100%; border-collapse: collapse; margin-top: 18px; }
+      table { width:100%; border-collapse: collapse; margin-top: 12px; }
       th, td { border: 1px solid #cbd5e1; padding: 8px 10px; font-size: 12px; vertical-align: top; }
       th { background:#f1f5f9; text-align:left; }
-      tfoot td { font-weight: 800; background:#f8fafc; }
-      .print-page { page-break-after: always; }
-      .print-page:last-child { page-break-after: auto; }
+      .meta { font-size: 12px; color: #475569; }
+      .summary { margin-top: 8px; font-size: 12px; color: #334155; }
       @media print { body { margin: 10mm; } }
     </style>
   </head>
   <body>
-    ${pagesHtml}
+    <h1>${escapeHtml(tPrint('admin.ordersPage'))}</h1>
+    <div class="meta">${escapeHtml(new Date().toLocaleString('ru-RU'))}</div>
+    <div class="summary">${escapeHtml(tPrint('common.total'))}: ${orders.length} ${escapeHtml(tPrint('common.orders'))}</div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:38px;">#</th>
+          <th>${escapeHtml(tPrint('orders.id'))}</th>
+          <th>${escapeHtml(tPrint('orders.client'))}</th>
+          <th>${escapeHtml(tPrint('orders.agent'))}</th>
+          <th>${escapeHtml(tPrint('admin.suppliers.productName'))}</th>
+          <th style="width:90px; text-align:right;">${escapeHtml(tPrint('admin.suppliers.quantity'))}</th>
+          <th style="width:130px; text-align:right;">${escapeHtml(tPrint('admin.suppliers.salePrice'))}</th>
+          <th style="width:140px; text-align:right;">${escapeHtml(tPrint('common.total'))}</th>
+          <th style="width:110px;">${escapeHtml(tPrint('common.date'))}</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rowsHtml}
+      </tbody>
+    </table>
   </body>
 </html>
     `;
