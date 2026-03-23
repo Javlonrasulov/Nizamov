@@ -502,7 +502,7 @@ export const AdminOrders = () => {
     // Chop etish tili har doim o'zbek (kirill) bo'lishi uchun alohida tarjima funksiyasi ishlatamiz.
     const tPrint = (key: keyof typeof translations['uz_lat']) => translations.uz_kir[key] || String(key);
 
-    const title = `${tPrint('admin.ordersPage')} ${formatOrderId(order)}`;
+    const title = `Заказ ${formatOrderId(order)}`;
     const debtLabel = `${tPrint('payments.badge.debt')}: ${debt.toLocaleString('ru-RU')} ${tPrint('common.sum')}`;
 
     const rows = (order.items ?? []).map((it: any, idx: number) => `
@@ -635,7 +635,7 @@ export const AdminOrders = () => {
 
     const pagesHtml = orders.map((order: any) => {
       const debt = debtByOrderId[order.id] ?? 0;
-      const title = `${tPrint('admin.ordersPage')} ${formatOrderId(order)}`;
+      const title = `Заказ ${formatOrderId(order)}`;
       const debtLabel = `${tPrint('payments.badge.debt')}: ${debt.toLocaleString('ru-RU')} ${tPrint('common.sum')}`;
 
       const rows = (order.items ?? []).map((it: any, idx: number) => `
