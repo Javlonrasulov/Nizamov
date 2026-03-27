@@ -18,3 +18,10 @@ export async function apiCreateOrder(data: Omit<Order, 'id'>): Promise<Order> {
 export async function apiUpdateOrder(id: string, data: Partial<Pick<Order, 'status' | 'deliveryId' | 'deliveryName' | 'vehicleName'>>): Promise<Order> {
   return apiPut<Order>(`/orders/${id}`, data);
 }
+
+export async function apiApplyOrderPromoPrices(
+  orderId: string,
+  items: { id: string; promoPrice: number | null }[],
+): Promise<Order> {
+  return apiPut<Order>(`/orders/${orderId}/promo-prices`, { items });
+}

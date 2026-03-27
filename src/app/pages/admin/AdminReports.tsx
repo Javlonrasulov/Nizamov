@@ -40,6 +40,12 @@ function shortId(id: string, num?: number | null): string {
   return `#${id.slice(-8)}`;
 }
 
+function lineUnitPrice(item: { price?: number; promoPrice?: number | null }): number {
+  return item.promoPrice != null && item.promoPrice >= 0
+    ? Number(item.promoPrice)
+    : Number(item.price || 0);
+}
+
 /* ── Dynamic Lucide icon renderer ── */
 function CatIcon({ name, size = 15, className = '', style }: { name: string; size?: number; className?: string; style?: React.CSSProperties }) {
   const Icon = (LucideIcons as Record<string, any>)[name];
@@ -179,7 +185,7 @@ function buildAcceptedReturnsMapByDate(
 
     const priceByProductId = new Map<string, number>();
     for (const item of order.items || []) {
-      priceByProductId.set(item.productId, Number(item.price || 0));
+      priceByProductId.set(item.productId, lineUnitPrice(item));
     }
 
     const amount = (row.items || []).reduce((sum: number, item: any) => (
@@ -243,15 +249,16 @@ function CategoryManager() {
     setShowAddForm(false);
   };
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!editLabel.trim() || !editingId) return;
-    updateExpenseCategory(editingId, { label: editLabel.trim(), iconName: editIcon, color: editColor });
-    setEditingId(null);
+    const ok = await updateExpenseCategory(editingId, { label: editLabel.trim(), iconName: editIcon, color: editColor });
+    if (ok) setEditingId(null);
   };
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!newLabel.trim()) return;
-    addExpenseCategory({ label: newLabel.trim(), iconName: newIcon, color: newColor });
+    const ok = await addExpenseCategory({ label: newLabel.trim(), iconName: newIcon, color: newColor });
+    if (!ok) return;
     setNewLabel('');
     setNewIcon('Package');
     setNewColor('blue');
@@ -306,7 +313,10 @@ function CategoryManager() {
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
                       <X size={13} /> {t('common.cancel')}
                     </button>
-                    <button onClick={() => { deleteExpenseCategory(cat.id); setEditingId(null); }}
+                    <button onClick={async () => {
+                      const ok = await deleteExpenseCategory(cat.id);
+                      if (ok) setEditingId(null);
+                    }}
                       className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-red-500 dark:text-red-400 text-xs font-medium hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
                       <Trash2 size={13} /> {t('common.delete')}
                     </button>
@@ -441,7 +451,7 @@ function ExcelExportModal({
   open: boolean;
   onOpenChange: (v: boolean) => void;
   t: (k: string) => string;
-  orders: Array<{ id: string; date: string; clientName: string; agentName: string; total: number; status: string; items?: Array<{ productName: string; quantity: number; price: number }> }>;
+  orders: Array<{ id: string; date: string; clientName: string; agentName: string; total: number; status: string; items?: Array<{ productName: string; quantity: number; price: number; promoPrice?: number | null }> }>;
   clients: Array<{ id: string; name: string; phone: string; address: string }>;
   products: Array<{ id: string; name: string; price: number; cost: number; stock: number }>;
   expenses: Array<{ date: string; amount: number; categoryId: string; comment: string }>;
@@ -536,7 +546,7 @@ function ExcelExportModal({
           o.vehicleName || '',
           o.total || 0,
           STATUS_UZ[o.status] || o.status,
-          (o.items || []).map((i: any) => `${i.productName} ${i.quantity}×${i.price}`).join('; ') || '',
+          (o.items || []).map((i: any) => `${i.productName} ${i.quantity}×${lineUnitPrice(i)}`).join('; ') || '',
           o.comment || '',
         ]);
         const ws = XLSX.utils.aoa_to_sheet([h, ...rows]);
@@ -670,8 +680,9 @@ function ExcelExportModal({
             let returnedAmount = 0, deliveredAmount = 0;
             for (const item of order.items || []) {
               const oq = Number(item.quantity || 0), rq = Math.min(oq, returnedQtyByProductId[item.productId] || 0);
-              returnedAmount += rq * (item.price || 0);
-              deliveredAmount += Math.max(0, oq - rq) * (item.price || 0);
+              const unitPrice = lineUnitPrice(item);
+              returnedAmount += rq * unitPrice;
+              deliveredAmount += Math.max(0, oq - rq) * unitPrice;
             }
             returnsDetailByOrderId[order.id] = { returnedAmount, deliveredAmount, returnedQtyByProductId };
           }
@@ -693,7 +704,7 @@ function ExcelExportModal({
             const returnedQty = Math.min(Number(item.quantity || 0), rd?.returnedQtyByProductId[item.productId] || 0);
             const deliveredQty = Math.max(0, Number(item.quantity || 0) - returnedQty);
             const cost = productCostById[item.productId] ?? 0;
-            adjustedGrossProfit += deliveredQty * ((item.price || 0) - cost);
+            adjustedGrossProfit += deliveredQty * (lineUnitPrice(item) - cost);
           }
           const collectionRatio = adjustedRevenue > 0 ? Math.min(1, collected / adjustedRevenue) : 0;
           const realizedGrossProfit = adjustedGrossProfit * collectionRatio;
@@ -1074,7 +1085,7 @@ export const AdminReports = () => {
             const orderedQty = Number(item.quantity || 0);
             const returnedQty = Math.min(orderedQty, returnedQtyByProductId[item.productId] || 0);
             const deliveredQty = Math.max(0, orderedQty - returnedQty);
-            const price = Number(item.price || 0);
+            const price = lineUnitPrice(item);
             returnedAmount += returnedQty * price;
             deliveredAmount += deliveredQty * price;
           }
@@ -1131,7 +1142,7 @@ export const AdminReports = () => {
         );
         const deliveredQty = Math.max(0, Number(item.quantity || 0) - returnedQty);
         const cost = productCostById[item.productId] ?? 0;
-        return sum + deliveredQty * ((item.price || 0) - cost);
+        return sum + deliveredQty * (lineUnitPrice(item) - cost);
       }, 0);
 
       const collectionRatio = adjustedRevenue > 0
@@ -1177,12 +1188,13 @@ export const AdminReports = () => {
     }
   }, [expenseCategories, form.categoryId]);
 
-  const handleAddExpense = () => {
+  const handleAddExpense = async () => {
     if (!form.amount || !form.comment.trim()) return;
     const categoryId = expenseCategories.some(cat => cat.id === form.categoryId)
       ? form.categoryId
       : defaultCatId;
-    addExpense({ date: form.date, amount: parseInt(form.amount), categoryId, comment: form.comment.trim() });
+    const ok = await addExpense({ date: form.date, amount: parseInt(form.amount), categoryId, comment: form.comment.trim() });
+    if (!ok) return;
     setForm(p => ({ ...p, amount: '', categoryId, comment: '' }));
     setSaved(true);
     setTimeout(() => setSaved(false), 1800);
@@ -1530,7 +1542,7 @@ export const AdminReports = () => {
                               </span>
                             </td>
                             <td className="px-3 py-3.5">
-                              <button onClick={() => deleteExpense(exp.id)}
+                              <button onClick={() => { void deleteExpense(exp.id); }}
                                 className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-200 dark:text-gray-700 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all opacity-0 group-hover:opacity-100">
                                 <Trash2 size={13} />
                               </button>

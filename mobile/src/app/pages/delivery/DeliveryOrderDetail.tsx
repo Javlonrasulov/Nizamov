@@ -8,6 +8,9 @@ import { StatusBadge } from '../../components/StatusBadge';
 import { apiCreatePayment, apiGetClientBalance, type ClientBalance, PaymentMethod } from '../../api/payments';
 import { apiCreateReturn, apiGetReturns, type ReturnRecord } from '../../api/returns';
 
+const lineUnitPrice = (item: { price?: number; promoPrice?: number | null }) =>
+  item.promoPrice != null && item.promoPrice >= 0 ? Number(item.promoPrice) : Number(item.price || 0);
+
 export const DeliveryOrderDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { t, lang, orders, updateOrderStatus, currentUser } = useApp();
@@ -33,6 +36,7 @@ export const DeliveryOrderDetail = () => {
 
   const order = orders.find(o => o.id === id);
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const hasPromoPricing = (order?.items || []).some(item => item.promoPrice != null);
 
   if (!order) {
     return (
@@ -109,7 +113,7 @@ export const DeliveryOrderDetail = () => {
   const formattedAmount = amount ? parseInt(amount, 10).toLocaleString('ru-RU') : '';
 
   const priceByProductId = useMemo(
-    () => new globalThis.Map(order.items.map(it => [it.productId, it.price ?? 0] as const)),
+    () => new globalThis.Map(order.items.map(it => [it.productId, lineUnitPrice(it)] as const)),
     [order.items],
   );
 
@@ -184,6 +188,14 @@ export const DeliveryOrderDetail = () => {
               )}
             </div>
             <div className="text-xs text-gray-500 dark:text-gray-400">{order.date}</div>
+            {hasPromoPricing && (
+              <div className="mt-2">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                  {t('payments.badge.promo')}
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-100 dark:border-gray-700 shadow-sm">
@@ -206,13 +218,28 @@ export const DeliveryOrderDetail = () => {
             </div>
             {order.items.map(item => (
               <div key={item.productId} className="flex items-center justify-between px-4 py-3 border-b border-gray-50 dark:border-gray-700 last:border-0">
+                {(() => {
+                  const unit = lineUnitPrice(item);
+                  const hasPromo = item.promoPrice != null;
+                  return (
+                    <>
                 <div>
                   <p className="text-sm font-medium text-gray-900 dark:text-white">{item.productName}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{item.quantity} × {item.price.toLocaleString('ru-RU')} {t('common.sum')}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {item.quantity} × {unit.toLocaleString('ru-RU')} {t('common.sum')}
+                  </p>
+                  {hasPromo && (
+                    <p className="text-[11px] text-amber-600 dark:text-amber-300">
+                      {t('payments.badge.promo')} · <span className="line-through text-gray-400">{item.price.toLocaleString('ru-RU')}</span>
+                    </p>
+                  )}
                 </div>
                 <p className="text-sm font-bold text-gray-900 dark:text-white">
-                  {(item.quantity * item.price).toLocaleString('ru-RU')} {t('common.sum')}
+                  {(item.quantity * unit).toLocaleString('ru-RU')} {t('common.sum')}
                 </p>
+                    </>
+                  );
+                })()}
               </div>
             ))}
             <div className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50">
@@ -260,10 +287,18 @@ export const DeliveryOrderDetail = () => {
                     </p>
                   </div>
                   <div className="mt-1 flex items-center justify-between gap-3">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('returns.item.remaining')}</p>
-                    <p className="text-sm font-bold text-red-600 dark:text-red-300">
-                      {debtForOrder.toLocaleString('ru-RU')} {t('common.sum')}
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {hasPromoPricing && debtForOrder <= 0 ? t('payments.badge.promo') : t('returns.item.remaining')}
                     </p>
+                    {hasPromoPricing && debtForOrder <= 0 ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
+                        {t('payments.badge.promo')}
+                      </span>
+                    ) : (
+                      <p className="text-sm font-bold text-red-600 dark:text-red-300">
+                        {debtForOrder.toLocaleString('ru-RU')} {t('common.sum')}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -589,7 +624,7 @@ export const DeliveryOrderDetail = () => {
                   // order darhol to'liq qaytarilgan deb ko'rinishi kerak.
                   const selectedReturnedAmount = order.items.reduce((sum, it) => {
                     const qty = returnQtyByProduct[it.productId] ?? 0;
-                    return sum + qty * (it.price ?? 0);
+                    return sum + qty * lineUnitPrice(it);
                   }, 0);
 
                   const totalReturnedAfter = returnedAmountAllFromReturns + selectedReturnedAmount;

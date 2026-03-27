@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
+import { ApplyOrderPromoDto } from './dto/apply-order-promo.dto';
 
 @Controller('orders')
 export class OrdersController {
@@ -25,6 +26,11 @@ export class OrdersController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.orders.findOne(id);
+  }
+
+  @Put(':id/promo-prices')
+  applyPromoPrices(@Param('id') id: string, @Body() dto: ApplyOrderPromoDto) {
+    return this.orders.applyPromoPrices(id, dto);
   }
 
   @Put(':id')

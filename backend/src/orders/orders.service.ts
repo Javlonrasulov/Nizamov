@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
+import { ApplyOrderPromoDto } from './dto/apply-order-promo.dto';
 
 @Injectable()
 export class OrdersService {
@@ -67,6 +68,7 @@ export class OrdersService {
               productName: i.productName,
               quantity: i.quantity,
               price: i.price,
+              promoPrice: (i as { promoPrice?: number | null }).promoPrice ?? null,
             })),
           },
         },
@@ -113,7 +115,50 @@ export class OrdersService {
       if (dto.comment !== undefined) data.comment = dto.comment?.trim() || null;
       if (dto.total !== undefined) data.total = dto.total;
 
+      const nextStatus = dto.status ?? prev.status;
+
       if (dto.items !== undefined) {
+        const prevQtyByProduct = new Map<string, number>();
+        for (const item of prev.items) {
+          prevQtyByProduct.set(item.productId, (prevQtyByProduct.get(item.productId) || 0) + (item.quantity || 0));
+        }
+
+        // Avval eski band qilingan qoldiqni qaytaramiz, keyin yangi tarkibni tekshirib qayta band qilamiz.
+        if (prev.status !== 'cancelled') {
+          for (const [productId, qty] of prevQtyByProduct.entries()) {
+            await tx.product.update({
+              where: { id: productId },
+              data: { stock: { increment: qty } },
+            });
+          }
+        }
+
+        const nextQtyByProduct = new Map<string, number>();
+        for (const item of dto.items) {
+          nextQtyByProduct.set(item.productId, (nextQtyByProduct.get(item.productId) || 0) + (item.quantity || 0));
+        }
+
+        if (nextStatus !== 'cancelled' && nextQtyByProduct.size > 0) {
+          const products = await tx.product.findMany({
+            where: { id: { in: [...nextQtyByProduct.keys()] } },
+            select: { id: true, stock: true, name: true },
+          });
+          const byId = new Map(products.map((p) => [p.id, p]));
+          for (const [productId, needQty] of nextQtyByProduct.entries()) {
+            const product = byId.get(productId);
+            if (!product) throw new BadRequestException('Mahsulot topilmadi');
+            if ((product.stock || 0) < needQty) {
+              throw new BadRequestException(`Omborda yetarli emas: ${product.name} (bor: ${product.stock}, kerak: ${needQty})`);
+            }
+          }
+          for (const [productId, needQty] of nextQtyByProduct.entries()) {
+            await tx.product.update({
+              where: { id: productId },
+              data: { stock: { decrement: needQty } },
+            });
+          }
+        }
+
         await tx.orderItem.deleteMany({ where: { orderId: id } });
         if (dto.items.length > 0) {
           data.items = {
@@ -122,16 +167,15 @@ export class OrdersService {
               productName: i.productName,
               quantity: i.quantity,
               price: i.price,
+              promoPrice: (i as { promoPrice?: number | null }).promoPrice ?? null,
             })),
           };
         }
       }
 
-      const nextStatus = dto.status ?? prev.status;
-
       // Yetkazilmadi (cancelled) bo'lsa — mahsulotlarni omborga qaytarish
       // Double qaytarmaslik uchun faqat oldingi status cancelled bo'lmagan holatda.
-      if (dto.status === 'cancelled' && prev.status !== 'cancelled') {
+      if (dto.status === 'cancelled' && prev.status !== 'cancelled' && dto.items === undefined) {
         const qtyByProduct = new Map<string, number>();
         for (const item of prev.items) {
           qtyByProduct.set(item.productId, (qtyByProduct.get(item.productId) || 0) + (item.quantity || 0));
@@ -148,6 +192,53 @@ export class OrdersService {
       return tx.order.update({
         where: { id },
         data: { ...data, status: nextStatus },
+        include: { items: true },
+      });
+    });
+  }
+
+  async applyPromoPrices(orderId: string, dto: ApplyOrderPromoDto) {
+    return this.prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUniqueOrThrow({
+        where: { id: orderId },
+        include: { items: true },
+      });
+      if (!['tayyorlanmagan', 'sent'].includes(order.status)) {
+        throw new BadRequestException('Aksiya faqat tayyorlanmagan zakazda');
+      }
+
+      const validIds = new Set(order.items.map((i) => i.id));
+      if (dto.items.length !== validIds.size) {
+        throw new BadRequestException('Barcha mahsulot qatorlari yuborilishi kerak');
+      }
+      const seen = new Set<string>();
+      for (const line of dto.items) {
+        if (seen.has(line.id)) throw new BadRequestException('Takroriy qator');
+        seen.add(line.id);
+        if (!validIds.has(line.id)) {
+          throw new BadRequestException('Noto‘g‘ri mahsulot qatori');
+        }
+      }
+
+      for (const line of dto.items) {
+        await tx.orderItem.update({
+          where: { id: line.id },
+          data: { promoPrice: line.promoPrice == null ? null : line.promoPrice },
+        });
+      }
+
+      const next = await tx.order.findUniqueOrThrow({
+        where: { id: orderId },
+        include: { items: true },
+      });
+      const total = next.items.reduce((sum, it) => {
+        const unit = it.promoPrice != null ? it.promoPrice : it.price;
+        return sum + (it.quantity || 0) * (unit || 0);
+      }, 0);
+
+      return tx.order.update({
+        where: { id: orderId },
+        data: { total },
         include: { items: true },
       });
     });

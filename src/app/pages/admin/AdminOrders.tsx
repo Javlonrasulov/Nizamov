@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Search, CalendarDays, RefreshCw, Eye, Package, ChevronDown, ChevronUp, Truck, MapPin, ExternalLink, Printer, RotateCcw, X } from 'lucide-react';
+import { Search, CalendarDays, RefreshCw, Eye, Package, ChevronDown, ChevronUp, Truck, MapPin, ExternalLink, Printer, RotateCcw, X, Tag } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { AdminLayout } from '../../components/AdminLayout';
 import { StatusBadge } from '../../components/StatusBadge';
@@ -7,13 +7,20 @@ import { OrderStatus } from '../../data/mockData';
 import { useAdminVisibleOrders } from '../../components/AdminDateFilter';
 import { apiGetUsers } from '../../api/users';
 import { apiGetVehicles } from '../../api/vehicles';
-import { apiGetClientBalance, type Payment } from '../../api/payments';
+import { apiGetClientBalance, apiGetPayments, type Payment } from '../../api/payments';
 import { apiAcceptReturn, apiCreateReturn, apiGetReturns } from '../../api/returns';
-import type { User } from '../../data/mockData';
+import type { User, Order } from '../../data/mockData';
+import { apiApplyOrderPromoPrices } from '../../api/orders';
 import { translations } from '../../i18n/translations';
 
 const formatOrderId = (order: { id: string; orderNumber?: number }) =>
   order.orderNumber != null ? `#${order.orderNumber}` : `#${order.id.slice(-6).toUpperCase()}`;
+
+const lineUnitPrice = (it: { price?: number; promoPrice?: number | null }) =>
+  it.promoPrice != null && it.promoPrice >= 0 ? it.promoPrice : Number(it.price || 0);
+
+const hasPromoPricing = (items?: Array<{ promoPrice?: number | null }>) =>
+  (items || []).some((item) => item.promoPrice != null);
 
 export const AdminOrders = () => {
   const { t, updateOrderStatus, updateOrder, adminDateFrom, adminDateTo, refetchData, clients, currentUser, orders: appOrders } = useApp();
@@ -25,6 +32,10 @@ export const AdminOrders = () => {
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [yuklashOrder, setYuklashOrder] = useState<{ id: string } | null>(null);
   const [bulkYuklashOrderIds, setBulkYuklashOrderIds] = useState<string[]>([]);
+  const [promoModalOrder, setPromoModalOrder] = useState<Order | null>(null);
+  const [promoDraft, setPromoDraft] = useState<Record<string, string>>({});
+  const [promoSaving, setPromoSaving] = useState(false);
+  const [promoError, setPromoError] = useState('');
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const selectionEnabled = statusFilter === 'tayyorlanmagan';
   useEffect(() => {
@@ -46,6 +57,8 @@ export const AdminOrders = () => {
   const [debtByOrderId, setDebtByOrderId] = useState<Record<string, number>>({});
   const [paidByOrderId, setPaidByOrderId] = useState<Record<string, number>>({});
   const [paymentsByOrderId, setPaymentsByOrderId] = useState<Record<string, Payment[]>>({});
+  const [pendingSkladByOrderId, setPendingSkladByOrderId] = useState<Record<string, number>>({});
+  const [pendingCashByOrderId, setPendingCashByOrderId] = useState<Record<string, number>>({});
   const [debtLoading, setDebtLoading] = useState(false);
   const [returnedByOrderId, setReturnedByOrderId] = useState<Record<string, boolean>>({});
   const [returnsDetailByOrderId, setReturnsDetailByOrderId] = useState<Record<string, {
@@ -207,20 +220,31 @@ export const AdminOrders = () => {
       const next: Record<string, number> = {};
       const nextPaid: Record<string, number> = {};
       const nextPayments: Record<string, Payment[]> = {};
+      const nextPendingSklad: Record<string, number> = {};
+      const nextPendingCash: Record<string, number> = {};
       for (const clientId of clientIds) {
         try {
-          const bal = await apiGetClientBalance(clientId);
+          const [bal, payments] = await Promise.all([
+            apiGetClientBalance(clientId),
+            apiGetPayments({ clientId }),
+          ]);
           for (const row of bal.perOrder) {
             next[row.orderId] = row.debt;
             nextPaid[row.orderId] = row.paid;
           }
 
-          for (const p of bal.payments || []) {
+          for (const p of payments || []) {
             if (!p.orderId) continue;
             if (!deliveredOrderIds.has(p.orderId)) continue;
             const arr = nextPayments[p.orderId] || [];
             arr.push(p);
             nextPayments[p.orderId] = arr;
+            if (!p.receivedBySkladAt) {
+              nextPendingSklad[p.orderId] = (nextPendingSklad[p.orderId] || 0) + (p.amount || 0);
+              if (p.method === 'cash') {
+                nextPendingCash[p.orderId] = (nextPendingCash[p.orderId] || 0) + (p.amount || 0);
+              }
+            }
           }
         } catch {
           // ignore
@@ -229,6 +253,8 @@ export const AdminOrders = () => {
       if (!cancelled) setDebtByOrderId(prev => ({ ...prev, ...next }));
       if (!cancelled) setPaidByOrderId(prev => ({ ...prev, ...nextPaid }));
       if (!cancelled) setPaymentsByOrderId(prev => ({ ...prev, ...nextPayments }));
+      if (!cancelled) setPendingSkladByOrderId(prev => ({ ...prev, ...nextPendingSklad }));
+      if (!cancelled) setPendingCashByOrderId(prev => ({ ...prev, ...nextPendingCash }));
       if (!cancelled) setDebtLoading(false);
     })();
 
@@ -282,7 +308,7 @@ export const AdminOrders = () => {
             const orderedQty = Number(ord.quantity || 0);
             const cancelledQty = Math.min(orderedQty, ret?.quantity || 0);
             const deliveredQty = Math.max(0, orderedQty - cancelledQty);
-            const price = Number(ord.price || 0);
+            const price = lineUnitPrice(ord);
             productBreakdown.push({
               productName: ord.productName || '',
               orderedQty,
@@ -295,7 +321,7 @@ export const AdminOrders = () => {
           let deliveredAmount = 0;
           for (const ord of orderItems) {
             const ordQty = Number(ord.quantity || 0);
-            const unitPrice = Number(ord.price || 0);
+            const unitPrice = lineUnitPrice(ord);
             const retQty = Math.min(ordQty, byProduct.get(ord.productId)?.quantity || 0);
             const delQty = Math.max(0, ordQty - retQty);
             cancelledAmount += retQty * unitPrice;
@@ -333,6 +359,11 @@ export const AdminOrders = () => {
     }
     return debtByOrderId[orderId] ?? 0;
   };
+  const getPendingSkladAmount = (orderId: string) => pendingSkladByOrderId[orderId] ?? 0;
+  const getPendingCashAmount = (orderId: string) => pendingCashByOrderId[orderId] ?? 0;
+  const getVisibleDebt = (orderId: string) => Math.max(0, getEffectiveDebt(orderId) - getPendingCashAmount(orderId));
+  const hasPendingSklad = (orderId: string) => getPendingSkladAmount(orderId) > 0;
+  const getDisplayDebt = (orderId: string) => (hasPendingSklad(orderId) ? 0 : getVisibleDebt(orderId));
   const isFullyReturnedOrder = (orderId: string) => !!returnsDetailByOrderId[orderId]?.isFull;
 
   // Kutilayotgan vozvratlarni yuklash (Qabul qilindi uchun)
@@ -399,7 +430,7 @@ export const AdminOrders = () => {
       || (statusFilter === 'cancelled' && (o.status === 'cancelled' || returnedByOrderId[o.id]))
       || (!isFullyReturned && o.status === statusFilter)
       || (!isFullyReturned && statusFilter === 'tayyorlanmagan' && o.status === 'sent')
-      || (!isFullyReturned && statusFilter === 'delivered_debt' && o.status === 'delivered' && getEffectiveDebt(o.id) > 0);
+      || (!isFullyReturned && statusFilter === 'delivered_debt' && o.status === 'delivered' && getDisplayDebt(o.id) > 0);
     const orderDeliveryId = (o as any).deliveryId as string | undefined;
     const matchDelivery = !deliveryFilterId || orderDeliveryId === deliveryFilterId;
     return matchSearch && matchStatus && matchDelivery;
@@ -493,27 +524,98 @@ export const AdminOrders = () => {
   };
 
   const needsYuklash = (status: OrderStatus) => status === 'tayyorlanmagan' || status === 'sent';
+
+  const selectedSinglePromoOrder = useMemo(() => {
+    if (!selectionEnabled || selectedOrderIds.length !== 1) return null;
+    const o = filtered.find(x => x.id === selectedOrderIds[0]);
+    if (!o || !needsYuklash(o.status) || isFullyReturnedOrder(o.id)) return null;
+    return o;
+  }, [selectionEnabled, selectedOrderIds, filtered, returnsDetailByOrderId]);
+
+  const openPromoModal = () => {
+    const o = selectedSinglePromoOrder;
+    if (!o) return;
+    const draft: Record<string, string> = {};
+    let missingId = false;
+    for (const it of o.items || []) {
+      if (!it.id) {
+        missingId = true;
+        break;
+      }
+      draft[it.id] = it.promoPrice != null ? String(it.promoPrice) : '';
+    }
+    if (missingId) {
+      setPromoError(t('admin.orders.promoNeedRefresh'));
+      setPromoDraft({});
+    } else {
+      setPromoError('');
+      setPromoDraft(draft);
+    }
+    setPromoModalOrder(o);
+  };
+
+  const handlePromoSave = async () => {
+    if (!promoModalOrder) return;
+    const items = promoModalOrder.items || [];
+    const payload: { id: string; promoPrice: number | null }[] = [];
+    for (const it of items) {
+      if (!it.id) {
+        setPromoError(t('admin.orders.promoNeedRefresh'));
+        return;
+      }
+      const raw = (promoDraft[it.id] ?? '').trim().replace(/\s/g, '');
+      if (raw === '') {
+        payload.push({ id: it.id, promoPrice: null });
+      } else {
+        if (!/^\d+$/.test(raw)) {
+          setPromoError(t('admin.orders.promoInvalidPrice'));
+          return;
+        }
+        const n = Number.parseInt(raw, 10);
+        payload.push({ id: it.id, promoPrice: n });
+      }
+    }
+    setPromoSaving(true);
+    setPromoError('');
+    try {
+      await apiApplyOrderPromoPrices(promoModalOrder.id, payload);
+      setPromoModalOrder(null);
+      await refetchData?.();
+    } catch {
+      setPromoError(t('admin.orders.promoSaveError'));
+    } finally {
+      setPromoSaving(false);
+    }
+  };
+
   const getClientLoc = (clientId: string) => clients.find(c => c.id === clientId);
 
   const hasFilter = adminDateFrom || adminDateTo;
 
   const handlePrint = (order: any) => {
-    const debt = debtByOrderId[order.id] ?? 0;
+    const debt = getDisplayDebt(order.id);
+    const pendingSklad = getPendingSkladAmount(order.id);
     // Chop etish tili har doim o'zbek (kirill) bo'lishi uchun alohida tarjima funksiyasi ishlatamiz.
     const tPrint = (key: keyof typeof translations['uz_lat']) => translations.uz_kir[key] || String(key);
 
     const title = `Заказ ${formatOrderId(order)}`;
-    const debtLabel = `${tPrint('payments.badge.debt')}: ${debt.toLocaleString('ru-RU')} ${tPrint('common.sum')}`;
+    const debtLabel = pendingSklad > 0
+      ? `${tPrint('admin.orders.pendingSklad')}: ${pendingSklad.toLocaleString('ru-RU')} ${tPrint('common.sum')}`
+      : `${tPrint('payments.badge.debt')}: ${debt.toLocaleString('ru-RU')} ${tPrint('common.sum')}`;
 
-    const rows = (order.items ?? []).map((it: any, idx: number) => `
+    const rows = (order.items ?? []).map((it: any, idx: number) => {
+      const unit = lineUnitPrice(it);
+      const q = Number(it.quantity || 0);
+      return `
       <tr>
         <td style="width:38px;text-align:center;">${idx + 1}</td>
         <td>${escapeHtml(String(it.productName ?? ''))}</td>
-        <td style="width:80px;text-align:right;">${Number(it.quantity || 0)} ${escapeHtml(tPrint('common.pcs'))}</td>
-        <td style="width:110px;text-align:right;">${Number(it.price || 0).toLocaleString('ru-RU')} ${escapeHtml(tPrint('common.sum'))}</td>
-        <td style="width:120px;text-align:right;font-weight:700;">${Number((it.quantity || 0) * (it.price || 0)).toLocaleString('ru-RU')} ${escapeHtml(tPrint('common.sum'))}</td>
+        <td style="width:80px;text-align:right;">${q} ${escapeHtml(tPrint('common.pcs'))}</td>
+        <td style="width:110px;text-align:right;">${unit.toLocaleString('ru-RU')} ${escapeHtml(tPrint('common.sum'))}</td>
+        <td style="width:120px;text-align:right;font-weight:700;">${(q * unit).toLocaleString('ru-RU')} ${escapeHtml(tPrint('common.sum'))}</td>
       </tr>
-    `).join('');
+    `;
+    }).join('');
 
     const html = `
 <!doctype html>
@@ -634,19 +736,26 @@ export const AdminOrders = () => {
     const tPrint = (key: keyof typeof translations['uz_lat']) => translations.uz_kir[key] || String(key);
 
     const pagesHtml = orders.map((order: any) => {
-      const debt = debtByOrderId[order.id] ?? 0;
+      const debt = getDisplayDebt(order.id);
+      const pendingSklad = getPendingSkladAmount(order.id);
       const title = `Заказ ${formatOrderId(order)}`;
-      const debtLabel = `${tPrint('payments.badge.debt')}: ${debt.toLocaleString('ru-RU')} ${tPrint('common.sum')}`;
+      const debtLabel = pendingSklad > 0
+        ? `${tPrint('admin.orders.pendingSklad')}: ${pendingSklad.toLocaleString('ru-RU')} ${tPrint('common.sum')}`
+        : `${tPrint('payments.badge.debt')}: ${debt.toLocaleString('ru-RU')} ${tPrint('common.sum')}`;
 
-      const rows = (order.items ?? []).map((it: any, idx: number) => `
+      const rows = (order.items ?? []).map((it: any, idx: number) => {
+        const unit = lineUnitPrice(it);
+        const q = Number(it.quantity || 0);
+        return `
         <tr>
           <td style="width:38px;text-align:center;">${idx + 1}</td>
           <td>${escapeHtml(String(it.productName ?? ''))}</td>
-          <td style="width:80px;text-align:right;">${Number(it.quantity || 0)} ${escapeHtml(tPrint('common.pcs'))}</td>
-          <td style="width:110px;text-align:right;">${Number(it.price || 0).toLocaleString('ru-RU')} ${escapeHtml(tPrint('common.sum'))}</td>
-          <td style="width:120px;text-align:right;font-weight:700;">${Number((it.quantity || 0) * (it.price || 0)).toLocaleString('ru-RU')} ${escapeHtml(tPrint('common.sum'))}</td>
+          <td style="width:80px;text-align:right;">${q} ${escapeHtml(tPrint('common.pcs'))}</td>
+          <td style="width:110px;text-align:right;">${unit.toLocaleString('ru-RU')} ${escapeHtml(tPrint('common.sum'))}</td>
+          <td style="width:120px;text-align:right;font-weight:700;">${(q * unit).toLocaleString('ru-RU')} ${escapeHtml(tPrint('common.sum'))}</td>
         </tr>
-      `).join('');
+      `;
+      }).join('');
 
       return `
         <div class="print-page">
@@ -1016,7 +1125,7 @@ export const AdminOrders = () => {
               <div className="text-sm text-gray-600 dark:text-gray-300">
                 Tanlangan: <span className="font-semibold text-gray-900 dark:text-white">{selectedOrderIds.length}</span> {t('common.pcs')}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 justify-end">
                 <button
                   onClick={() => handlePrintMany(selectedOrders)}
                   disabled={selectedOrderIds.length === 0}
@@ -1026,6 +1135,17 @@ export const AdminOrders = () => {
                   <Printer size={14} />
                   {t('common.print')}
                 </button>
+                {selectedSinglePromoOrder && (
+                  <button
+                    type="button"
+                    onClick={openPromoModal}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-xs font-medium hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors"
+                    title={t('admin.orders.promo')}
+                  >
+                    <Tag size={14} />
+                    {t('admin.orders.promo')}
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setYuklashOrder(null);
@@ -1168,14 +1288,25 @@ export const AdminOrders = () => {
                           )}
                           {order.status === 'delivered' && (
                             <div className="text-[11px] leading-4">
-                              {getEffectiveDebt(order.id) > 0 ? (
+                              {hasPendingSklad(order.id) ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-100 dark:border-amber-800">
+                                  {t('admin.orders.pendingSklad')}
+                                </span>
+                              ) : getDisplayDebt(order.id) > 0 ? (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-300 border border-red-100 dark:border-red-800">
-                                  {t('payments.badge.debt')}: {getEffectiveDebt(order.id).toLocaleString('ru-RU')} {t('common.sum')}
+                                  {t('payments.badge.debt')}: {getDisplayDebt(order.id).toLocaleString('ru-RU')} {t('common.sum')}
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-100 dark:border-green-800">
-                                  {t('payments.badge.paid')}
-                                </span>
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  {hasPromoPricing(order.items) && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-100 dark:border-amber-800">
+                                      {t('admin.orders.promo')}
+                                    </span>
+                                  )}
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-100 dark:border-green-800">
+                                    {t('payments.badge.paid')}
+                                  </span>
+                                </div>
                               )}
                               {debtLoading && debtByOrderId[order.id] == null ? (
                                 <span className="ml-2 text-gray-400 dark:text-gray-500">...</span>
@@ -1306,18 +1437,20 @@ export const AdminOrders = () => {
                                 </tfoot>
                               </table>
                             ) : (
-                              <table className="w-full text-sm border-collapse" style={{ tableLayout: 'fixed', minWidth: 380 }}>
+                              <table className="w-full text-sm border-collapse" style={{ tableLayout: 'fixed', minWidth: 420 }}>
                                 <thead>
                                   <tr className="bg-[#217346] text-white">
                                     <th className="text-left px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-10">#</th>
                                     <th className="text-left px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500">{t('admin.suppliers.productName')}</th>
                                     <th className="text-right px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-20">{t('admin.suppliers.quantity')}</th>
-                                    <th className="text-right px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-24">{t('admin.suppliers.salePrice')}</th>
+                                    <th className="text-right px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-28">{t('admin.suppliers.salePrice')}</th>
                                     <th className="text-right px-3 py-2 font-semibold text-xs border border-gray-400 dark:border-gray-500 w-24">{t('admin.suppliers.totalSum')}</th>
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {order.items?.map((item, idx) => (
+                                  {order.items?.map((item, idx) => {
+                                    const unit = lineUnitPrice(item);
+                                    return (
                                     <tr
                                       key={idx}
                                       className={`border border-gray-300 dark:border-gray-500 ${idx % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50/80 dark:bg-gray-700/50'}`}
@@ -1325,12 +1458,18 @@ export const AdminOrders = () => {
                                       <td className="px-3 py-2 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-500">{idx + 1}</td>
                                       <td className="px-3 py-2 font-medium text-gray-900 dark:text-white border border-gray-300 dark:border-gray-500">{item.productName}</td>
                                       <td className="px-3 py-2 text-right text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-500">{item.quantity} {t('common.pcs')}</td>
-                                      <td className="px-3 py-2 text-right text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-500">{(item.price || 0).toLocaleString('ru-RU')} {t('common.sum')}</td>
+                                      <td className="px-3 py-2 text-right text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-500">
+                                        <div className="font-medium">{unit.toLocaleString('ru-RU')} {t('common.sum')}</div>
+                                        {item.promoPrice != null && (
+                                          <div className="text-[10px] text-gray-400 line-through">{(item.price || 0).toLocaleString('ru-RU')}</div>
+                                        )}
+                                      </td>
                                       <td className="px-3 py-2 text-right font-semibold text-[#217346] dark:text-green-400 border border-gray-300 dark:border-gray-500">
-                                        {((item.quantity || 0) * (item.price || 0)).toLocaleString('ru-RU')} {t('common.sum')}
+                                        {((item.quantity || 0) * unit).toLocaleString('ru-RU')} {t('common.sum')}
                                       </td>
                                     </tr>
-                                  ))}
+                                    );
+                                  })}
                                 </tbody>
                                 <tfoot>
                                   <tr className="bg-gray-100 dark:bg-gray-700/40">
@@ -1359,15 +1498,29 @@ export const AdminOrders = () => {
                                   </p>
                                 </div>
                                 <div className="shrink-0">
-                                  {getEffectiveDebt(order.id) > 0 ? (
+                                  {hasPendingSklad(order.id) ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-100 dark:border-amber-800">
+                                      {t('admin.orders.pendingSkladWithAmount').replace(
+                                        '{amount}',
+                                        `${getPendingSkladAmount(order.id).toLocaleString('ru-RU')} ${t('common.sum')}`,
+                                      )}
+                                    </span>
+                                  ) : getDisplayDebt(order.id) > 0 ? (
                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-300 border border-red-100 dark:border-red-800">
-                                      {t('payments.badge.debt')}: {getEffectiveDebt(order.id).toLocaleString('ru-RU')} {t('common.sum')}
+                                      {t('payments.badge.debt')}: {getDisplayDebt(order.id).toLocaleString('ru-RU')} {t('common.sum')}
                                     </span>
                                   ) : (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-100 dark:border-green-800">
-                                      {t('payments.badge.paid')}:{' '}
-                                      {(paidByOrderId[order.id] ?? 0).toLocaleString('ru-RU')} {t('common.sum')}
-                                    </span>
+                                    <div className="flex flex-wrap justify-end gap-1.5">
+                                      {hasPromoPricing(order.items) && (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-100 dark:border-amber-800">
+                                          {t('admin.orders.promo')}
+                                        </span>
+                                      )}
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-100 dark:border-green-800">
+                                        {t('payments.badge.paid')}:{' '}
+                                        {((paidByOrderId[order.id] ?? 0) + getPendingSkladAmount(order.id)).toLocaleString('ru-RU')} {t('common.sum')}
+                                      </span>
+                                    </div>
                                   )}
                                 </div>
                               </div>
@@ -1415,8 +1568,13 @@ export const AdminOrders = () => {
                                                 || (p as any)?.createdAt
                                                 || '-'}
                                             </td>
-                                            <td className="px-3 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-500 truncate">
-                                              {t(`payments.method.${p.method}` as any)}
+                                            <td className="px-3 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-500">
+                                              <div>{t(`payments.method.${p.method}` as any)}</div>
+                                              {!p.receivedBySkladAt && (
+                                                <div className="text-[10px] text-amber-600 dark:text-amber-300 whitespace-normal break-words leading-tight">
+                                                  {t('admin.orders.pendingSklad')}
+                                                </div>
+                                              )}
                                             </td>
                                             <td className="px-3 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-500 truncate">
                                               {p.collectedBy?.name || '-'}
@@ -1455,6 +1613,83 @@ export const AdminOrders = () => {
             )}
           </div>
         </div>
+
+        {promoModalOrder && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/70 p-3 sm:p-4"
+            onClick={() => !promoSaving && setPromoModalOrder(null)}
+          >
+            <div
+              className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-xl"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="sticky top-0 z-10 flex items-start justify-between gap-3 px-4 py-4 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
+                <div className="min-w-0">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t('admin.orders.promoTitle')}</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{formatOrderId(promoModalOrder)}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">{t('admin.orders.promoSubtitle')}</p>
+                </div>
+                <button
+                  type="button"
+                  disabled={promoSaving}
+                  onClick={() => setPromoModalOrder(null)}
+                  className="shrink-0 p-2 rounded-xl text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="p-4 space-y-3">
+                {promoError && (
+                  <div className="p-3 rounded-xl border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/20 text-sm text-red-700 dark:text-red-300">
+                    {promoError}
+                  </div>
+                )}
+                {(promoModalOrder.items || []).map((item, idx) => (
+                  <div
+                    key={item.id || idx}
+                    className="rounded-xl border border-gray-200 dark:border-gray-700 p-3 bg-gray-50/80 dark:bg-gray-900/40"
+                  >
+                    <div className="text-sm font-semibold text-gray-900 dark:text-white break-words">{item.productName}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {item.quantity} {t('common.pcs')} · {t('admin.suppliers.salePrice')}: {(item.price || 0).toLocaleString()} {t('common.sum')}
+                    </div>
+                    <label className="block text-[11px] font-medium text-gray-600 dark:text-gray-400 mt-2">{t('admin.orders.promoPriceColumn')}</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder={t('admin.orders.promoHint')}
+                      value={item.id ? (promoDraft[item.id] ?? '') : ''}
+                      onChange={e => {
+                        if (!item.id) return;
+                        setPromoDraft(prev => ({ ...prev, [item.id!]: e.target.value }));
+                      }}
+                      disabled={!item.id || promoSaving}
+                      className="mt-1 w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:border-[#2563EB]"
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="sticky bottom-0 flex flex-col sm:flex-row gap-2 p-4 border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
+                <button
+                  type="button"
+                  disabled={promoSaving}
+                  onClick={() => setPromoModalOrder(null)}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  type="button"
+                  disabled={promoSaving}
+                  onClick={() => void handlePromoSave()}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-[#2563EB] text-white text-sm font-medium hover:bg-blue-600 disabled:opacity-50"
+                >
+                  {promoSaving ? t('common.loading') : t('admin.orders.promoSave')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {(yuklashOrder || bulkYuklashOrderIds.length > 0) && (
           <div

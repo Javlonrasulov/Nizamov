@@ -11,6 +11,10 @@ function resolveApiBase(): string {
 
   if (typeof window !== 'undefined') {
     const host = window.location.hostname || '';
+    if (host === 'dev.sainur.uz' || host.endsWith('.dev.sainur.uz')) {
+      // Backend dev.sainur.uz ostida /api (api.dev.sainur.uz alohida yo'q).
+      return 'https://dev.sainur.uz/api';
+    }
     if (host.endsWith('sainur.uz')) return 'https://api.sainur.uz';
   }
 

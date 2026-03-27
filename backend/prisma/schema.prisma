@@ -29,6 +29,8 @@ model User {
   ordersAsAgent    Order[]   @relation("AgentOrders")
   ordersAsDelivery Order[]   @relation("DeliveryOrders")
   paymentsCollected Payment[] @relation("CollectedPayments")
+  paymentsReceivedAtSklad Payment[] @relation("PaymentsReceivedAtSklad")
+  paymentsReceivedAtAdmin Payment[] @relation("PaymentsReceivedAtAdmin")
   returnsCreated   Return[]  @relation("ReturnsCreated")
   returnsAccepted Return[]  @relation("ReturnsAccepted")
 }
@@ -147,6 +149,7 @@ model OrderItem {
   productName String
   quantity    Int
   price       Int
+  promoPrice  Int?
 
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id])
@@ -250,16 +253,26 @@ model Payment {
   method             String   // cash | terminal | transfer
   date               String   // YYYY-MM-DD
   collectedByUserId  String
+  receivedBySkladUserId String?
+  receivedBySkladAt  DateTime?
+  receivedByAdminUserId String?
+  receivedByAdminAt  DateTime?
   comment            String?
   createdAt          DateTime @default(now())
 
   client     Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
   order      Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
   collectedBy User  @relation("CollectedPayments", fields: [collectedByUserId], references: [id])
+  receivedBySklad User? @relation("PaymentsReceivedAtSklad", fields: [receivedBySkladUserId], references: [id])
+  receivedByAdmin User? @relation("PaymentsReceivedAtAdmin", fields: [receivedByAdminUserId], references: [id])
 
   @@index([clientId])
   @@index([orderId])
   @@index([date])
   @@index([createdAt])
   @@index([collectedByUserId])
+  @@index([receivedBySkladUserId])
+  @@index([receivedBySkladAt])
+  @@index([receivedByAdminUserId])
+  @@index([receivedByAdminAt])
 }

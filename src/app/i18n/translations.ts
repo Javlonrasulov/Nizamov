@@ -221,6 +221,30 @@ type TranslationKeys = {
   'admin.productsPage': string;
   'admin.agentsPage': string;
   'admin.reportsPage': string;
+  'admin.skladCashPage': string;
+  'admin.adminCashPage': string;
+  'cashHandover.sklad.subtitle': string;
+  'cashHandover.admin.subtitle': string;
+  'cashHandover.accept.sklad': string;
+  'cashHandover.accept.admin': string;
+  'cashHandover.empty.sklad': string;
+  'cashHandover.empty.admin': string;
+  'cashHandover.summary.queue': string;
+  'cashHandover.summary.transfers': string;
+  'cashHandover.summary.skladCash': string;
+  'cashHandover.summary.skladCashHint': string;
+  'cashHandover.summary.adminCash': string;
+  'cashHandover.summary.adminCashHint': string;
+  'cashHandover.table.title.sklad': string;
+  'cashHandover.table.title.admin': string;
+  'cashHandover.table.subtitle': string;
+  'cashHandover.table.acceptedBySklad': string;
+  'cashHandover.collectors.title': string;
+  'cashHandover.collectors.subtitle': string;
+  'cashHandover.collectors.cashTotal': string;
+  'cashHandover.collectors.debtTotal': string;
+  'cashHandover.collectors.clients': string;
+  'cashHandover.collectors.payments': string;
   'admin.profilePage': string;
   'admin.profile.title': string;
   'admin.profile.subtitle': string;
@@ -353,15 +377,28 @@ type TranslationKeys = {
   'admin.staff.deleteConfirm': string;
   'admin.staff.deleteWarning': string;
   'admin.staff.addVehicle': string;
+  'admin.staff.manageVehicles': string;
+  'admin.staff.vehicles.title': string;
+  'admin.staff.vehicles.subtitle': string;
+  'admin.staff.vehicles.empty': string;
+  'admin.staff.vehicles.inputPlaceholder': string;
+  'admin.staff.vehicles.deleteTitle': string;
+  'admin.staff.vehicles.deleteConfirm': string;
+  'admin.staff.vehicles.saveError': string;
+  'admin.staff.vehicles.deleteError': string;
   'admin.staff.editTitle': string;
   'admin.staff.form.fullName': string;
+  'admin.staff.form.namePlaceholder': string;
   'admin.staff.form.phone': string;
+  'admin.staff.form.phonePlaceholder': string;
   'admin.staff.form.password': string;
+  'admin.staff.form.passwordPlaceholder': string;
   'admin.staff.form.passwordHint': string;
   'admin.staff.form.role': string;
   'admin.staff.form.vehicleLabel': string;
   'admin.staff.form.vehicleSelect': string;
   'admin.staff.form.vehicleOther': string;
+  'admin.staff.form.vehicleCustomPlaceholder': string;
   'admin.staff.card.todaySales': string;
   'admin.staff.card.monthSales': string;
   'admin.staff.card.ordersAgent': string;
@@ -402,6 +439,17 @@ type TranslationKeys = {
   'admin.orders.searchPlaceholder': string;
   'admin.orders.mapTitle': string;
   'admin.orders.viewItems': string;
+  'admin.orders.promo': string;
+  'admin.orders.promoTitle': string;
+  'admin.orders.promoSubtitle': string;
+  'admin.orders.promoPriceColumn': string;
+  'admin.orders.promoHint': string;
+  'admin.orders.promoSave': string;
+  'admin.orders.promoNeedRefresh': string;
+  'admin.orders.promoSaveError': string;
+  'admin.orders.promoInvalidPrice': string;
+  'admin.orders.pendingSklad': string;
+  'admin.orders.pendingSkladWithAmount': string;
   'orders.vehicle': string;
 
   // Returns
@@ -681,6 +729,30 @@ const uz_lat: TranslationKeys = {
   'admin.productsPage': 'Mahsulotlar',
   'admin.agentsPage': 'Xodimlar',
   'admin.reportsPage': 'Hisobotlar',
+  'admin.skladCashPage': 'Kassa sklad',
+  'admin.adminCashPage': 'Kassa admin',
+  'cashHandover.sklad.subtitle': 'Agent va dostavkachidan kelgan to‘lovlarni qabul qilish',
+  'cashHandover.admin.subtitle': 'Skladdan kelgan to‘lovlarni qabul qilish',
+  'cashHandover.accept.sklad': 'Qabul qildim',
+  'cashHandover.accept.admin': 'Skladdan qabul qildim',
+  'cashHandover.empty.sklad': 'Sklad uchun kutilayotgan topshiruv yo‘q',
+  'cashHandover.empty.admin': 'Admin uchun kutilayotgan topshiruv yo‘q',
+  'cashHandover.summary.queue': 'Navbatdagi summa',
+  'cashHandover.summary.transfers': 'ta topshiruv',
+  'cashHandover.summary.skladCash': 'Sklad kassasi',
+  'cashHandover.summary.skladCashHint': 'Sklad qabul qilib, adminga topshirmagan to‘lovlar',
+  'cashHandover.summary.adminCash': 'Admin kassasi',
+  'cashHandover.summary.adminCashHint': 'Admin qabul qilgan jami to‘lovlar',
+  'cashHandover.table.title.sklad': 'Qabul kutilayotgan pullar',
+  'cashHandover.table.title.admin': 'Skladdan qabul kutilayotgan pullar',
+  'cashHandover.table.subtitle': 'Har bir qatorda qaysi klientdan qancha to‘lov olingani ko\'rsatiladi',
+  'cashHandover.table.acceptedBySklad': 'Sklad qabul qilgan',
+  'cashHandover.collectors.title': 'Xodimlar bo‘yicha',
+  'cashHandover.collectors.subtitle': 'Navbatdagi to‘lovlar va shu klientlar bo‘yicha umumiy qarz',
+  'cashHandover.collectors.cashTotal': 'Olib kelgan to‘lov',
+  'cashHandover.collectors.debtTotal': 'Qarz (tovar)',
+  'cashHandover.collectors.clients': 'klient',
+  'cashHandover.collectors.payments': 'to‘lov',
   'admin.profilePage': 'Profil',
   'admin.profile.title': 'Profil',
   'admin.profile.subtitle': 'Ism, telefon va parolni o‘zgartiring',
@@ -813,15 +885,28 @@ const uz_lat: TranslationKeys = {
   'admin.staff.deleteConfirm': "Rostdan ham ushbu xodimni o'chirmoqchimisiz?",
   'admin.staff.deleteWarning': "Diqqat: bog'langan ma'lumotlar bo'lsa, o'chirish amalga oshmasligi mumkin.",
   'admin.staff.addVehicle': "Mashina qo'shish",
+  'admin.staff.manageVehicles': 'Mavjud mashinalar',
+  'admin.staff.vehicles.title': 'Mavjud mashinalar',
+  'admin.staff.vehicles.subtitle': "Mashinalar ro'yxatini boshqaring, tahrirlang va o'chiring",
+  'admin.staff.vehicles.empty': "Hali mashinalar qo'shilmagan",
+  'admin.staff.vehicles.inputPlaceholder': 'Masalan: 01 A 123 AB',
+  'admin.staff.vehicles.deleteTitle': "Mashinani o'chirish",
+  'admin.staff.vehicles.deleteConfirm': "Rostdan ham ushbu mashinani o'chirmoqchimisiz?",
+  'admin.staff.vehicles.saveError': 'Mashinani saqlashda xatolik yuz berdi',
+  'admin.staff.vehicles.deleteError': "Mashinani o'chirishda xatolik yuz berdi",
   'admin.staff.editTitle': 'Xodimni tahrirlash',
   'admin.staff.form.fullName': 'Ism familiya',
+  'admin.staff.form.namePlaceholder': 'Sardor Toshmatov',
   'admin.staff.form.phone': 'Telefon',
+  'admin.staff.form.phonePlaceholder': '+998901234567',
   'admin.staff.form.password': 'Parol',
+  'admin.staff.form.passwordPlaceholder': '****',
   'admin.staff.form.passwordHint': "(bo'sh qoldiring — o'zgarmaydi)",
   'admin.staff.form.role': 'Lavozim',
   'admin.staff.form.vehicleLabel': 'Moshina',
   'admin.staff.form.vehicleSelect': 'Mashina tanlang',
   'admin.staff.form.vehicleOther': 'Boshqa',
+  'admin.staff.form.vehicleCustomPlaceholder': 'Mashina nomi',
   'admin.staff.card.todaySales': 'Bugungi savdo',
   'admin.staff.card.monthSales': 'Oylik savdo',
   'admin.staff.card.ordersAgent': 'Zakazlar',
@@ -854,6 +939,17 @@ const uz_lat: TranslationKeys = {
   'admin.orders.searchPlaceholder': 'Zakaz, klient, agent qidirish...',
   'admin.orders.mapTitle': "Xaritada ochish",
   'admin.orders.viewItems': "Mahsulotlarni ko'rish",
+  'admin.orders.promo': 'Aksiya',
+  'admin.orders.promoTitle': 'Aksiya narxlari',
+  'admin.orders.promoSubtitle': 'Bo‘sh qator — asosiy sotish narxi; raqam — aksiya narxi (birlik)',
+  'admin.orders.promoPriceColumn': 'Aksiya narxi',
+  'admin.orders.promoHint': 'Bo‘sh = aksiyasiz',
+  'admin.orders.promoSave': 'Saqlash',
+  'admin.orders.promoNeedRefresh': 'Mahsulot qatorlari ID siz — sahifani yangilab qayta urinib ko‘ring.',
+  'admin.orders.promoSaveError': 'Saqlashda xatolik',
+  'admin.orders.promoInvalidPrice': 'Aksiya narxi musbat butun son bo‘lishi kerak',
+  'admin.orders.pendingSklad': 'Dostavkachi olgan, skladga topshirilmagan',
+  'admin.orders.pendingSkladWithAmount': 'Dostavkachi olgan, skladga topshirilmagan: {amount}',
   'orders.vehicle': 'Moshina',
   'returns.title': 'Vozvrat',
   'returns.selectClient': 'Klientni tanlang',
@@ -1129,6 +1225,30 @@ const uz_kir: TranslationKeys = {
   'admin.productsPage': 'Маҳсулотлар',
   'admin.agentsPage': 'Ходимлар',
   'admin.reportsPage': 'Ҳисоботлар',
+  'admin.skladCashPage': 'Касса склад',
+  'admin.adminCashPage': 'Касса админ',
+  'cashHandover.sklad.subtitle': 'Агент ва доставкачидан келган тўловларни қабул қилиш',
+  'cashHandover.admin.subtitle': 'Складдан келган тўловларни қабул қилиш',
+  'cashHandover.accept.sklad': 'Қабул қилдим',
+  'cashHandover.accept.admin': 'Складдан қабул қилдим',
+  'cashHandover.empty.sklad': 'Склад учун кутилаётган топширув йўқ',
+  'cashHandover.empty.admin': 'Админ учун кутилаётган топширув йўқ',
+  'cashHandover.summary.queue': 'Навбатдаги сумма',
+  'cashHandover.summary.transfers': 'та топширув',
+  'cashHandover.summary.skladCash': 'Склад кассаси',
+  'cashHandover.summary.skladCashHint': 'Склад қабул қилиб, админга топширмаган тўловлар',
+  'cashHandover.summary.adminCash': 'Админ кассаси',
+  'cashHandover.summary.adminCashHint': 'Админ қабул қилган жами тўловлар',
+  'cashHandover.table.title.sklad': 'Қабул кутилаётган пуллар',
+  'cashHandover.table.title.admin': 'Складдан қабул кутилаётган пуллар',
+  'cashHandover.table.subtitle': 'Ҳар бир қаторда қайси клиентдан қанча тўлов олингани кўрсатилади',
+  'cashHandover.table.acceptedBySklad': 'Склад қабул қилган',
+  'cashHandover.collectors.title': 'Ходимлар бўйича',
+  'cashHandover.collectors.subtitle': 'Навбатдаги тўловлар ва шу клиентлар бўйича умумий қарз',
+  'cashHandover.collectors.cashTotal': 'Олиб келган тўлов',
+  'cashHandover.collectors.debtTotal': 'Қарз (товар)',
+  'cashHandover.collectors.clients': 'клиент',
+  'cashHandover.collectors.payments': 'тўлов',
   'admin.profilePage': 'Профил',
   'admin.profile.title': 'Профил',
   'admin.profile.subtitle': 'Исм, телефон ва паролни ўзгартиринг',
@@ -1261,15 +1381,28 @@ const uz_kir: TranslationKeys = {
   'admin.staff.deleteConfirm': "Ростдан ҳам ушбу ходимни ўчирмоқчимисиз?",
   'admin.staff.deleteWarning': "Диққат: боғланган маълумотлар бўлса, ўчириш амалга ошмаслиги мумкин.",
   'admin.staff.addVehicle': 'Машина қўшиш',
+  'admin.staff.manageVehicles': 'Мавжуд машиналар',
+  'admin.staff.vehicles.title': 'Мавжуд машиналар',
+  'admin.staff.vehicles.subtitle': "Машиналар рўйхатини бошқаринг, таҳрирланг ва ўчиринг",
+  'admin.staff.vehicles.empty': "Ҳали машиналар қўшилмаган",
+  'admin.staff.vehicles.inputPlaceholder': 'Масалан: 01 A 123 AB',
+  'admin.staff.vehicles.deleteTitle': 'Машинани ўчириш',
+  'admin.staff.vehicles.deleteConfirm': "Ростдан ҳам ушбу машинани ўчирмоқчимисиз?",
+  'admin.staff.vehicles.saveError': 'Машинани сақлашда хатолик юз берди',
+  'admin.staff.vehicles.deleteError': "Машинани ўчиришда хатолик юз берди",
   'admin.staff.editTitle': 'Ходимни таҳрирлаш',
   'admin.staff.form.fullName': 'Исми фамилия',
+  'admin.staff.form.namePlaceholder': 'Сардор Тошматов',
   'admin.staff.form.phone': 'Телефон',
+  'admin.staff.form.phonePlaceholder': '+998901234567',
   'admin.staff.form.password': 'Парол',
+  'admin.staff.form.passwordPlaceholder': '****',
   'admin.staff.form.passwordHint': '(бош қолдиринг — ўзгармайди)',
   'admin.staff.form.role': 'Лавозим',
   'admin.staff.form.vehicleLabel': 'Мошина',
   'admin.staff.form.vehicleSelect': 'Машина танланг',
   'admin.staff.form.vehicleOther': 'Бошқа',
+  'admin.staff.form.vehicleCustomPlaceholder': 'Машина номи',
   'admin.staff.card.todaySales': 'Бугунги савдо',
   'admin.staff.card.monthSales': 'Ойлик савдо',
   'admin.staff.card.ordersAgent': 'Заказлар',
@@ -1302,6 +1435,17 @@ const uz_kir: TranslationKeys = {
   'admin.orders.searchPlaceholder': 'Закaз, клиент, агент қидириш...',
   'admin.orders.mapTitle': "Харитада очиш",
   'admin.orders.viewItems': "Маҳсулотларни кўриш",
+  'admin.orders.promo': 'Аксия',
+  'admin.orders.promoTitle': 'Аксия нархлари',
+  'admin.orders.promoSubtitle': 'Бўш қатор — асосий сотиш нархи; рақам — аксия нархи (бирлик)',
+  'admin.orders.promoPriceColumn': 'Аксия нархи',
+  'admin.orders.promoHint': 'Бўш = аксиясиз',
+  'admin.orders.promoSave': 'Сақлаш',
+  'admin.orders.promoNeedRefresh': 'Маҳсулот қаторлари ID сиз — саҳифани янгилаб қайта уриниб кўринг.',
+  'admin.orders.promoSaveError': 'Сақлашда хатолик',
+  'admin.orders.promoInvalidPrice': 'Аксия нархи мусбат бутун сон бўлиши керак',
+  'admin.orders.pendingSklad': 'Доставкачи олган, складга топширилмаган',
+  'admin.orders.pendingSkladWithAmount': 'Доставкачи олган, складга топширилмаган: {amount}',
   'orders.vehicle': 'Мошина',
   'returns.title': 'Возврат',
   'returns.selectClient': 'Клиентни танланг',
@@ -1577,6 +1721,30 @@ const ru: TranslationKeys = {
   'admin.productsPage': 'Товары',
   'admin.agentsPage': 'Сотрудники',
   'admin.reportsPage': 'Отчёты',
+  'admin.skladCashPage': 'Касса склад',
+  'admin.adminCashPage': 'Касса админ',
+  'cashHandover.sklad.subtitle': 'Приём платежей, переданных агентом и доставщиком',
+  'cashHandover.admin.subtitle': 'Приём платежей, переданных со склада',
+  'cashHandover.accept.sklad': 'Принял',
+  'cashHandover.accept.admin': 'Принял от склада',
+  'cashHandover.empty.sklad': 'Нет ожидающих передач для склада',
+  'cashHandover.empty.admin': 'Нет ожидающих передач для администратора',
+  'cashHandover.summary.queue': 'Сумма в очереди',
+  'cashHandover.summary.transfers': 'передач',
+  'cashHandover.summary.skladCash': 'Касса склада',
+  'cashHandover.summary.skladCashHint': 'Платежи, которые склад принял, но ещё не передал администратору',
+  'cashHandover.summary.adminCash': 'Касса администратора',
+  'cashHandover.summary.adminCashHint': 'Все платежи, принятые администратором',
+  'cashHandover.table.title.sklad': 'Платежи, ожидающие приёма',
+  'cashHandover.table.title.admin': 'Платежи, ожидающие приёма от склада',
+  'cashHandover.table.subtitle': 'В каждой строке показано, от какого клиента и сколько платежей было получено',
+  'cashHandover.table.acceptedBySklad': 'Принял склад',
+  'cashHandover.collectors.title': 'По сотрудникам',
+  'cashHandover.collectors.subtitle': 'Платежи в очереди и общий долг по этим клиентам',
+  'cashHandover.collectors.cashTotal': 'Принёс платежей',
+  'cashHandover.collectors.debtTotal': 'Долг (товар)',
+  'cashHandover.collectors.clients': 'клиент(ов)',
+  'cashHandover.collectors.payments': 'платеж(ей)',
   'admin.profilePage': 'Профиль',
   'admin.profile.title': 'Профиль',
   'admin.profile.subtitle': 'Измените имя, телефон и пароль',
@@ -1709,15 +1877,28 @@ const ru: TranslationKeys = {
   'admin.staff.deleteConfirm': 'Вы действительно хотите удалить этого сотрудника?',
   'admin.staff.deleteWarning': 'Внимание: если есть связанные данные, удаление может не выполниться.',
   'admin.staff.addVehicle': 'Добавить машину',
+  'admin.staff.manageVehicles': 'Список машин',
+  'admin.staff.vehicles.title': 'Список машин',
+  'admin.staff.vehicles.subtitle': 'Управляйте списком машин: редактируйте и удаляйте записи',
+  'admin.staff.vehicles.empty': 'Машины ещё не добавлены',
+  'admin.staff.vehicles.inputPlaceholder': 'Например: 01 A 123 AB',
+  'admin.staff.vehicles.deleteTitle': 'Удалить машину',
+  'admin.staff.vehicles.deleteConfirm': 'Вы уверены, что хотите удалить эту машину?',
+  'admin.staff.vehicles.saveError': 'Не удалось сохранить машину',
+  'admin.staff.vehicles.deleteError': 'Не удалось удалить машину',
   'admin.staff.editTitle': 'Редактировать сотрудника',
   'admin.staff.form.fullName': 'ФИО',
+  'admin.staff.form.namePlaceholder': 'Сардор Тошматов',
   'admin.staff.form.phone': 'Телефон',
+  'admin.staff.form.phonePlaceholder': '+998901234567',
   'admin.staff.form.password': 'Пароль',
+  'admin.staff.form.passwordPlaceholder': '****',
   'admin.staff.form.passwordHint': '(оставьте пустым — не изменится)',
   'admin.staff.form.role': 'Должность',
   'admin.staff.form.vehicleLabel': 'Машина',
   'admin.staff.form.vehicleSelect': 'Выберите машину',
   'admin.staff.form.vehicleOther': 'Другое',
+  'admin.staff.form.vehicleCustomPlaceholder': 'Название машины',
   'admin.staff.card.todaySales': 'Продажи сегодня',
   'admin.staff.card.monthSales': 'Продажи за месяц',
   'admin.staff.card.ordersAgent': 'Заказы',
@@ -1750,6 +1931,17 @@ const ru: TranslationKeys = {
   'admin.orders.searchPlaceholder': 'Поиск: заказ, клиент, агент...',
   'admin.orders.mapTitle': 'Открыть на карте',
   'admin.orders.viewItems': 'Посмотреть товары',
+  'admin.orders.promo': 'Акция',
+  'admin.orders.promoTitle': 'Акционные цены',
+  'admin.orders.promoSubtitle': 'Пусто — обычная цена продажи; число — акционная цена за единицу',
+  'admin.orders.promoPriceColumn': 'Акция цена',
+  'admin.orders.promoHint': 'Пусто = без акции',
+  'admin.orders.promoSave': 'Сохранить',
+  'admin.orders.promoNeedRefresh': 'Нет ID у строк — обновите страницу и попробуйте снова.',
+  'admin.orders.promoSaveError': 'Ошибка сохранения',
+  'admin.orders.promoInvalidPrice': 'Акционная цена должна быть целым неотрицательным числом',
+  'admin.orders.pendingSklad': 'Получено доставщиком, не сдано на склад',
+  'admin.orders.pendingSkladWithAmount': 'Получено доставщиком, не сдано на склад: {amount}',
   'orders.vehicle': 'Машина',
   'returns.title': 'Возврат',
   'returns.selectClient': 'Выберите клиента',

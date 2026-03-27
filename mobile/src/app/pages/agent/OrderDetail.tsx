@@ -106,13 +106,19 @@ export const OrderDetail = () => {
   const getEditQty = (productId: string) =>
     editItems.find(i => i.productId === productId)?.quantity || 0;
 
+  const getEditableMaxQty = (productId: string) => {
+    const product = products.find((p) => p.id === productId);
+    const stockNow = Math.max(0, product?.stock ?? 0);
+    const reservedQty = order.items.find((i) => i.productId === productId)?.quantity || 0;
+    return stockNow + reservedQty;
+  };
+
   const setEditQty = (productId: string, productName: string, price: number, delta: number) => {
     setEditItems(prev => {
-      const prod = products.find(p => p.id === productId);
-      const max = Math.max(0, prod?.stock ?? 0);
+      const max = getEditableMaxQty(productId);
       const existing = prev.find(i => i.productId === productId);
       if (existing) {
-        const newQty = Math.min(max || existing.quantity + delta, existing.quantity + delta);
+        const newQty = Math.min(max, existing.quantity + delta);
         if (newQty <= 0) return prev.filter(i => i.productId !== productId);
         return prev.map(i => i.productId === productId ? { ...i, quantity: newQty } : i);
       }
@@ -127,8 +133,7 @@ export const OrderDetail = () => {
   const setEditQtyManual = (productId: string, productName: string, price: number, val: string) => {
     const qty = parseInt(val);
     if (isNaN(qty) || qty < 0) return;
-    const prod = products.find(p => p.id === productId);
-    const max = Math.max(0, prod?.stock ?? 0);
+    const max = getEditableMaxQty(productId);
     if (qty > max) {
       setStockWarn(prev => ({ ...prev, [productId]: true }));
       setTimeout(() => setStockWarn(prev => ({ ...prev, [productId]: false })), 5000);
@@ -235,7 +240,8 @@ export const OrderDetail = () => {
                 {filteredProducts.map(product => {
                   const qty = getEditQty(product.id);
                   const stock = product.stock ?? 0;
-                  const canPlus = stock > 0 && qty < stock;
+                  const maxQty = getEditableMaxQty(product.id);
+                  const canPlus = qty < maxQty;
                   const warn = !!stockWarn[product.id];
                   return (
                     <div key={product.id} className={`rounded-xl p-3 border-2 transition-all ${qty > 0 ? 'border-[#2563EB] bg-blue-50/50 dark:bg-blue-900/10' : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800'}`}>
@@ -246,8 +252,8 @@ export const OrderDetail = () => {
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-sm text-gray-900 dark:text-white leading-tight">{product.name}</p>
                           <p className="text-xs text-[#2563EB] dark:text-blue-400 font-semibold mt-0.5">{formatCurrency(product.price)}</p>
-                          <p className={`text-[11px] mt-0.5 ${warn ? 'text-red-600 dark:text-red-400 animate-pulse font-semibold' : stock > 0 ? 'text-gray-500 dark:text-gray-400' : 'text-red-600 dark:text-red-400'}`}>
-                            {t('orders.stockLabel')}: {stock} {t('common.pcs')}
+                          <p className={`text-[11px] mt-0.5 ${warn ? 'text-red-600 dark:text-red-400 animate-pulse font-semibold' : maxQty > 0 ? 'text-gray-500 dark:text-gray-400' : 'text-red-600 dark:text-red-400'}`}>
+                            {t('orders.stockLabel')}: {stock} {t('common.pcs')} · {lang === 'ru' ? 'доступно' : 'mumkin'}: {maxQty} {t('common.pcs')}
                           </p>
                         </div>
                         <div className="flex items-center gap-1.5">
@@ -261,7 +267,7 @@ export const OrderDetail = () => {
                           <input
                             type="number"
                             min="0"
-                            max={stock}
+                            max={maxQty}
                             value={qty || ''}
                             onChange={e => setEditQtyManual(product.id, product.name, product.price, e.target.value)}
                             onBlur={() => setEditQtyManual(product.id, product.name, product.price, String(qty))}

@@ -15,7 +15,15 @@ export async function apiCreateOrder(data: Omit<Order, 'id'>): Promise<Order> {
 
 export async function apiUpdateOrder(
   id: string,
-  data: { status?: Order['status']; deliveryId?: string; deliveryName?: string; total?: number; items?: Order['items'] }
+  data: {
+    status?: Order['status'];
+    deliveryId?: string;
+    deliveryName?: string;
+    vehicleName?: string;
+    total?: number;
+    items?: Order['items'];
+    comment?: string;
+  }
 ): Promise<Order> {
   return apiPut<Order>(`/orders/${id}`, data);
 }

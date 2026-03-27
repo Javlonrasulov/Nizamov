@@ -95,6 +95,7 @@ type TranslationKeys = {
   'payments.delivery.orderTotal': string;
   'payments.badge.paid': string;
   'payments.badge.debt': string;
+  'payments.badge.promo': string;
   'payments.clientDebt': string;
   'payments.history': string;
   'payments.collectedBy': string;
@@ -136,6 +137,14 @@ type TranslationKeys = {
   'mapPicker.mapLoading': string;
   'mapPicker.confirmLocation': string;
   'mapPicker.selectLocation': string;
+  'mapPicker.locationDisabled': string;
+  'mapPicker.locationPermissionDenied': string;
+  'mapPicker.locationTimeout': string;
+  'mapPicker.locationFetchFailed': string;
+  'mapPicker.recheckTitle': string;
+  'mapPicker.recheckDescription': string;
+  'mapPicker.recheckCancel': string;
+  'mapPicker.recheckConfirm': string;
   'clients.add': string;
   'clients.empty': string;
   'clients.form.title': string;
@@ -486,6 +495,7 @@ const uz_lat: TranslationKeys = {
   'payments.delivery.orderTotal': 'Zakaz jami',
   'payments.badge.paid': 'To‘landi',
   'payments.badge.debt': 'Qarz',
+  'payments.badge.promo': 'Aksiya',
   'payments.clientDebt': 'Qarz',
   'payments.history': 'To‘lovlar tarixi',
   'payments.collectedBy': 'Kim oldi',
@@ -524,6 +534,14 @@ const uz_lat: TranslationKeys = {
   'mapPicker.mapLoading': 'Xarita yuklanmoqda...',
   'mapPicker.confirmLocation': 'Lokatsiyani tasdiqlash',
   'mapPicker.selectLocation': 'Xaritadan joy tanlang',
+  'mapPicker.locationDisabled': "Lokatsiya o'chirilgan yoki topilmadi. Telefon GPS'ini yoqing.",
+  'mapPicker.locationPermissionDenied': "Lokatsiyaga ruxsat berilmagan. Telefon sozlamalaridan ruxsat bering.",
+  'mapPicker.locationTimeout': "Joriy joylashuvni olish cho'zildi. Qayta urinib ko'ring.",
+  'mapPicker.locationFetchFailed': "Joriy joylashuvni aniqlab bo'lmadi. Xaritada qo'lda belgilang.",
+  'mapPicker.recheckTitle': 'Lokatsiyani yana bir tekshiring',
+  'mapPicker.recheckDescription': "Tanlangan nuqta to'g'ri ekaniga ishonch hosil qiling, keyin tasdiqlang.",
+  'mapPicker.recheckCancel': "Yo'q, qayta ko'raman",
+  'mapPicker.recheckConfirm': 'Ha, tasdiqlayman',
   'clients.add': "Klient qo'shish",
   'clients.empty': "Klientlar topilmadi",
   'clients.form.title': "Yangi klient qo'shish",
@@ -865,6 +883,7 @@ const uz_kir: TranslationKeys = {
   'payments.delivery.orderTotal': 'Заказ жами',
   'payments.badge.paid': 'Тўланди',
   'payments.badge.debt': 'Қарз',
+  'payments.badge.promo': 'Аксия',
   'payments.clientDebt': 'Қарз',
   'payments.history': 'Тўловлар тарихи',
   'payments.collectedBy': 'Ким олди',
@@ -903,6 +922,14 @@ const uz_kir: TranslationKeys = {
   'mapPicker.mapLoading': 'Харита юкланмоқда...',
   'mapPicker.confirmLocation': 'Локацияни тасдиқлаш',
   'mapPicker.selectLocation': 'Харитадан жой танланг',
+  'mapPicker.locationDisabled': 'Локация ўчирилган ёки топилмади. Телефон GPS ини ёқинг.',
+  'mapPicker.locationPermissionDenied': 'Локацияга рухсат берилмаган. Телефон созламаларидан рухсат беринг.',
+  'mapPicker.locationTimeout': "Жорий жойлашувни олиш чўзилди. Қайта уриниб кўринг.",
+  'mapPicker.locationFetchFailed': "Жорий жойлашувни аниқлаб бўлмади. Харитада қўлда белгиланг.",
+  'mapPicker.recheckTitle': 'Локацияни яна бир текширинг',
+  'mapPicker.recheckDescription': 'Танланган нуқта тўғри эканига ишонч ҳосил қилиб, кейин тасдиқланг.',
+  'mapPicker.recheckCancel': "Йўқ, қайта кўраман",
+  'mapPicker.recheckConfirm': 'Ҳа, тасдиқлайман',
   'clients.add': 'Клиент қўшиш',
   'clients.empty': 'Клиентлар топилмади',
   'clients.form.title': 'Янги клиент қўшиш',
@@ -1244,6 +1271,7 @@ const ru: TranslationKeys = {
   'payments.delivery.orderTotal': 'Итого по заказу',
   'payments.badge.paid': 'Оплачено',
   'payments.badge.debt': 'Долг',
+  'payments.badge.promo': 'Акция',
   'payments.clientDebt': 'Долг',
   'payments.history': 'История оплат',
   'payments.collectedBy': 'Кто принял',
@@ -1282,6 +1310,14 @@ const ru: TranslationKeys = {
   'mapPicker.mapLoading': 'Карта загружается...',
   'mapPicker.confirmLocation': 'Подтвердить локацию',
   'mapPicker.selectLocation': 'Выберите место на карте',
+  'mapPicker.locationDisabled': 'Геолокация отключена или недоступна. Включите GPS на телефоне.',
+  'mapPicker.locationPermissionDenied': 'Нет доступа к геолокации. Разрешите его в настройках телефона.',
+  'mapPicker.locationTimeout': 'Не удалось быстро получить текущее местоположение. Попробуйте еще раз.',
+  'mapPicker.locationFetchFailed': 'Не удалось определить текущее местоположение. Отметьте точку на карте вручную.',
+  'mapPicker.recheckTitle': 'Еще раз проверьте локацию',
+  'mapPicker.recheckDescription': 'Убедитесь, что выбрана правильная точка, и только потом подтверждайте.',
+  'mapPicker.recheckCancel': 'Нет, проверю еще',
+  'mapPicker.recheckConfirm': 'Да, подтверждаю',
   'clients.add': 'Добавить клиента',
   'clients.empty': 'Клиенты не найдены',
   'clients.form.title': 'Добавить нового клиента',

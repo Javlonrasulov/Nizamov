@@ -23,6 +23,8 @@ import { AdminWarehouse } from './pages/admin/AdminWarehouse';
 import { AdminSuppliers } from './pages/admin/AdminSuppliers';
 import { AdminSupplierProfile } from './pages/admin/AdminSupplierProfile';
 import { AdminProfile } from './pages/admin/AdminProfile';
+import { AdminSkladCash } from './pages/admin/AdminSkladCash';
+import { AdminCashbox } from './pages/admin/AdminCashbox';
 
 const Root = () => (
   <div style={{ fontFamily: 'Inter, sans-serif' }}>
@@ -67,6 +69,8 @@ export const router = createBrowserRouter([
       { path: 'admin/agents-mgmt', Component: AdminAgents },
       { path: 'admin/reports', Component: AdminReports },
       { path: 'admin/warehouse', Component: AdminWarehouse },
+      { path: 'admin/cash-sklad', Component: AdminSkladCash },
+      { path: 'admin/cash-admin', Component: AdminCashbox },
       { path: 'admin/profile', Component: AdminProfile },
     ],
   },

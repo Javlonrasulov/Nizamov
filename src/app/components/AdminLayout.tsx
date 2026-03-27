@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router';
 import {
   LayoutDashboard, Users, Package, ShoppingBag, UserCog,
   BarChart2, LogOut, Globe, ChevronLeft, Menu, X, Sun, Moon, GripVertical,
-  Warehouse, Truck
+  Warehouse, Truck, Wallet, Landmark
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Language, languageLabels } from '../i18n/translations';
@@ -23,6 +23,8 @@ const NAV_ITEMS = [
   { path: '/admin/agents-mgmt', icon: UserCog, labelKey: 'admin.agentsPage' as const },
   { path: '/admin/reports', icon: BarChart2, labelKey: 'admin.reportsPage' as const },
   { path: '/admin/warehouse', icon: Warehouse, labelKey: 'admin.warehouse' as const },
+  { path: '/admin/cash-sklad', icon: Wallet, labelKey: 'admin.skladCashPage' as const },
+  { path: '/admin/cash-admin', icon: Landmark, labelKey: 'admin.adminCashPage' as const },
   { path: '/admin/profile', icon: UserCog, labelKey: 'admin.profilePage' as const },
 ];
 
@@ -59,14 +61,14 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
   const langs: Language[] = ['uz_lat', 'uz_kir', 'ru'];
 
   const isSklad = currentUser?.role === 'sklad';
-  const skladAllowedPaths = ['/admin/orders', '/admin/clients', '/admin/profile'];
+  const skladAllowedPaths = ['/admin/cash-sklad', '/admin/orders', '/admin/clients', '/admin/profile'];
 
   useEffect(() => {
     if (!isSklad) return;
     const p = location.pathname;
     const allowed = skladAllowedPaths.some(ap => p === ap || p.startsWith(`${ap}/`));
     if (!allowed) {
-      navigate('/admin/orders', { replace: true });
+      navigate('/admin/cash-sklad', { replace: true });
     }
   }, [isSklad, location.pathname, navigate]);
 
@@ -129,7 +131,11 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
   }, [sidebarWidth]);
 
   const navItems = isSklad
-    ? NAV_ITEMS.filter(i => i.path === '/admin/orders' || i.path === '/admin/clients' || i.path === '/admin/profile')
+    ? NAV_ITEMS.filter(i =>
+      i.path === '/admin/cash-sklad'
+      || i.path === '/admin/orders'
+      || i.path === '/admin/clients'
+      || i.path === '/admin/profile')
     : NAV_ITEMS;
 
   const SidebarContent = ({ isDesktop = false }: { isDesktop?: boolean }) => (
