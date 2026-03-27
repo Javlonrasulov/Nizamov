@@ -10,6 +10,15 @@ import { apiGetProducts, apiCreateProduct, apiUpdateProduct, apiDeleteProduct } 
 import { apiGetClients, apiCreateClient, apiUpdateClient, apiDeleteClient } from '../api/clients';
 import { apiGetOrders, apiCreateOrder, apiUpdateOrder } from '../api/orders';
 import { apiUpdateUser } from '../api/users';
+import {
+  apiGetExpenses,
+  apiCreateExpense,
+  apiDeleteExpense,
+  apiGetExpenseCategories,
+  apiCreateExpenseCategory,
+  apiUpdateExpenseCategory as apiUpdateExpenseCategoryRequest,
+  apiDeleteExpenseCategory as apiDeleteExpenseCategoryRequest,
+} from '../api/expenses';
 
 type Theme = 'light' | 'dark';
 
@@ -54,7 +63,6 @@ export const AVAILABLE_ICONS = [
 export type AvailableIcon = typeof AVAILABLE_ICONS[number];
 
 const DEFAULT_CATEGORIES: ExpenseCategoryDef[] = [];
-const OLD_DEMO_CATEGORY_IDS = ['warehouse', 'transport', 'salary', 'utilities', 'marketing', 'repair', 'other'];
 
 /* ─── Expense ─── */
 export interface Expense {
@@ -94,12 +102,12 @@ interface AppContextType {
   adminDateTo: string;
   setAdminDateRange: (from: string, to: string) => void;
   expenses: Expense[];
-  addExpense: (expense: Omit<Expense, 'id'>) => void;
-  deleteExpense: (id: string) => void;
+  addExpense: (expense: Omit<Expense, 'id'>) => Promise<boolean>;
+  deleteExpense: (id: string) => Promise<boolean>;
   expenseCategories: ExpenseCategoryDef[];
-  addExpenseCategory: (cat: Omit<ExpenseCategoryDef, 'id'>) => void;
-  updateExpenseCategory: (id: string, updates: Partial<Omit<ExpenseCategoryDef, 'id'>>) => void;
-  deleteExpenseCategory: (id: string) => void;
+  addExpenseCategory: (cat: Omit<ExpenseCategoryDef, 'id'>) => Promise<boolean>;
+  updateExpenseCategory: (id: string, updates: Partial<Omit<ExpenseCategoryDef, 'id'>>) => Promise<boolean>;
+  deleteExpenseCategory: (id: string) => Promise<boolean>;
   updateMyProfile: (data: { name: string; phone: string; password?: string }) => Promise<boolean>;
 }
 
@@ -124,46 +132,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [adminDateFrom, setAdminDateFrom] = useState(todayIso);
   const [adminDateTo,   setAdminDateTo]   = useState(todayIso);
 
-  const [expenses, setExpenses] = useState<Expense[]>(() => {
-    try { const s = localStorage.getItem('crm_expenses'); if (s) return JSON.parse(s); } catch {}
-    return initialExpenses;
-  });
-
-  const [expenseCategories, setExpenseCategories] = useState<ExpenseCategoryDef[]>(() => {
-    try {
-      const s = localStorage.getItem('crm_expense_cats');
-      if (s) {
-        const parsed = JSON.parse(s) as unknown;
-        const list = Array.isArray(parsed) ? parsed : [];
-        const cats = list.filter((c: any) =>
-          c && typeof c === 'object'
-          && typeof c.id === 'string'
-          && typeof c.label === 'string'
-          && typeof c.iconName === 'string'
-          && typeof c.color === 'string'
-        ) as ExpenseCategoryDef[];
-
-        const ids = cats.map(c => c.id);
-        const isOldDemo =
-          ids.length === OLD_DEMO_CATEGORY_IDS.length
-          && ids.every((id, i) => id === OLD_DEMO_CATEGORY_IDS[i]);
-        if (isOldDemo) {
-          localStorage.removeItem('crm_expense_cats');
-          return [];
-        }
-        return cats;
-      }
-    } catch {}
-    return DEFAULT_CATEGORIES;
-  });
+  const [expenses, setExpenses] = useState<Expense[]>(initialExpenses);
+  const [expenseCategories, setExpenseCategories] = useState<ExpenseCategoryDef[]>(DEFAULT_CATEGORIES);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
     localStorage.setItem('crm_theme', theme);
   }, [theme]);
-
-  useEffect(() => { localStorage.setItem('crm_expenses', JSON.stringify(expenses)); }, [expenses]);
-  useEffect(() => { localStorage.setItem('crm_expense_cats', JSON.stringify(expenseCategories)); }, [expenseCategories]);
 
   const toggleTheme = () => setTheme(t => t === 'light' ? 'dark' : 'light');
 
@@ -172,6 +147,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const setLangPersist = useCallback((l: Language) => {
     setLang(l); localStorage.setItem('crm_lang', l);
+  }, []);
+
+  const fetchExpensesData = useCallback(async () => {
+    const [cats, exps] = await Promise.all([
+      apiGetExpenseCategories(),
+      apiGetExpenses(),
+    ]);
+    setExpenseCategories(cats);
+    setExpenses(exps);
+    localStorage.removeItem('crm_expenses');
+    localStorage.removeItem('crm_expense_cats');
   }, []);
 
   const fetchData = useCallback(async () => {
@@ -187,7 +173,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     } catch {
       // Backend ishlamasa mock ma'lumotda qolamiz
     }
-  }, []);
+    try {
+      await fetchExpensesData();
+    } catch {
+      setExpenses([]);
+      setExpenseCategories(DEFAULT_CATEGORIES);
+    }
+  }, [fetchExpensesData]);
 
   useEffect(() => {
     fetchData();
@@ -321,16 +313,54 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const setAdminDateRange = (from: string, to: string) => { setAdminDateFrom(from); setAdminDateTo(to); };
 
-  const addExpense    = (e: Omit<Expense, 'id'>)  => setExpenses(p => [{ ...e, id: `exp${Date.now()}` }, ...p]);
-  const deleteExpense = (id: string)              => setExpenses(p => p.filter(e => e.id !== id));
+  const addExpense: AppContextType['addExpense'] = async (expense) => {
+    try {
+      const created = await apiCreateExpense(expense);
+      setExpenses(prev => [created, ...prev]);
+      return true;
+    } catch {
+      return false;
+    }
+  };
 
-  const addExpenseCategory = (cat: Omit<ExpenseCategoryDef, 'id'>) =>
-    setExpenseCategories(p => [...p, { ...cat, id: `cat_${Date.now()}` }]);
-  const updateExpenseCategory = (id: string, updates: Partial<Omit<ExpenseCategoryDef, 'id'>>) =>
-    setExpenseCategories(p => p.map(c => c.id === id ? { ...c, ...updates } : c));
-  const deleteExpenseCategory = (id: string) => {
-    setExpenseCategories(p => p.filter(c => c.id !== id));
-    setExpenses(p => p.map(e => e.categoryId === id ? { ...e, categoryId: 'other' } : e));
+  const deleteExpense: AppContextType['deleteExpense'] = async (id) => {
+    try {
+      await apiDeleteExpense(id);
+      setExpenses(prev => prev.filter(expense => expense.id !== id));
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const addExpenseCategory: AppContextType['addExpenseCategory'] = async (cat) => {
+    try {
+      const created = await apiCreateExpenseCategory(cat);
+      setExpenseCategories(prev => [...prev, created].sort((a, b) => a.label.localeCompare(b.label)));
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const updateExpenseCategory: AppContextType['updateExpenseCategory'] = async (id, updates) => {
+    try {
+      const updated = await apiUpdateExpenseCategoryRequest(id, updates);
+      setExpenseCategories(prev => prev.map(cat => (cat.id === id ? updated : cat)).sort((a, b) => a.label.localeCompare(b.label)));
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const deleteExpenseCategory: AppContextType['deleteExpenseCategory'] = async (id) => {
+    try {
+      await apiDeleteExpenseCategoryRequest(id);
+      await fetchExpensesData();
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   const value: AppContextType = {

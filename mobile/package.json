@@ -6,14 +6,22 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:dev": "vite build --mode development",
+    "build:dev-api": "npm run build:dev",
     "preview": "vite preview",
     "cap:sync": "npm run build && npx cap sync android",
     "android": "npm run build && npx cap sync android && npx cap open android",
-    "apk": "npm run build && npx cap sync android && cd android && gradlew.bat assembleDebug",
-    "apk:desktop": "node -e \"const fs=require('fs');const p=require('path');const src=p.join(process.cwd(),'android','app','build','outputs','apk','debug','app-debug.apk');const d=p.join(process.env.USERPROFILE||process.env.HOME||'','Desktop','Sainur-CRM-1.0.1-19.03.2026.apk');if(fs.existsSync(src)){fs.copyFileSync(src,d);console.log('APK Desktop ga nusxalandi:',d);}else{console.log('APK topilmadi. Avval npm run apk yoki Android Studio da build qiling.');}\""
+    "apk": "npm run apk:prod",
+    "apk:prod": "npm run build && npx cap sync android && cd android && gradlew.bat assembleProdDebug",
+    "apk:dev": "npm run build:dev && npx cap sync android && cd android && gradlew.bat assembleDevDebug",
+    "apk:dev-api": "npm run apk:dev",
+    "apk:desktop": "node ./scripts/copy-apk-to-desktop.mjs prod",
+    "apk:desktop:prod": "node ./scripts/copy-apk-to-desktop.mjs prod",
+    "apk:desktop:dev": "node ./scripts/copy-apk-to-desktop.mjs dev"
   },
   "dependencies": {
     "@capacitor/core": "^6.1.2",
+    "@capacitor/geolocation": "^6.1.1",
     "lucide-react": "0.487.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
@@ -25,6 +33,7 @@
     "@capacitor/cli": "^6.2.1",
     "@tailwindcss/vite": "4.1.12",
     "@vitejs/plugin-react": "4.7.0",
+    "cross-env": "^7.0.3",
     "tailwindcss": "4.1.12",
     "typescript": "5.7.2",
     "vite": "6.3.5"

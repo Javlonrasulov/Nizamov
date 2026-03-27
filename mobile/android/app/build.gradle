@@ -3,6 +3,7 @@ apply plugin: 'com.android.application'
 android {
     namespace "uz.crm.agent.delivery"
     compileSdk rootProject.ext.compileSdkVersion
+    flavorDimensions += "environment"
     defaultConfig {
         applicationId "uz.crm.agent.delivery"
         minSdkVersion rootProject.ext.minSdkVersion
@@ -20,6 +21,16 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+    productFlavors {
+        prod {
+            dimension "environment"
+        }
+        dev {
+            dimension "environment"
+            applicationIdSuffix ".dev"
+            versionNameSuffix "-dev"
         }
     }
 }

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { Phone, Lock, ChevronDown, Globe } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Language, languageLabels } from '../i18n/translations';
-import { apiGet } from '../api/client';
+import { apiGet, getApiHealthcheckUrls } from '../api/client';
 
 export const LoginPage = () => {
   const { t, lang, setLang, login, currentUser, logout } = useApp();
@@ -18,10 +18,7 @@ export const LoginPage = () => {
 
   const langs: Language[] = ['uz_lat', 'uz_kir', 'ru'];
 
-  const debugUrls = useMemo(() => ([
-    'http://89.39.94.20/api/health',
-    'http://api.sainur.uz/health',
-  ]), []);
+  const debugUrls = useMemo(() => getApiHealthcheckUrls(), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,10 +55,9 @@ export const LoginPage = () => {
       }
 
       // Then: raw URL tests to understand what's blocked
-      const ok1 = await testOne(debugUrls[0]);
-      const ok2 = await testOne(debugUrls[1]);
+      const checks = await Promise.all(debugUrls.map(testOne));
       if (!cancelled) {
-        setServerOk(ok1 || ok2);
+        setServerOk(checks.some(Boolean));
         setServerDebug(lines.join('\n'));
       }
     };

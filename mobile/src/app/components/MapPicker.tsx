@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { Geolocation } from '@capacitor/geolocation';
 import { MapPin, Check, X, Search, Navigation } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -26,6 +28,8 @@ export const MapPicker = ({ initialLat, initialLng, onConfirm, onClose }: MapPic
   const [searching, setSearching] = useState(false);
   const [locating, setLocating] = useState(false);
   const [mapReady, setMapReady] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [confirmSelectionOpen, setConfirmSelectionOpen] = useState(false);
 
   const getIcon = (L: any) =>
     L.divIcon({
@@ -45,6 +49,86 @@ export const MapPicker = ({ initialLat, initialLng, onConfirm, onClose }: MapPic
     else markerRef.current = L.marker([lat, lng], { icon: getIcon(L) }).addTo(map);
   }, []);
 
+  const focusOnPosition = useCallback((lat: number, lng: number, zoom = 17, duration = 1.2) => {
+    if (!leafletMapRef.current) return;
+    leafletMapRef.current.flyTo([lat, lng], zoom, { duration });
+  }, []);
+
+  const applyPosition = useCallback((lat: number, lng: number, zoom = 17, duration = 1.2) => {
+    const L = (window as any).L;
+    setPosition({ lat, lng });
+    setLocationError(null);
+    setConfirmSelectionOpen(false);
+    if (leafletMapRef.current && L) {
+      focusOnPosition(lat, lng, zoom, duration);
+      placeMarker(L, leafletMapRef.current, lat, lng);
+    }
+  }, [focusOnPosition, placeMarker]);
+
+  const resolveLocationError = useCallback((error: unknown) => {
+    const message = String(
+      (error as { message?: string; code?: string | number })?.message
+      ?? (error as { code?: string | number })?.code
+      ?? error
+      ?? ''
+    ).toLowerCase();
+
+    if (message.includes('permission') || message.includes('denied') || message.includes('not authorized')) {
+      return t('mapPicker.locationPermissionDenied');
+    }
+    if (
+      message.includes('disabled')
+      || message.includes('unavailable')
+      || message.includes('location services')
+      || message.includes('position unavailable')
+      || message.includes('service')
+    ) {
+      return t('mapPicker.locationDisabled');
+    }
+    if (message.includes('timeout')) {
+      return t('mapPicker.locationTimeout');
+    }
+    return t('mapPicker.locationFetchFailed');
+  }, [t]);
+
+  const getBrowserPosition = useCallback(() => new Promise<{ lat: number; lng: number }>((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('LOCATION_UNAVAILABLE'));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        resolve({ lat: coords.latitude, lng: coords.longitude });
+      },
+      reject,
+      { timeout: 15000, enableHighAccuracy: true, maximumAge: 0 }
+    );
+  }), []);
+
+  const getNativePosition = useCallback(async () => {
+    const permissions = await Geolocation.checkPermissions();
+    const hasPermission = permissions.location === 'granted' || permissions.coarseLocation === 'granted';
+
+    if (!hasPermission) {
+      const requested = await Geolocation.requestPermissions();
+      const granted = requested.location === 'granted' || requested.coarseLocation === 'granted';
+      if (!granted) {
+        throw new Error('LOCATION_PERMISSION_DENIED');
+      }
+    }
+
+    const result = await Geolocation.getCurrentPosition({
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 0,
+    });
+
+    return {
+      lat: result.coords.latitude,
+      lng: result.coords.longitude,
+    };
+  }, []);
+
   const initMap = useCallback(() => {
     const L = (window as any).L;
     if (!L || !mapContainerRef.current || initCalledRef.current) return;
@@ -58,12 +142,11 @@ export const MapPicker = ({ initialLat, initialLng, onConfirm, onClose }: MapPic
     if (initialLat != null && initialLng != null) placeMarker(L, map, initialLat, initialLng);
     map.on('click', (e: any) => {
       const { lat, lng } = e.latlng;
-      setPosition({ lat, lng });
-      placeMarker(L, map, lat, lng);
+      applyPosition(lat, lng, 17, 0.6);
     });
     leafletMapRef.current = map;
     setTimeout(() => { map.invalidateSize(true); setMapReady(true); }, 200);
-  }, [initialLat, initialLng, placeMarker]);
+  }, [applyPosition, initialLat, initialLng, placeMarker]);
 
   useEffect(() => {
     const isLeafletReady = (L: any) => {
@@ -124,40 +207,32 @@ export const MapPicker = ({ initialLat, initialLng, onConfirm, onClose }: MapPic
       if (data?.length > 0) {
         const lat = parseFloat(data[0].lat);
         const lng = parseFloat(data[0].lon);
-        const L = (window as any).L;
-        setPosition({ lat, lng });
-        if (leafletMapRef.current && L) { leafletMapRef.current.flyTo([lat, lng], 17, { duration: 1 }); placeMarker(L, leafletMapRef.current, lat, lng); }
+        applyPosition(lat, lng, 17, 1);
       }
     } catch { /* ignore */ }
     finally { setSearching(false); }
   };
 
-  const handleMyLocation = () => {
-    if (!navigator.geolocation) return;
+  const handleMyLocation = useCallback(async () => {
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        const lat = coords.latitude;
-        const lng = coords.longitude;
-        setPosition({ lat, lng });
-        setLocating(false);
-        const L = (window as any).L;
-        if (leafletMapRef.current && L) { leafletMapRef.current.flyTo([lat, lng], 17, { duration: 1.2 }); placeMarker(L, leafletMapRef.current, lat, lng); }
-      },
-      () => {
-        setLocating(false);
-        // GPS muvaffaqiyatsiz bo'lsa ham marker ko'rinib tursin
-        const lat = DEFAULT_CENTER.lat;
-        const lng = DEFAULT_CENTER.lng;
-        setPosition({ lat, lng });
-        const L = (window as any).L;
-        if (leafletMapRef.current && L) {
-          leafletMapRef.current.flyTo([lat, lng], 14, { duration: 1 });
-          placeMarker(L, leafletMapRef.current, lat, lng);
-        }
-      },
-      { timeout: 8000, enableHighAccuracy: true }
-    );
+    setLocationError(null);
+    try {
+      const nextPosition = Capacitor.isNativePlatform()
+        ? await getNativePosition()
+        : await getBrowserPosition();
+      applyPosition(nextPosition.lat, nextPosition.lng);
+    } catch (error) {
+      setLocationError(resolveLocationError(error));
+      setConfirmSelectionOpen(false);
+      focusOnPosition(DEFAULT_CENTER.lat, DEFAULT_CENTER.lng, 14, 1);
+    } finally {
+      setLocating(false);
+    }
+  }, [applyPosition, focusOnPosition, getBrowserPosition, getNativePosition, resolveLocationError]);
+
+  const handleOpenConfirm = () => {
+    if (!position) return;
+    setConfirmSelectionOpen(true);
   };
 
   // Picker ochilganda (initial coords bo'lmasa) avtomatik GPS olish.
@@ -167,7 +242,7 @@ export const MapPicker = ({ initialLat, initialLng, onConfirm, onClose }: MapPic
     if (initialLat != null && initialLng != null) return;
     if (position) return;
     autoLocateAttemptedRef.current = true;
-    handleMyLocation();
+    void handleMyLocation();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapReady]);
 
@@ -216,6 +291,11 @@ export const MapPicker = ({ initialLat, initialLng, onConfirm, onClose }: MapPic
         <div className="px-4 py-1.5 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-100 dark:border-blue-800 shrink-0">
           <p className="text-xs text-blue-600 dark:text-blue-400 text-center">{t('mapPicker.hintPickOnMap')}</p>
         </div>
+        {locationError && (
+          <div className="px-4 py-2.5 bg-red-50 dark:bg-red-900/20 border-b border-red-100 dark:border-red-800 shrink-0">
+            <p className="text-xs text-red-600 dark:text-red-300 text-center">{locationError}</p>
+          </div>
+        )}
         <div className="relative flex-1 min-h-0">
           <div ref={mapContainerRef} className="absolute inset-0" />
           {!mapReady && (
@@ -233,7 +313,7 @@ export const MapPicker = ({ initialLat, initialLng, onConfirm, onClose }: MapPic
           )}
         </div>
         <div className="px-4 py-3 bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 shrink-0">
-          <button onClick={() => position && onConfirm(position.lat, position.lng)} disabled={!position} className="w-full py-3.5 rounded-xl bg-[#2563EB] text-white font-semibold text-sm flex items-center justify-center gap-2 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] transition-all shadow-lg shadow-blue-200 mb-2">
+          <button onClick={handleOpenConfirm} disabled={!position} className="w-full py-3.5 rounded-xl bg-[#2563EB] text-white font-semibold text-sm flex items-center justify-center gap-2 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] transition-all shadow-lg shadow-blue-200 mb-2">
             <Check size={16} />
             {position ? t('mapPicker.confirmLocation') : t('mapPicker.selectLocation')}
           </button>
@@ -244,6 +324,33 @@ export const MapPicker = ({ initialLat, initialLng, onConfirm, onClose }: MapPic
             {t('common.cancel')}
           </button>
         </div>
+        {confirmSelectionOpen && position && (
+          <div className="absolute inset-0 z-[10001] bg-black/45 flex items-end justify-center p-3" onClick={() => setConfirmSelectionOpen(false)}>
+            <div className="w-full rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-2xl p-4" onClick={e => e.stopPropagation()}>
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">{t('mapPicker.recheckTitle')}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('mapPicker.recheckDescription')}</p>
+              <div className="mt-3 rounded-xl border border-blue-100 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 px-3 py-2">
+                <p className="text-xs font-mono text-blue-700 dark:text-blue-300">
+                  {position.lat.toFixed(5)}, {position.lng.toFixed(5)}
+                </p>
+              </div>
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={() => setConfirmSelectionOpen(false)}
+                  className="flex-1 py-3 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 font-medium text-sm"
+                >
+                  {t('mapPicker.recheckCancel')}
+                </button>
+                <button
+                  onClick={() => onConfirm(position.lat, position.lng)}
+                  className="flex-1 py-3 rounded-xl bg-[#2563EB] text-white font-semibold text-sm"
+                >
+                  {t('mapPicker.recheckConfirm')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
