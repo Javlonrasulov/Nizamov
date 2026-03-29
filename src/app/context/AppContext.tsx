@@ -123,13 +123,20 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   };
 
+  const getRelativeDayIso = (offsetDays: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + offsetDays);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
   const [clientsList, setClientsList]   = useState<Client[]>(initialClients);
   const [ordersList, setOrdersList]     = useState<Order[]>(initialOrders);
   const [productsList, setProductsList] = useState<Product[]>(initialProducts);
   const [theme, setTheme]               = useState<Theme>(() => (localStorage.getItem('crm_theme') as Theme) || 'light');
-  // Adminda default bo'yicha "Bugun" ko'rsatilsin (aks holda empty qiymatlar sabab hamma vaqt filtrlanmay qoladi)
+  // Adminda default bo'yicha oxirgi 3 kun ko'rinsin: bugun va undan oldingi 2 kun.
   const todayIso = useMemo(() => getTodayIso(), []);
-  const [adminDateFrom, setAdminDateFrom] = useState(todayIso);
+  const defaultAdminDateFrom = useMemo(() => getRelativeDayIso(-2), []);
+  const [adminDateFrom, setAdminDateFrom] = useState(defaultAdminDateFrom);
   const [adminDateTo,   setAdminDateTo]   = useState(todayIso);
 
   const [expenses, setExpenses] = useState<Expense[]>(initialExpenses);

@@ -92,6 +92,8 @@ type TranslationKeys = {
   // Admin orders
   'admin.orders.deliveredDebt': string;
   'admin.orders.netTotal': string;
+  'admin.orders.overduePreparationTitle': string;
+  'admin.orders.overduePreparationText': string;
 
   // Admin clients
   'admin.clients.debtorsOnly': string;
@@ -950,6 +952,8 @@ const uz_lat: TranslationKeys = {
   'admin.orders.promoInvalidPrice': 'Aksiya narxi musbat butun son bo‘lishi kerak',
   'admin.orders.pendingSklad': 'Dostavkachi olgan, skladga topshirilmagan',
   'admin.orders.pendingSkladWithAmount': 'Dostavkachi olgan, skladga topshirilmagan: {amount}',
+  'admin.orders.overduePreparationTitle': 'Danger',
+  'admin.orders.overduePreparationText': '{count} ta tayyorlanmagan zakaz 2 kundan oshgan',
   'orders.vehicle': 'Moshina',
   'returns.title': 'Vozvrat',
   'returns.selectClient': 'Klientni tanlang',
@@ -1446,6 +1450,8 @@ const uz_kir: TranslationKeys = {
   'admin.orders.promoInvalidPrice': 'Аксия нархи мусбат бутун сон бўлиши керак',
   'admin.orders.pendingSklad': 'Доставкачи олган, складга топширилмаган',
   'admin.orders.pendingSkladWithAmount': 'Доставкачи олган, складга топширилмаган: {amount}',
+  'admin.orders.overduePreparationTitle': 'Danger',
+  'admin.orders.overduePreparationText': '{count} та тайёрланмаган заказ 2 кундан ошган',
   'orders.vehicle': 'Мошина',
   'returns.title': 'Возврат',
   'returns.selectClient': 'Клиентни танланг',
@@ -1942,6 +1948,8 @@ const ru: TranslationKeys = {
   'admin.orders.promoInvalidPrice': 'Акционная цена должна быть целым неотрицательным числом',
   'admin.orders.pendingSklad': 'Получено доставщиком, не сдано на склад',
   'admin.orders.pendingSkladWithAmount': 'Получено доставщиком, не сдано на склад: {amount}',
+  'admin.orders.overduePreparationTitle': 'Danger',
+  'admin.orders.overduePreparationText': '{count} заказов в статусе "Подготавливается" старше 2 дней',
   'orders.vehicle': 'Машина',
   'returns.title': 'Возврат',
   'returns.selectClient': 'Выберите клиента',

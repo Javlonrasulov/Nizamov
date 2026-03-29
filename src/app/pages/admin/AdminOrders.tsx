@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Search, CalendarDays, RefreshCw, Eye, Package, ChevronDown, ChevronUp, Truck, MapPin, ExternalLink, Printer, RotateCcw, X, Tag } from 'lucide-react';
+import { Search, CalendarDays, RefreshCw, Eye, Package, ChevronDown, ChevronUp, Truck, MapPin, ExternalLink, Printer, RotateCcw, X, Tag, AlertTriangle } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { AdminLayout } from '../../components/AdminLayout';
 import { StatusBadge } from '../../components/StatusBadge';
@@ -21,6 +21,13 @@ const lineUnitPrice = (it: { price?: number; promoPrice?: number | null }) =>
 
 const hasPromoPricing = (items?: Array<{ promoPrice?: number | null }>) =>
   (items || []).some((item) => item.promoPrice != null);
+
+const getRelativeIsoDate = (offsetDays: number) => {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() + offsetDays);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
 
 export const AdminOrders = () => {
   const { t, updateOrderStatus, updateOrder, adminDateFrom, adminDateTo, refetchData, clients, currentUser, orders: appOrders } = useApp();
@@ -591,6 +598,12 @@ export const AdminOrders = () => {
   const getClientLoc = (clientId: string) => clients.find(c => c.id === clientId);
 
   const hasFilter = adminDateFrom || adminDateTo;
+  const overduePreparationCount = useMemo(() => {
+    const cutoffIso = getRelativeIsoDate(-2);
+    return adminVisibleOrders.filter((order) => (
+      order.status === 'tayyorlanmagan' && String(order.date).slice(0, 10) < cutoffIso
+    )).length;
+  }, [adminVisibleOrders]);
 
   const handlePrint = (order: any) => {
     const debt = getDisplayDebt(order.id);
@@ -909,6 +922,17 @@ export const AdminOrders = () => {
               <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
               {t('common.refresh')}
             </button>
+            {overduePreparationCount > 0 && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
+                <AlertTriangle size={14} className="text-red-600 dark:text-red-400 shrink-0" />
+                <span className="text-xs font-semibold text-red-700 dark:text-red-300">
+                  {t('admin.orders.overduePreparationTitle')}
+                </span>
+                <span className="text-xs text-red-700 dark:text-red-300">
+                  {t('admin.orders.overduePreparationText').replace('{count}', String(overduePreparationCount))}
+                </span>
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">
                 {t('orders.delivery')}
@@ -1334,7 +1358,7 @@ export const AdminOrders = () => {
                       <td className="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">{order.date}</td>
                       <td className="px-5 py-4" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-2">
-                          {needsYuklash(order.status) && !isFullyReturnedOrder(order.id) && !(statusFilter === 'cancelled' && returnedByOrderId[order.id]) && (
+                          {!isFullyReturnedOrder(order.id) && !(statusFilter === 'cancelled' && returnedByOrderId[order.id]) && (
                             <button
                               onClick={() => handlePrint(order)}
                               className="flex items-center gap-1 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-[#2563EB] dark:hover:text-blue-400 px-2 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
