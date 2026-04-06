@@ -452,6 +452,10 @@ type TranslationKeys = {
   'admin.orders.promoInvalidPrice': string;
   'admin.orders.pendingSklad': string;
   'admin.orders.pendingSkladWithAmount': string;
+  'admin.orders.editTitle': string;
+  'admin.orders.editSubtitle': string;
+  'admin.orders.editEmptyProducts': string;
+  'admin.orders.editSelectedProducts': string;
   'orders.vehicle': string;
 
   // Returns
@@ -952,6 +956,10 @@ const uz_lat: TranslationKeys = {
   'admin.orders.promoInvalidPrice': 'Aksiya narxi musbat butun son bo‘lishi kerak',
   'admin.orders.pendingSklad': 'Dostavkachi olgan, skladga topshirilmagan',
   'admin.orders.pendingSkladWithAmount': 'Dostavkachi olgan, skladga topshirilmagan: {amount}',
+  'admin.orders.editTitle': 'Zakazni tahrirlash',
+  'admin.orders.editSubtitle': "Bu o'zgarish agent oynasida ham yangilanadi.",
+  'admin.orders.editEmptyProducts': 'Mos mahsulot topilmadi.',
+  'admin.orders.editSelectedProducts': 'Tanlangan mahsulotlar',
   'admin.orders.overduePreparationTitle': 'Danger',
   'admin.orders.overduePreparationText': '{count} ta tayyorlanmagan zakaz 2 kundan oshgan',
   'orders.vehicle': 'Moshina',
@@ -1450,6 +1458,10 @@ const uz_kir: TranslationKeys = {
   'admin.orders.promoInvalidPrice': 'Аксия нархи мусбат бутун сон бўлиши керак',
   'admin.orders.pendingSklad': 'Доставкачи олган, складга топширилмаган',
   'admin.orders.pendingSkladWithAmount': 'Доставкачи олган, складга топширилмаган: {amount}',
+  'admin.orders.editTitle': 'Заказни таҳрирлаш',
+  'admin.orders.editSubtitle': 'Бу ўзгариш агент ойнасида ҳам янгиланади.',
+  'admin.orders.editEmptyProducts': 'Мос маҳсулот топилмади.',
+  'admin.orders.editSelectedProducts': 'Танланган маҳсулотлар',
   'admin.orders.overduePreparationTitle': 'Danger',
   'admin.orders.overduePreparationText': '{count} та тайёрланмаган заказ 2 кундан ошган',
   'orders.vehicle': 'Мошина',
@@ -1948,6 +1960,10 @@ const ru: TranslationKeys = {
   'admin.orders.promoInvalidPrice': 'Акционная цена должна быть целым неотрицательным числом',
   'admin.orders.pendingSklad': 'Получено доставщиком, не сдано на склад',
   'admin.orders.pendingSkladWithAmount': 'Получено доставщиком, не сдано на склад: {amount}',
+  'admin.orders.editTitle': 'Редактирование заказа',
+  'admin.orders.editSubtitle': 'Это изменение также обновится у агента.',
+  'admin.orders.editEmptyProducts': 'Подходящие товары не найдены.',
+  'admin.orders.editSelectedProducts': 'Выбранные товары',
   'admin.orders.overduePreparationTitle': 'Danger',
   'admin.orders.overduePreparationText': '{count} заказов в статусе "Подготавливается" старше 2 дней',
   'orders.vehicle': 'Машина',

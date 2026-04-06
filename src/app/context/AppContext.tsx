@@ -280,8 +280,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
   const updateOrder = async (id: string, updates: Partial<Order>) => {
     try {
-      const updated = await apiUpdateOrder(id, { status: updates.status, deliveryId: updates.deliveryId, deliveryName: updates.deliveryName, vehicleName: updates.vehicleName });
-      setOrdersList(p => p.map(o => o.id === id ? { ...o, ...updates } : o));
+      const payload: Parameters<typeof apiUpdateOrder>[1] = {};
+      if ('status' in updates) payload.status = updates.status;
+      if ('deliveryId' in updates) payload.deliveryId = updates.deliveryId;
+      if ('deliveryName' in updates) payload.deliveryName = updates.deliveryName;
+      if ('vehicleName' in updates) payload.vehicleName = updates.vehicleName;
+      if ('items' in updates) payload.items = updates.items;
+      if ('total' in updates) payload.total = updates.total;
+      if ('comment' in updates) payload.comment = updates.comment;
+
+      const updated = await apiUpdateOrder(id, payload);
+      setOrdersList(p => p.map(o => o.id === id ? { ...o, ...updated } : o));
     } catch {
       setOrdersList(p => p.map(o => o.id === id ? { ...o, ...updates } : o));
     }

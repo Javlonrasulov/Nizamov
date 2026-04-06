@@ -15,7 +15,10 @@ export async function apiCreateOrder(data: Omit<Order, 'id'>): Promise<Order> {
   return apiPost<Order>('/orders', data);
 }
 
-export async function apiUpdateOrder(id: string, data: Partial<Pick<Order, 'status' | 'deliveryId' | 'deliveryName' | 'vehicleName'>>): Promise<Order> {
+export async function apiUpdateOrder(
+  id: string,
+  data: Partial<Pick<Order, 'status' | 'deliveryId' | 'deliveryName' | 'vehicleName' | 'items' | 'total' | 'comment'>>,
+): Promise<Order> {
   return apiPut<Order>(`/orders/${id}`, data);
 }
 

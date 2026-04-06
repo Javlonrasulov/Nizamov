@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Search, CalendarDays, RefreshCw, Eye, Package, ChevronDown, ChevronUp, Truck, MapPin, ExternalLink, Printer, RotateCcw, X, Tag, AlertTriangle } from 'lucide-react';
+import { Search, CalendarDays, RefreshCw, Eye, Package, ChevronDown, ChevronUp, Truck, MapPin, ExternalLink, Printer, RotateCcw, X, Tag, AlertTriangle, Pencil, Minus, Plus, Save } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { AdminLayout } from '../../components/AdminLayout';
 import { StatusBadge } from '../../components/StatusBadge';
@@ -9,7 +9,7 @@ import { apiGetUsers } from '../../api/users';
 import { apiGetVehicles } from '../../api/vehicles';
 import { apiGetClientBalance, apiGetPayments, type Payment } from '../../api/payments';
 import { apiAcceptReturn, apiCreateReturn, apiGetReturns } from '../../api/returns';
-import type { User, Order } from '../../data/mockData';
+import type { User, Order, OrderItem } from '../../data/mockData';
 import { apiApplyOrderPromoPrices } from '../../api/orders';
 import { translations } from '../../i18n/translations';
 
@@ -30,7 +30,7 @@ const getRelativeIsoDate = (offsetDays: number) => {
 };
 
 export const AdminOrders = () => {
-  const { t, updateOrderStatus, updateOrder, adminDateFrom, adminDateTo, refetchData, clients, currentUser, orders: appOrders } = useApp();
+  const { t, updateOrderStatus, updateOrder, adminDateFrom, adminDateTo, refetchData, clients, products, currentUser, orders: appOrders } = useApp();
   const adminVisibleOrders = useAdminVisibleOrders();
   const ordersForCancelled = useMemo(() => (appOrders || []).filter(o => o.status !== 'new'), [appOrders]);
   const [search, setSearch] = useState('');
@@ -43,6 +43,11 @@ export const AdminOrders = () => {
   const [promoDraft, setPromoDraft] = useState<Record<string, string>>({});
   const [promoSaving, setPromoSaving] = useState(false);
   const [promoError, setPromoError] = useState('');
+  const [editModalOrder, setEditModalOrder] = useState<Order | null>(null);
+  const [editItems, setEditItems] = useState<OrderItem[]>([]);
+  const [editComment, setEditComment] = useState('');
+  const [editProductSearch, setEditProductSearch] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const selectionEnabled = statusFilter === 'tayyorlanmagan';
   useEffect(() => {
@@ -531,6 +536,86 @@ export const AdminOrders = () => {
   };
 
   const needsYuklash = (status: OrderStatus) => status === 'tayyorlanmagan' || status === 'sent';
+  const canAdminEditOrders = currentUser?.role === 'admin';
+  const canEditPendingOrder = (status: OrderStatus) => status === 'tayyorlanmagan' || status === 'sent';
+
+  const resetEditModal = () => {
+    setEditModalOrder(null);
+    setEditItems([]);
+    setEditComment('');
+    setEditProductSearch('');
+  };
+
+  const openEditModal = (order: Order) => {
+    if (!canAdminEditOrders) return;
+    setEditModalOrder(order);
+    setEditItems((order.items || []).map(item => ({ ...item })));
+    setEditComment(order.comment || '');
+    setEditProductSearch('');
+  };
+
+  const closeEditModal = () => {
+    if (editSaving) return;
+    resetEditModal();
+  };
+
+  const getEditQty = (productId: string) =>
+    editItems.find(item => item.productId === productId)?.quantity || 0;
+
+  const setEditQty = (productId: string, productName: string, price: number, delta: number) => {
+    setEditItems(prev => {
+      const existing = prev.find(item => item.productId === productId);
+      if (existing) {
+        const nextQty = Number(existing.quantity || 0) + delta;
+        if (nextQty <= 0) return prev.filter(item => item.productId !== productId);
+        return prev.map(item => item.productId === productId ? { ...item, quantity: nextQty } : item);
+      }
+      if (delta > 0) return [...prev, { productId, productName, quantity: 1, price }];
+      return prev;
+    });
+  };
+
+  const setEditQtyManual = (productId: string, productName: string, price: number, rawValue: string) => {
+    const qty = Number.parseInt(rawValue, 10);
+    if (Number.isNaN(qty) || qty < 0) return;
+    setEditItems(prev => {
+      if (qty === 0) return prev.filter(item => item.productId !== productId);
+      const existing = prev.find(item => item.productId === productId);
+      if (existing) return prev.map(item => item.productId === productId ? { ...item, quantity: qty } : item);
+      return [...prev, { productId, productName, quantity: qty, price }];
+    });
+  };
+
+  const filteredEditProducts = useMemo(() => {
+    const q = editProductSearch.trim().toLowerCase();
+    if (!q) return products;
+    return products.filter(product => product.name.toLowerCase().includes(q));
+  }, [editProductSearch, products]);
+
+  const editTotal = useMemo(
+    () => editItems.reduce((sum, item) => sum + Number(item.quantity || 0) * lineUnitPrice(item), 0),
+    [editItems],
+  );
+
+  const handleEditSave = async () => {
+    if (!canAdminEditOrders || !editModalOrder || editItems.length === 0) return;
+    setEditSaving(true);
+    try {
+      const nextItems = editItems
+        .filter(item => Number(item.quantity || 0) > 0)
+        .map(item => ({ ...item, quantity: Number(item.quantity || 0) }));
+
+      await updateOrder(editModalOrder.id, {
+        items: nextItems,
+        total: nextItems.reduce((sum, item) => sum + Number(item.quantity || 0) * lineUnitPrice(item), 0),
+        comment: editComment.trim() || undefined,
+      });
+      resetEditModal();
+      await refetchData?.();
+    } finally {
+      setEditSaving(false);
+    }
+  };
 
   const selectedSinglePromoOrder = useMemo(() => {
     if (!selectionEnabled || selectedOrderIds.length !== 1) return null;
@@ -1375,6 +1460,15 @@ export const AdminOrders = () => {
                             <Eye size={14} />
                             {expandedOrderId === order.id ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                           </button>
+                          {canAdminEditOrders && canEditPendingOrder(order.status) && !isFullyReturnedOrder(order.id) && (
+                            <button
+                              onClick={() => openEditModal(order)}
+                              className="flex items-center gap-1 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-[#2563EB] dark:hover:text-blue-400 px-2 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                              title={t('common.edit')}
+                            >
+                              <Pencil size={14} />
+                            </button>
+                          )}
                           {needsYuklash(order.status) && !isFullyReturnedOrder(order.id) && (
                             <button
                               onClick={() => setYuklashOrder({ id: order.id })}
@@ -1637,6 +1731,159 @@ export const AdminOrders = () => {
             )}
           </div>
         </div>
+
+        {editModalOrder && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/70 p-3 sm:p-4"
+            onClick={closeEditModal}
+          >
+            <div
+              className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl border border-gray-100 dark:border-gray-700 shadow-xl"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="sticky top-0 z-10 flex items-start justify-between gap-3 px-4 py-4 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
+                <div className="min-w-0">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t('admin.orders.editTitle')}</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{formatOrderId(editModalOrder)} · {editModalOrder.clientName}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('admin.orders.editSubtitle')}</p>
+                </div>
+                <button
+                  type="button"
+                  disabled={editSaving}
+                  onClick={closeEditModal}
+                  className="shrink-0 p-2 rounded-xl text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="p-4 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                  <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-3 bg-gray-50/80 dark:bg-gray-900/40">
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{t('orders.client')}</div>
+                    <div className="mt-1 font-semibold text-gray-900 dark:text-white">{editModalOrder.clientName}</div>
+                  </div>
+                  <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-3 bg-gray-50/80 dark:bg-gray-900/40">
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{t('common.date')}</div>
+                    <div className="mt-1 font-semibold text-gray-900 dark:text-white">{editModalOrder.date}</div>
+                  </div>
+                  <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-3 bg-gray-50/80 dark:bg-gray-900/40">
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{t('common.status')}</div>
+                    <div className="mt-1"><StatusBadge status={editModalOrder.status} /></div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('orders.searchProduct')}</label>
+                  <input
+                    type="text"
+                    value={editProductSearch}
+                    onChange={e => setEditProductSearch(e.target.value)}
+                    placeholder={t('orders.searchProduct')}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-[#2563EB]"
+                  />
+                </div>
+
+                <div className="space-y-2 max-h-[38vh] sm:max-h-[42vh] overflow-y-auto pr-1">
+                  {filteredEditProducts.map(product => {
+                    const qty = getEditQty(product.id);
+                    return (
+                      <div
+                        key={product.id}
+                        className={`rounded-xl border p-3 transition-all ${qty > 0 ? 'border-[#2563EB] bg-blue-50/50 dark:bg-blue-900/10' : 'border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/40'}`}
+                      >
+                        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+                          <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+                            <Package size={16} className="text-[#2563EB] dark:text-blue-400" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-semibold text-gray-900 dark:text-white break-words">{product.name}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{product.price.toLocaleString('ru-RU')} {t('common.sum')}</div>
+                          </div>
+                          <div className="flex items-center justify-end gap-1.5 sm:justify-start">
+                            <button
+                              type="button"
+                              onClick={() => setEditQty(product.id, product.name, product.price, -1)}
+                              disabled={qty === 0 || editSaving}
+                              className="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center justify-center disabled:opacity-30"
+                            >
+                              <Minus size={13} />
+                            </button>
+                            <input
+                              type="number"
+                              min="0"
+                              value={qty || ''}
+                              onChange={e => setEditQtyManual(product.id, product.name, product.price, e.target.value)}
+                              disabled={editSaving}
+                              placeholder="0"
+                              className="w-12 sm:w-14 h-8 text-center text-sm font-bold border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:border-[#2563EB] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setEditQty(product.id, product.name, product.price, 1)}
+                              disabled={editSaving}
+                              className="w-8 h-8 rounded-lg bg-[#2563EB] text-white flex items-center justify-center disabled:opacity-50"
+                            >
+                              <Plus size={13} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {filteredEditProducts.length === 0 && (
+                    <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-600 p-4 text-sm text-gray-500 dark:text-gray-400 text-center">
+                      {t('admin.orders.editEmptyProducts')}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('orders.comment')}</label>
+                  <textarea
+                    value={editComment}
+                    onChange={e => setEditComment(e.target.value)}
+                    disabled={editSaving}
+                    rows={3}
+                    placeholder={t('orders.commentPlaceholder')}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-[#2563EB] resize-none"
+                  />
+                </div>
+
+                <div className="rounded-xl border border-blue-100 dark:border-blue-900/40 bg-blue-50 dark:bg-blue-900/20 p-4 flex flex-col items-start sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div>
+                    <div className="text-xs text-blue-700 dark:text-blue-300">{t('admin.orders.editSelectedProducts')}</div>
+                    <div className="text-lg font-bold text-[#2563EB] dark:text-blue-300">{editItems.length} ta</div>
+                  </div>
+                  <div className="w-full sm:w-auto sm:text-right">
+                    <div className="text-xs text-blue-700 dark:text-blue-300">{t('orders.totalAmount')}</div>
+                    <div className="text-lg font-bold text-[#2563EB] dark:text-blue-300">{editTotal.toLocaleString('ru-RU')} {t('common.sum')}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="sticky bottom-0 flex flex-col sm:flex-row gap-2 p-4 border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
+                <button
+                  type="button"
+                  disabled={editSaving}
+                  onClick={closeEditModal}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  type="button"
+                  disabled={editSaving || editItems.length === 0}
+                  onClick={() => void handleEditSave()}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-[#2563EB] text-white text-sm font-medium hover:bg-blue-600 disabled:opacity-50 inline-flex items-center justify-center gap-2"
+                >
+                  <Save size={16} />
+                  {editSaving ? t('common.loading') : t('common.save')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {promoModalOrder && (
           <div
