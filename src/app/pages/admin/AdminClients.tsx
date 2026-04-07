@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Search, MapPin, Phone, CalendarDays, Plus, LayoutGrid, List,
   Edit2, Trash2, X, Check, User, Users, Package, ShoppingBag,
-  TrendingUp, Clock, ChevronDown, ChevronUp, Square, CheckSquare2, AlertTriangle,
+  TrendingUp, Clock, ChevronDown, ChevronUp, Square, CheckSquare2, AlertTriangle, Printer,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { AdminLayout } from '../../components/AdminLayout';
@@ -66,6 +66,15 @@ function buildMonthGrid(year: number, monthIndex: number) {
 function formatYmdDisplay(ymd: string) {
   const { y, m, d } = ymdToParts(ymd);
   return `${String(d).padStart(2, '0')}.${String(m + 1).padStart(2, '0')}.${y}`;
+}
+
+function escapeHtml(value: string) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
 }
 
 /* ─── Client Form Modal ─── */
@@ -709,6 +718,142 @@ export const AdminClients = () => {
     clientOrderCounts[o.clientId] = (clientOrderCounts[o.clientId] || 0) + 1;
   });
 
+  const latestOrderDateByClientId: Record<string, string> = {};
+  visibleOrders.forEach(o => {
+    const current = latestOrderDateByClientId[o.clientId];
+    if (!current || o.date > current) latestOrderDateByClientId[o.clientId] = o.date;
+  });
+
+  const debtorsPrintRows = useMemo(() => {
+    return filtered
+      .map((client) => ({
+        client,
+        debt: balances[client.id]?.debt ?? 0,
+        ordersCount: clientOrderCounts[client.id] || 0,
+        lastOrderDate: latestOrderDateByClientId[client.id] || '',
+      }))
+      .filter((row) => row.debt > 0)
+      .sort((a, b) => b.debt - a.debt || a.client.name.localeCompare(b.client.name));
+  }, [filtered, balances, clientOrderCounts, latestOrderDateByClientId]);
+
+  const debtPrintLoading = debtOnly && filtered.some((client) => !!balancesLoading[client.id] && !balances[client.id]);
+
+  const handlePrintDebtors = () => {
+    if (debtorsPrintRows.length === 0) return;
+
+    const locale = lang === 'ru' ? 'ru-RU' : 'uz-UZ';
+    const selectedAgentName = agentFilter === 'all'
+      ? t('admin.clients.allAgents')
+      : (agentUsers.find((agent) => agent.id === agentFilter)?.name || t('admin.clients.unknownAgent'));
+
+    const rowsHtml = debtorsPrintRows.map((row, index) => `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${escapeHtml(row.client.name)}</td>
+        <td>${escapeHtml(row.client.phone || '-')}</td>
+        <td>${escapeHtml(row.client.address || '-')}</td>
+        <td>${escapeHtml(getAgentName(row.client.agentId))}</td>
+        <td style="text-align:right;">${row.debt.toLocaleString(locale)} ${escapeHtml(t('common.sum'))}</td>
+        <td style="text-align:center;">${row.ordersCount}</td>
+        <td style="text-align:center;">${escapeHtml(row.lastOrderDate ? formatYmdDisplay(row.lastOrderDate) : '-')}</td>
+      </tr>
+    `).join('');
+
+    const html = `
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(t('admin.clients.printDebtors'))}</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { font-family: Inter, Arial, sans-serif; color: #0f172a; margin: 24px; }
+      h1 { font-size: 20px; margin: 0 0 6px; }
+      .meta { display: flex; gap: 12px; flex-wrap: wrap; margin: 0 0 18px; color: #475569; font-size: 12px; }
+      .meta span { padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 999px; background: #f8fafc; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { border: 1px solid #cbd5e1; padding: 8px 10px; font-size: 12px; vertical-align: top; }
+      th { background: #f1f5f9; text-align: left; }
+      tbody tr:nth-child(even) { background: #f8fafc; }
+      .summary { margin-top: 14px; font-size: 12px; color: #334155; }
+      @media print { body { margin: 10mm; } }
+    </style>
+  </head>
+  <body>
+    <h1>${escapeHtml(t('admin.clients.printDebtors'))}</h1>
+    <div class="meta">
+      <span>${escapeHtml(t('orders.agent'))}: ${escapeHtml(selectedAgentName)}</span>
+      <span>${escapeHtml(t('common.pcs'))}: ${debtorsPrintRows.length}</span>
+      <span>${escapeHtml(t('payments.clientDebt'))}: ${debtorsPrintRows.reduce((sum, row) => sum + row.debt, 0).toLocaleString(locale)} ${escapeHtml(t('common.sum'))}</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:42px;">#</th>
+          <th>${escapeHtml(t('clients.form.name'))}</th>
+          <th>${escapeHtml(t('clients.form.phone'))}</th>
+          <th>${escapeHtml(t('clients.form.address'))}</th>
+          <th>${escapeHtml(t('orders.agent'))}</th>
+          <th style="width:130px; text-align:right;">${escapeHtml(t('payments.clientDebt'))}</th>
+          <th style="width:90px; text-align:center;">${escapeHtml(t('common.orders'))}</th>
+          <th style="width:120px; text-align:center;">${escapeHtml(t('admin.clients.lastOrderDate'))}</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rowsHtml}
+      </tbody>
+    </table>
+    <div class="summary">
+      ${escapeHtml(t('admin.clients.printIncludesAllInfo'))}
+    </div>
+  </body>
+</html>
+    `;
+
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.style.opacity = '0';
+    iframe.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc || !iframe.contentWindow) {
+      document.body.removeChild(iframe);
+      return;
+    }
+
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    const cleanup = () => {
+      try { document.body.removeChild(iframe); } catch {}
+    };
+
+    let printed = false;
+    const doPrintOnce = () => {
+      if (printed) return;
+      printed = true;
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } finally {
+        setTimeout(cleanup, 1200);
+      }
+    };
+
+    iframe.onload = () => doPrintOnce();
+    setTimeout(() => {
+      doPrintOnce();
+    }, 250);
+  };
+
   const getAgentName = (agentId: string) =>
     agentUsers.find(a => a.id === agentId)?.name || t('admin.clients.unknownAgent');
 
@@ -858,6 +1003,16 @@ export const AdminClients = () => {
                 className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-medium transition-colors shadow-sm"
               >
                 {t('payments.in.title')} ({selectedIds.size})
+              </button>
+            )}
+            {debtOnly && (
+              <button
+                onClick={handlePrintDebtors}
+                disabled={debtorsPrintRows.length === 0 || debtPrintLoading}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-sm font-medium transition-colors shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Printer size={15} />
+                {t('common.print')}
               </button>
             )}
             <button

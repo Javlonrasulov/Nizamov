@@ -235,6 +235,36 @@ export class PaymentsService {
     });
   }
 
+  async acceptManyBySklad(ids: string[], userId: string) {
+    const uniqueIds = Array.from(new Set(ids.filter(Boolean)));
+    if (uniqueIds.length === 0) {
+      throw new BadRequestException('No payments selected');
+    }
+
+    const payments = await this.prisma.payment.findMany({
+      where: { id: { in: uniqueIds } },
+      select: { id: true, receivedBySkladAt: true },
+    });
+    if (payments.length !== uniqueIds.length) {
+      throw new NotFoundException('Some payments were not found');
+    }
+    if (payments.some(payment => payment.receivedBySkladAt)) {
+      throw new BadRequestException('Some payments were already accepted by sklad');
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.payment.updateMany({
+        where: { id: { in: uniqueIds } },
+        data: {
+          receivedBySkladUserId: userId,
+          receivedBySkladAt: new Date(),
+        },
+      }),
+    ]);
+
+    return { count: uniqueIds.length };
+  }
+
   async acceptByAdmin(id: string, userId: string) {
     const payment = await this.prisma.payment.findUnique({ where: { id } });
     if (!payment) throw new NotFoundException('Payment not found');
@@ -253,6 +283,39 @@ export class PaymentsService {
       },
       include: this.paymentInclude,
     });
+  }
+
+  async acceptManyByAdmin(ids: string[], userId: string) {
+    const uniqueIds = Array.from(new Set(ids.filter(Boolean)));
+    if (uniqueIds.length === 0) {
+      throw new BadRequestException('No payments selected');
+    }
+
+    const payments = await this.prisma.payment.findMany({
+      where: { id: { in: uniqueIds } },
+      select: { id: true, receivedBySkladAt: true, receivedByAdminAt: true },
+    });
+    if (payments.length !== uniqueIds.length) {
+      throw new NotFoundException('Some payments were not found');
+    }
+    if (payments.some(payment => !payment.receivedBySkladAt)) {
+      throw new BadRequestException('Some payments must be accepted by sklad first');
+    }
+    if (payments.some(payment => payment.receivedByAdminAt)) {
+      throw new BadRequestException('Some payments were already accepted by admin');
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.payment.updateMany({
+        where: { id: { in: uniqueIds } },
+        data: {
+          receivedByAdminUserId: userId,
+          receivedByAdminAt: new Date(),
+        },
+      }),
+    ]);
+
+    return { count: uniqueIds.length };
   }
 
   /**

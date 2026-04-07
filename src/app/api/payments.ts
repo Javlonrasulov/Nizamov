@@ -82,6 +82,10 @@ export interface CollectorHandoverSummaryRow {
   debtTotal: number;
 }
 
+export interface AcceptPaymentsResult {
+  count: number;
+}
+
 export async function apiCreatePayment(payload: {
   clientId: string;
   orderId?: string;
@@ -141,5 +145,13 @@ export async function apiAcceptPaymentBySklad(id: string, userId: string): Promi
 
 export async function apiAcceptPaymentByAdmin(id: string, userId: string): Promise<Payment> {
   return apiPost<Payment>(`/payments/${id}/accept-admin`, { userId });
+}
+
+export async function apiAcceptPaymentsBySklad(ids: string[], userId: string): Promise<AcceptPaymentsResult> {
+  return apiPost<AcceptPaymentsResult>('/payments/accept-sklad/bulk', { ids, userId });
+}
+
+export async function apiAcceptPaymentsByAdmin(ids: string[], userId: string): Promise<AcceptPaymentsResult> {
+  return apiPost<AcceptPaymentsResult>('/payments/accept-admin/bulk', { ids, userId });
 }
 

@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
-import { AcceptPaymentDto } from './dto/accept-payment.dto';
+import { AcceptManyPaymentsDto, AcceptPaymentDto } from './dto/accept-payment.dto';
 
 @Controller('payments')
 export class PaymentsController {
@@ -56,9 +56,19 @@ export class PaymentsController {
     return this.payments.acceptBySklad(id, dto.userId);
   }
 
+  @Post('accept-sklad/bulk')
+  acceptManyBySklad(@Body() dto: AcceptManyPaymentsDto) {
+    return this.payments.acceptManyBySklad(dto.ids, dto.userId);
+  }
+
   @Post(':id/accept-admin')
   acceptByAdmin(@Param('id') id: string, @Body() dto: AcceptPaymentDto) {
     return this.payments.acceptByAdmin(id, dto.userId);
+  }
+
+  @Post('accept-admin/bulk')
+  acceptManyByAdmin(@Body() dto: AcceptManyPaymentsDto) {
+    return this.payments.acceptManyByAdmin(dto.ids, dto.userId);
   }
 }
 

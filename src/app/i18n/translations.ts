@@ -229,6 +229,8 @@ type TranslationKeys = {
   'cashHandover.admin.subtitle': string;
   'cashHandover.accept.sklad': string;
   'cashHandover.accept.admin': string;
+  'cashHandover.acceptAll.sklad': string;
+  'cashHandover.acceptAll.admin': string;
   'cashHandover.empty.sklad': string;
   'cashHandover.empty.admin': string;
   'cashHandover.summary.queue': string;
@@ -456,6 +458,10 @@ type TranslationKeys = {
   'admin.orders.editSubtitle': string;
   'admin.orders.editEmptyProducts': string;
   'admin.orders.editSelectedProducts': string;
+  'admin.orders.agentProductStats': string;
+  'admin.orders.agentProductStatsAll': string;
+  'admin.orders.productsCount': string;
+  'admin.orders.totalQuantity': string;
   'orders.vehicle': string;
 
   // Returns
@@ -511,6 +517,9 @@ type TranslationKeys = {
   'admin.clients.gpsAvailable': string;
   'admin.clients.gpsCoords': string;
   'admin.clients.unknownAgent': string;
+  'admin.clients.lastOrderDate': string;
+  'admin.clients.printDebtors': string;
+  'admin.clients.printIncludesAllInfo': string;
   'admin.clients.editClient': string;
   'admin.clients.addClient': string;
   'admin.clients.deleteTitle': string;
@@ -741,6 +750,8 @@ const uz_lat: TranslationKeys = {
   'cashHandover.admin.subtitle': 'Skladdan kelgan to‘lovlarni qabul qilish',
   'cashHandover.accept.sklad': 'Qabul qildim',
   'cashHandover.accept.admin': 'Skladdan qabul qildim',
+  'cashHandover.acceptAll.sklad': 'Hammasini qabul qilish',
+  'cashHandover.acceptAll.admin': 'Hammasini adminga qabul qilish',
   'cashHandover.empty.sklad': 'Sklad uchun kutilayotgan topshiruv yo‘q',
   'cashHandover.empty.admin': 'Admin uchun kutilayotgan topshiruv yo‘q',
   'cashHandover.summary.queue': 'Navbatdagi summa',
@@ -960,6 +971,10 @@ const uz_lat: TranslationKeys = {
   'admin.orders.editSubtitle': "Bu o'zgarish agent oynasida ham yangilanadi.",
   'admin.orders.editEmptyProducts': 'Mos mahsulot topilmadi.',
   'admin.orders.editSelectedProducts': 'Tanlangan mahsulotlar',
+  'admin.orders.agentProductStats': 'Agent bo‘yicha mahsulotlar',
+  'admin.orders.agentProductStatsAll': 'Barcha agentlar bo‘yicha jami ko‘rsatkich',
+  'admin.orders.productsCount': 'Mahsulotlar soni',
+  'admin.orders.totalQuantity': 'Jami miqdor',
   'admin.orders.overduePreparationTitle': 'Danger',
   'admin.orders.overduePreparationText': '{count} ta tayyorlanmagan zakaz 2 kundan oshgan',
   'orders.vehicle': 'Moshina',
@@ -1013,6 +1028,9 @@ const uz_lat: TranslationKeys = {
   'admin.clients.gpsAvailable': 'GPS mavjud',
   'admin.clients.gpsCoords': 'GPS koordinatalar',
   'admin.clients.unknownAgent': "Noma'lum agent",
+  'admin.clients.lastOrderDate': 'Oxirgi zakaz kuni',
+  'admin.clients.printDebtors': 'Qarzdor klientlar',
+  'admin.clients.printIncludesAllInfo': 'Printda ism, telefon, manzil, agent, qarz, zakazlar soni va oxirgi zakaz kuni ko‘rsatiladi.',
   'admin.clients.editClient': 'Klientni tahrirlash',
   'admin.clients.addClient': "Yangi klient qo'shish",
   'admin.clients.deleteTitle': "Klientni o'chirish",
@@ -1243,6 +1261,8 @@ const uz_kir: TranslationKeys = {
   'cashHandover.admin.subtitle': 'Складдан келган тўловларни қабул қилиш',
   'cashHandover.accept.sklad': 'Қабул қилдим',
   'cashHandover.accept.admin': 'Складдан қабул қилдим',
+  'cashHandover.acceptAll.sklad': 'Ҳаммасини қабул қилиш',
+  'cashHandover.acceptAll.admin': 'Ҳаммасини админга қабул қилиш',
   'cashHandover.empty.sklad': 'Склад учун кутилаётган топширув йўқ',
   'cashHandover.empty.admin': 'Админ учун кутилаётган топширув йўқ',
   'cashHandover.summary.queue': 'Навбатдаги сумма',
@@ -1462,6 +1482,10 @@ const uz_kir: TranslationKeys = {
   'admin.orders.editSubtitle': 'Бу ўзгариш агент ойнасида ҳам янгиланади.',
   'admin.orders.editEmptyProducts': 'Мос маҳсулот топилмади.',
   'admin.orders.editSelectedProducts': 'Танланган маҳсулотлар',
+  'admin.orders.agentProductStats': 'Агент бўйича маҳсулотлар',
+  'admin.orders.agentProductStatsAll': 'Барча агентлар бўйича жами кўрсаткич',
+  'admin.orders.productsCount': 'Маҳсулотлар сони',
+  'admin.orders.totalQuantity': 'Жами миқдор',
   'admin.orders.overduePreparationTitle': 'Danger',
   'admin.orders.overduePreparationText': '{count} та тайёрланмаган заказ 2 кундан ошган',
   'orders.vehicle': 'Мошина',
@@ -1515,6 +1539,9 @@ const uz_kir: TranslationKeys = {
   'admin.clients.gpsAvailable': 'GPS мавжуд',
   'admin.clients.gpsCoords': 'GPS координаталар',
   'admin.clients.unknownAgent': "Номаълум агент",
+  'admin.clients.lastOrderDate': 'Охирги заказ куни',
+  'admin.clients.printDebtors': 'Қарздор клиентлар',
+  'admin.clients.printIncludesAllInfo': 'Принтда исм, телефон, манзил, агент, қарз, заказлар сони ва охирги заказ куни кўрсатилади.',
   'admin.clients.editClient': 'Клиентни таҳрирлаш',
   'admin.clients.addClient': "Янги клиент қўшиш",
   'admin.clients.deleteTitle': "Клиентни ўчириш",
@@ -1745,6 +1772,8 @@ const ru: TranslationKeys = {
   'cashHandover.admin.subtitle': 'Приём платежей, переданных со склада',
   'cashHandover.accept.sklad': 'Принял',
   'cashHandover.accept.admin': 'Принял от склада',
+  'cashHandover.acceptAll.sklad': 'Принять всё',
+  'cashHandover.acceptAll.admin': 'Принять всё от склада',
   'cashHandover.empty.sklad': 'Нет ожидающих передач для склада',
   'cashHandover.empty.admin': 'Нет ожидающих передач для администратора',
   'cashHandover.summary.queue': 'Сумма в очереди',
@@ -1964,6 +1993,10 @@ const ru: TranslationKeys = {
   'admin.orders.editSubtitle': 'Это изменение также обновится у агента.',
   'admin.orders.editEmptyProducts': 'Подходящие товары не найдены.',
   'admin.orders.editSelectedProducts': 'Выбранные товары',
+  'admin.orders.agentProductStats': 'Товары по агенту',
+  'admin.orders.agentProductStatsAll': 'Общая сводка по всем агентам',
+  'admin.orders.productsCount': 'Количество товаров',
+  'admin.orders.totalQuantity': 'Общее количество',
   'admin.orders.overduePreparationTitle': 'Danger',
   'admin.orders.overduePreparationText': '{count} заказов в статусе "Подготавливается" старше 2 дней',
   'orders.vehicle': 'Машина',
@@ -2017,6 +2050,9 @@ const ru: TranslationKeys = {
   'admin.clients.gpsAvailable': 'GPS доступен',
   'admin.clients.gpsCoords': 'GPS координаты',
   'admin.clients.unknownAgent': 'Неизвестный агент',
+  'admin.clients.lastOrderDate': 'Дата последнего заказа',
+  'admin.clients.printDebtors': 'Клиенты-должники',
+  'admin.clients.printIncludesAllInfo': 'В печати выводятся имя, телефон, адрес, агент, долг, количество заказов и дата последнего заказа.',
   'admin.clients.editClient': 'Редактировать клиента',
   'admin.clients.addClient': 'Добавить клиента',
   'admin.clients.deleteTitle': 'Удалить клиента',

@@ -5,6 +5,8 @@ import { formatDisplay } from './AdminDateFilter';
 import { useApp } from '../context/AppContext';
 import {
   apiAcceptPaymentByAdmin,
+  apiAcceptPaymentsByAdmin,
+  apiAcceptPaymentsBySklad,
   apiAcceptPaymentBySklad,
   apiGetAdminHandoverQueue,
   apiGetCashboxSummary,
@@ -34,6 +36,7 @@ export function CashHandoverBoard({ mode }: { mode: Mode }) {
   const [collectorSummary, setCollectorSummary] = useState<CollectorHandoverSummaryRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
+  const [acceptingAll, setAcceptingAll] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -79,6 +82,22 @@ export function CashHandoverBoard({ mode }: { mode: Mode }) {
     }
   };
 
+  const handleAcceptAll = async () => {
+    if (!currentUser?.id || rows.length === 0) return;
+    setAcceptingAll(true);
+    try {
+      const ids = rows.map(row => row.id);
+      if (mode === 'sklad') {
+        await apiAcceptPaymentsBySklad(ids, currentUser.id);
+      } else {
+        await apiAcceptPaymentsByAdmin(ids, currentUser.id);
+      }
+      await Promise.all([load(), refetchData?.() ?? Promise.resolve()]);
+    } finally {
+      setAcceptingAll(false);
+    }
+  };
+
   const title = mode === 'sklad' ? t('admin.skladCashPage') : t('admin.adminCashPage');
   const subtitle = mode === 'sklad'
     ? t('cashHandover.sklad.subtitle')
@@ -96,14 +115,24 @@ export function CashHandoverBoard({ mode }: { mode: Mode }) {
             <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white break-words">{title}</h1>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 leading-relaxed break-words">{subtitle}</p>
           </div>
-          <button
-            onClick={() => void load()}
-            disabled={loading}
-            className="inline-flex w-full sm:w-auto items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
-            {t('common.refresh')}
-          </button>
+          <div className="flex w-full sm:w-auto flex-col sm:flex-row gap-2">
+            <button
+              onClick={() => void handleAcceptAll()}
+              disabled={loading || acceptingAll || rows.length === 0}
+              className="inline-flex w-full sm:w-auto items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#2563EB] text-white text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
+            >
+              <Check size={15} />
+              {acceptingAll ? '...' : mode === 'sklad' ? t('cashHandover.acceptAll.sklad') : t('cashHandover.acceptAll.admin')}
+            </button>
+            <button
+              onClick={() => void load()}
+              disabled={loading || acceptingAll}
+              className="inline-flex w-full sm:w-auto items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+              {t('common.refresh')}
+            </button>
+          </div>
         </div>
 
         <div className={`grid grid-cols-1 gap-3 sm:gap-4 ${mode === 'sklad' ? 'sm:grid-cols-2' : 'sm:grid-cols-2 xl:grid-cols-3'}`}>
@@ -300,7 +329,7 @@ export function CashHandoverBoard({ mode }: { mode: Mode }) {
 
                     <button
                       onClick={() => void handleAccept(row.id)}
-                      disabled={acceptingId === row.id}
+                      disabled={acceptingAll || acceptingId === row.id}
                       className="mt-4 inline-flex w-full items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#2563EB] text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
                     >
                       <Check size={15} />
@@ -369,7 +398,7 @@ export function CashHandoverBoard({ mode }: { mode: Mode }) {
                       <td className="px-5 py-4 text-right">
                         <button
                           onClick={() => void handleAccept(row.id)}
-                          disabled={acceptingId === row.id}
+                          disabled={acceptingAll || acceptingId === row.id}
                           className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#2563EB] text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
                         >
                           <Check size={13} />

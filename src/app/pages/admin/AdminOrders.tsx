@@ -29,6 +29,18 @@ const getRelativeIsoDate = (offsetDays: number) => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 };
 
+const BLOCK_SIZE = 12;
+
+const formatBlockQuantity = (quantity: number) => {
+  const safeQty = Math.max(0, Number(quantity || 0));
+  const blocks = Math.floor(safeQty / BLOCK_SIZE);
+  const pieces = safeQty % BLOCK_SIZE;
+
+  if (blocks > 0 && pieces > 0) return `${blocks} blok ${pieces} dona`;
+  if (blocks > 0) return `${blocks} blok`;
+  return `${pieces} dona`;
+};
+
 export const AdminOrders = () => {
   const { t, updateOrderStatus, updateOrder, adminDateFrom, adminDateTo, refetchData, clients, products, currentUser, orders: appOrders } = useApp();
   const adminVisibleOrders = useAdminVisibleOrders();
@@ -53,6 +65,8 @@ export const AdminOrders = () => {
   useEffect(() => {
     if (!selectionEnabled) setSelectedOrderIds([]);
   }, [selectionEnabled]);
+  const [agentUsers, setAgentUsers] = useState<User[]>([]);
+  const [agentFilterId, setAgentFilterId] = useState('');
   const [deliveryUsers, setDeliveryUsers] = useState<User[]>([]);
   const [deliveryFilterId, setDeliveryFilterId] = useState<string>('');
   const [selectedDeliveryId, setSelectedDeliveryId] = useState('');
@@ -65,6 +79,22 @@ export const AdminOrders = () => {
       .then(data => { if (!cancelled) setVehiclesList((data || []).map(v => v.name)); })
       .catch(() => { if (!cancelled) setVehiclesList([]); });
     return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiGetUsers('agent')
+      .then((data) => {
+        if (cancelled) return;
+        setAgentUsers(data || []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAgentUsers([]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
   const [debtByOrderId, setDebtByOrderId] = useState<Record<string, number>>({});
   const [paidByOrderId, setPaidByOrderId] = useState<Record<string, number>>({});
@@ -445,7 +475,8 @@ export const AdminOrders = () => {
       || (!isFullyReturned && statusFilter === 'delivered_debt' && o.status === 'delivered' && getDisplayDebt(o.id) > 0);
     const orderDeliveryId = (o as any).deliveryId as string | undefined;
     const matchDelivery = !deliveryFilterId || orderDeliveryId === deliveryFilterId;
-    return matchSearch && matchStatus && matchDelivery;
+    const matchAgent = !selectionEnabled || !agentFilterId || o.agentId === agentFilterId;
+    return matchSearch && matchStatus && matchDelivery && matchAgent;
   });
 
   const selectedOrders = filtered.filter(o => selectedOrderIds.includes(o.id));
@@ -463,6 +494,56 @@ export const AdminOrders = () => {
     () => deliveryUsers.find(u => u.id === deliveryFilterId) || null,
     [deliveryUsers, deliveryFilterId],
   );
+
+  const agentFilterUser = useMemo(
+    () => agentUsers.find(u => u.id === agentFilterId) || null,
+    [agentUsers, agentFilterId],
+  );
+
+  const pendingProductStats = useMemo(() => {
+    if (!selectionEnabled) return [];
+
+    const stats = new Map<string, {
+      productId: string;
+      productName: string;
+      totalQty: number;
+      ordersCount: number;
+      totalAmount: number;
+    }>();
+
+    for (const order of filtered) {
+      const countedProducts = new Set<string>();
+      for (const item of order.items || []) {
+        const current = stats.get(item.productId) || {
+          productId: item.productId,
+          productName: item.productName || '-',
+          totalQty: 0,
+          ordersCount: 0,
+          totalAmount: 0,
+        };
+        const quantity = Number(item.quantity || 0);
+        current.totalQty += quantity;
+        current.totalAmount += quantity * lineUnitPrice(item);
+        if (!countedProducts.has(item.productId)) {
+          current.ordersCount += 1;
+          countedProducts.add(item.productId);
+        }
+        stats.set(item.productId, current);
+      }
+    }
+
+    return Array.from(stats.values()).sort((a, b) => (
+      b.totalQty - a.totalQty
+      || b.ordersCount - a.ordersCount
+      || a.productName.localeCompare(b.productName)
+    ));
+  }, [selectionEnabled, filtered]);
+
+  const pendingSummary = useMemo(() => ({
+    ordersCount: selectionEnabled ? filtered.length : 0,
+    productsCount: pendingProductStats.length,
+    totalQty: pendingProductStats.reduce((sum, item) => sum + item.totalQty, 0),
+  }), [selectionEnabled, filtered.length, pendingProductStats]);
 
   const deliveryClientStats = useMemo(() => {
     if (!deliveryFilterId) return [];
@@ -1076,6 +1157,109 @@ export const AdminOrders = () => {
             ))}
           </div>
         </div>
+
+        {selectionEnabled && (
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                  {t('admin.orders.agentProductStats')}
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  {agentFilterId
+                    ? `${t('orders.agent')}: ${agentFilterUser?.name || '-'}`
+                    : t('admin.orders.agentProductStatsAll')}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">
+                  {t('orders.agent')}
+                </label>
+                <select
+                  value={agentFilterId}
+                  onChange={(e) => setAgentFilterId(e.target.value)}
+                  className="crm-select px-3 py-2.5 min-w-[220px]"
+                >
+                  <option value="">{t('common.all')}</option>
+                  {agentUsers.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name} ({user.phone})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="rounded-2xl border border-gray-100 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-700/30 px-4 py-3">
+                <div className="text-xs text-gray-500 dark:text-gray-400">{t('common.orders')}</div>
+                <div className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">
+                  {pendingSummary.ordersCount.toLocaleString('ru-RU')}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-gray-100 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-700/30 px-4 py-3">
+                <div className="text-xs text-gray-500 dark:text-gray-400">{t('admin.orders.productsCount')}</div>
+                <div className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">
+                  {pendingSummary.productsCount.toLocaleString('ru-RU')}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-gray-100 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-700/30 px-4 py-3">
+                <div className="text-xs text-gray-500 dark:text-gray-400">{t('admin.orders.totalQuantity')}</div>
+                <div className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">
+                  {pendingSummary.totalQty.toLocaleString('ru-RU')}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-5">
+              {pendingProductStats.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+                  {pendingProductStats.map((item) => (
+                    <div
+                      key={item.productId}
+                      className="rounded-2xl border border-blue-100 dark:border-blue-900/60 bg-blue-50/70 dark:bg-blue-900/10 p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-gray-900 dark:text-white line-clamp-2">
+                            {item.productName}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            {item.ordersCount} {t('common.orders')}
+                          </div>
+                        </div>
+                        <div className="rounded-xl bg-white/80 dark:bg-gray-800/80 p-2 text-[#2563EB] dark:text-blue-400">
+                          <Package size={16} />
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex items-end justify-between gap-3">
+                        <div>
+                          <div className="text-2xl font-bold text-[#2563EB] dark:text-blue-400">
+                            {formatBlockQuantity(item.totalQty)}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            {item.totalQty.toLocaleString('ru-RU')} {t('common.pcs')}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs text-gray-500 dark:text-gray-400">{t('common.total')}</div>
+                          <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                            {item.totalAmount.toLocaleString('ru-RU')} {t('common.sum')}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-gray-200 dark:border-gray-700 px-4 py-8 text-sm text-center text-gray-500 dark:text-gray-400">
+                  {t('orders.empty')}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {pendingReturns.length > 0 && (
           <div className="bg-amber-50/80 dark:bg-amber-900/20 rounded-2xl border border-amber-200 dark:border-amber-800 overflow-hidden mb-4">
