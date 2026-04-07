@@ -37,6 +37,7 @@ export function CashHandoverBoard({ mode }: { mode: Mode }) {
   const [loading, setLoading] = useState(false);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [acceptingAll, setAcceptingAll] = useState(false);
+  const [acceptAllModalOpen, setAcceptAllModalOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -98,6 +99,21 @@ export function CashHandoverBoard({ mode }: { mode: Mode }) {
     }
   };
 
+  const openAcceptAllModal = () => {
+    if (loading || acceptingAll || rows.length === 0) return;
+    setAcceptAllModalOpen(true);
+  };
+
+  const closeAcceptAllModal = () => {
+    if (acceptingAll) return;
+    setAcceptAllModalOpen(false);
+  };
+
+  const confirmAcceptAll = async () => {
+    await handleAcceptAll();
+    setAcceptAllModalOpen(false);
+  };
+
   const title = mode === 'sklad' ? t('admin.skladCashPage') : t('admin.adminCashPage');
   const subtitle = mode === 'sklad'
     ? t('cashHandover.sklad.subtitle')
@@ -106,6 +122,13 @@ export function CashHandoverBoard({ mode }: { mode: Mode }) {
   const emptyLabel = mode === 'sklad'
     ? t('cashHandover.empty.sklad')
     : t('cashHandover.empty.admin');
+  const acceptAllLabel = mode === 'sklad' ? t('cashHandover.acceptAll.sklad') : t('cashHandover.acceptAll.admin');
+  const acceptAllModalTitle = mode === 'sklad'
+    ? t('cashHandover.confirmAll.title.sklad')
+    : t('cashHandover.confirmAll.title.admin');
+  const acceptAllModalText = mode === 'sklad'
+    ? t('cashHandover.confirmAll.text.sklad')
+    : t('cashHandover.confirmAll.text.admin');
 
   return (
     <AdminLayout>
@@ -117,12 +140,12 @@ export function CashHandoverBoard({ mode }: { mode: Mode }) {
           </div>
           <div className="flex w-full sm:w-auto flex-col sm:flex-row gap-2">
             <button
-              onClick={() => void handleAcceptAll()}
+              onClick={openAcceptAllModal}
               disabled={loading || acceptingAll || rows.length === 0}
               className="inline-flex w-full sm:w-auto items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#2563EB] text-white text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
             >
               <Check size={15} />
-              {acceptingAll ? '...' : mode === 'sklad' ? t('cashHandover.acceptAll.sklad') : t('cashHandover.acceptAll.admin')}
+              {acceptingAll ? '...' : acceptAllLabel}
             </button>
             <button
               onClick={() => void load()}
@@ -414,6 +437,44 @@ export function CashHandoverBoard({ mode }: { mode: Mode }) {
           )}
         </div>
       </div>
+
+      {acceptAllModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) closeAcceptAllModal(); }}
+        >
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={closeAcceptAllModal} />
+          <div className="relative z-10 w-full max-w-md rounded-2xl bg-white dark:bg-gray-900 shadow-2xl border border-gray-100 dark:border-gray-700 p-6">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+              {acceptAllModalTitle}
+            </h3>
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+              {acceptAllModalText
+                .replace('{count}', rows.length.toLocaleString())
+                .replace('{amount}', `${queueTotal.toLocaleString()} ${t('common.sum')}`)}
+            </p>
+
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={closeAcceptAllModal}
+                disabled={acceptingAll}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmAcceptAll()}
+                disabled={acceptingAll}
+                className="flex-1 py-2.5 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white text-sm font-semibold transition-colors disabled:opacity-50"
+              >
+                {acceptingAll ? '...' : acceptAllLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }

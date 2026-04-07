@@ -249,6 +249,10 @@ type TranslationKeys = {
   'cashHandover.collectors.debtTotal': string;
   'cashHandover.collectors.clients': string;
   'cashHandover.collectors.payments': string;
+  'cashHandover.confirmAll.title.sklad': string;
+  'cashHandover.confirmAll.title.admin': string;
+  'cashHandover.confirmAll.text.sklad': string;
+  'cashHandover.confirmAll.text.admin': string;
   'admin.profilePage': string;
   'admin.profile.title': string;
   'admin.profile.subtitle': string;
@@ -770,6 +774,10 @@ const uz_lat: TranslationKeys = {
   'cashHandover.collectors.debtTotal': 'Qarz (tovar)',
   'cashHandover.collectors.clients': 'klient',
   'cashHandover.collectors.payments': 'to‘lov',
+  'cashHandover.confirmAll.title.sklad': 'Hammasini qabul qilish',
+  'cashHandover.confirmAll.title.admin': 'Hammasini adminga qabul qilish',
+  'cashHandover.confirmAll.text.sklad': '{count} ta topshiruvni jami {amount} bilan qabul qilmoqchimisiz?',
+  'cashHandover.confirmAll.text.admin': '{count} ta topshiruvni jami {amount} bilan admin kassaga qabul qilmoqchimisiz?',
   'admin.profilePage': 'Profil',
   'admin.profile.title': 'Profil',
   'admin.profile.subtitle': 'Ism, telefon va parolni o‘zgartiring',
@@ -1281,6 +1289,10 @@ const uz_kir: TranslationKeys = {
   'cashHandover.collectors.debtTotal': 'Қарз (товар)',
   'cashHandover.collectors.clients': 'клиент',
   'cashHandover.collectors.payments': 'тўлов',
+  'cashHandover.confirmAll.title.sklad': 'Ҳаммасини қабул қилиш',
+  'cashHandover.confirmAll.title.admin': 'Ҳаммасини админга қабул қилиш',
+  'cashHandover.confirmAll.text.sklad': '{count} та топширувни жами {amount} билан қабул қилмоқчимисиз?',
+  'cashHandover.confirmAll.text.admin': '{count} та топширувни жами {amount} билан админ кассага қабул қилмоқчимисиз?',
   'admin.profilePage': 'Профил',
   'admin.profile.title': 'Профил',
   'admin.profile.subtitle': 'Исм, телефон ва паролни ўзгартиринг',
@@ -1792,6 +1804,10 @@ const ru: TranslationKeys = {
   'cashHandover.collectors.debtTotal': 'Долг (товар)',
   'cashHandover.collectors.clients': 'клиент(ов)',
   'cashHandover.collectors.payments': 'платеж(ей)',
+  'cashHandover.confirmAll.title.sklad': 'Принять всё',
+  'cashHandover.confirmAll.title.admin': 'Принять всё в кассу администратора',
+  'cashHandover.confirmAll.text.sklad': 'Вы действительно хотите принять {count} передач на общую сумму {amount}?',
+  'cashHandover.confirmAll.text.admin': 'Вы действительно хотите принять {count} передач на общую сумму {amount} в кассу администратора?',
   'admin.profilePage': 'Профиль',
   'admin.profile.title': 'Профиль',
   'admin.profile.subtitle': 'Измените имя, телефон и пароль',
