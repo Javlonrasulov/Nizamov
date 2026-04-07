@@ -11,6 +11,7 @@ import { StatusBadge } from '../../components/StatusBadge';
 import { MapPicker } from '../../components/MapPicker';
 import { apiGetClientBalance, type ClientBalance } from '../../api/payments';
 import { apiGetReturns, type ReturnRecord } from '../../api/returns';
+import { enumerateDateRange, toLocalDateString } from '../../utils/date';
 
 /* ─── Kalendar yordamchi funksiyalar ─── */
 const dayShortKeys = [
@@ -52,7 +53,7 @@ export const DeliveryOrders = () => {
     o.orderNumber != null ? `#${o.orderNumber}` : `#${o.id.slice(-6).toUpperCase()}`;
 
   const today = new Date();
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = toLocalDateString(today);
 
   /* Kalendar holatlari */
   const [viewYear, setViewYear] = useState(today.getFullYear());
@@ -287,12 +288,7 @@ export const DeliveryOrders = () => {
       const start = rangeStart < dateStr ? rangeStart : dateStr;
       const end = rangeStart < dateStr ? dateStr : rangeStart;
       const range = new Set<string>();
-      const cur = new Date(start);
-      const endDate = new Date(end);
-      while (cur <= endDate) {
-        range.add(cur.toISOString().split('T')[0]);
-        cur.setDate(cur.getDate() + 1);
-      }
+      enumerateDateRange(start, end).forEach(item => range.add(item));
       setSelectedDates(range);
       setRangeStart(null);
       setCalendarOpen(false);

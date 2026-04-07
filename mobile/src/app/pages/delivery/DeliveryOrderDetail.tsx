@@ -7,6 +7,7 @@ import { MobileNav } from '../../components/MobileNav';
 import { StatusBadge } from '../../components/StatusBadge';
 import { apiCreatePayment, apiGetClientBalance, type ClientBalance, PaymentMethod } from '../../api/payments';
 import { apiCreateReturn, apiGetReturns, type ReturnRecord } from '../../api/returns';
+import { toLocalDateString } from '../../utils/date';
 
 const lineUnitPrice = (item: { price?: number; promoPrice?: number | null }) =>
   item.promoPrice != null && item.promoPrice >= 0 ? Number(item.promoPrice) : Number(item.price || 0);
@@ -35,7 +36,7 @@ export const DeliveryOrderDetail = () => {
     o.orderNumber != null ? `#${o.orderNumber}` : `#${o.id.slice(-6).toUpperCase()}`;
 
   const order = orders.find(o => o.id === id);
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const todayStr = useMemo(() => toLocalDateString(), []);
   const hasPromoPricing = (order?.items || []).some(item => item.promoPrice != null);
 
   if (!order) {

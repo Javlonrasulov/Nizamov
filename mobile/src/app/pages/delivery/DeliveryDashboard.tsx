@@ -9,6 +9,7 @@ import { MobileShell, MobileHeader, MobileContent } from '../../components/Mobil
 import { MobileNav } from '../../components/MobileNav';
 import { StatusBadge } from '../../components/StatusBadge';
 import { apiGetReturns, type ReturnRecord } from '../../api/returns';
+import { toLocalDateString } from '../../utils/date';
 
 export const DeliveryDashboard = () => {
   const { t, currentUser, orders, refetchData } = useApp();
@@ -39,7 +40,7 @@ export const DeliveryDashboard = () => {
   const formatOrderId = (o: { id: string; orderNumber?: number }) =>
     o.orderNumber != null ? `#${o.orderNumber}` : `#${o.id.slice(-6).toUpperCase()}`;
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = toLocalDateString();
 
   /* Faqat bu dostavchiga tegishli zakazlar */
   const myOrders = orders.filter(o => o.deliveryId === currentUser?.id);
@@ -48,9 +49,9 @@ export const DeliveryDashboard = () => {
   const [returnsByOrderId, setReturnsByOrderId] = useState<Record<string, ReturnRecord[]>>({});
   const [returnsLoadingByOrderId, setReturnsLoadingByOrderId] = useState<Record<string, boolean>>({});
 
-  const todayOrderIds = useMemo(() => todayOrders.map(o => o.id), [todayOrders]);
+  const myOrderIds = useMemo(() => myOrders.map(o => o.id), [myOrders]);
   useEffect(() => {
-    if (todayOrderIds.length === 0) {
+    if (myOrderIds.length === 0) {
       setReturnsByOrderId({});
       setReturnsLoadingByOrderId({});
       return;
@@ -59,12 +60,12 @@ export const DeliveryDashboard = () => {
 
     const load = async () => {
       const nextLoading: Record<string, boolean> = {};
-      todayOrderIds.forEach(id => { nextLoading[id] = true; });
+      myOrderIds.forEach(id => { nextLoading[id] = true; });
       setReturnsLoadingByOrderId(nextLoading);
 
       try {
         const results = await Promise.all(
-          todayOrderIds.map(async orderId => {
+          myOrderIds.map(async orderId => {
             const rets = await apiGetReturns({ orderId, status: 'accepted' });
             return [orderId, rets || []] as const;
           }),
@@ -82,7 +83,7 @@ export const DeliveryDashboard = () => {
 
     load();
     return () => { cancelled = true; };
-  }, [todayOrderIds.join('|')]);
+  }, [myOrderIds.join('|')]);
 
   const getReturnState = (order: typeof todayOrders[number]) => {
     const rets = returnsByOrderId[order.id] ?? [];
@@ -102,14 +103,14 @@ export const DeliveryDashboard = () => {
     };
   };
 
-  const active = todayOrders.filter(o => {
+  const active = myOrders.filter(o => {
     const ret = getReturnState(o);
     if (ret?.isAllReturned) return false;
     return o.status === 'yuborilgan' || o.status === 'delivering' || o.status === 'accepted' || ret?.isPartialReturned;
   });
   const delivered = todayOrders.filter(o => o.status === 'delivered');
   // agent yuborgan (tayyorlanmagan/sent) dostavkachiga berilmagan; dostavkachining pending'i yuborilgan
-  const pending = todayOrders.filter(o => o.status === 'yuborilgan');
+  const pending = myOrders.filter(o => o.status === 'yuborilgan');
 
   const totalToday = todayOrders.reduce((s, o) => s + o.total, 0);
   const deliveredSum = delivered.reduce((s, o) => s + o.total, 0);
@@ -350,7 +351,7 @@ export const DeliveryDashboard = () => {
           )}
 
           {/* ── Bo'sh holat ── */}
-          {todayOrders.length === 0 && (
+          {todayOrders.length === 0 && active.length === 0 && (
             <div className="text-center py-16">
               <div className="w-16 h-16 rounded-full bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center mx-auto mb-3">
                 <Truck size={28} className="text-purple-300 dark:text-purple-500" />

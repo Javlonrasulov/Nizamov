@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { Check, ChevronRight, Plus, Minus, Package, User, CheckCircle, Search, ChevronDown } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { MobileShell, MobileHeader, MobileContent } from '../../components/MobileShell';
+import { toLocalDateString } from '../../utils/date';
 import { MobileNav } from '../../components/MobileNav';
 import { Client, Product, WeekDay } from '../../data/mockData';
 
@@ -143,7 +144,7 @@ export const CreateOrder = () => {
         })),
         total: totalAmount,
         status: 'new',
-        date: new Date().toISOString().split('T')[0],
+        date: toLocalDateString(),
         comment: comment.trim() || undefined,
       });
       setSuccess(true);
